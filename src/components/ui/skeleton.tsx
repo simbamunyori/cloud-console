@@ -59,7 +59,7 @@ function FormSkeleton() {
  */
 export function LoadingPage({ label, layout = "list" }: { label: string; layout?: LoadingLayout }) {
   return (
-    <div role="status" aria-live="polite">
+    <div role="status" aria-live="polite" data-loading>
       <span className="sr-only">Loading {label}</span>
       <HeaderSkeleton />
       {layout === "home" ? (

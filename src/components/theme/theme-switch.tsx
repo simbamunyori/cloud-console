@@ -1,6 +1,7 @@
 "use client";
 
 import { Monitor, Moon, Sun } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useId, useState } from "react";
 import { cn } from "@/lib/cn";
 import { THEME_COOKIE, themeAttribute, type Theme } from "@/lib/theme";
@@ -14,11 +15,13 @@ const OPTIONS: { value: Theme; label: string; icon: typeof Sun }[] = [
 /**
  * Light, dark or the device's setting. The choice is a cookie the root
  * layout reads, so the next page renders in it with no flash; this page
- * switches at once by setting data-theme on <html>.
+ * switches at once by setting data-theme on <html>, then refreshes so
+ * server-drawn pictures (the site's hero) follow.
  */
 export function ThemeSwitch({ current, tone = "default", className }: { current: Theme; tone?: "default" | "navy"; className?: string }) {
   const [theme, setTheme] = useState(current);
   const name = useId();
+  const router = useRouter();
 
   function choose(next: Theme) {
     setTheme(next);
@@ -26,6 +29,7 @@ export function ThemeSwitch({ current, tone = "default", className }: { current:
     const attr = themeAttribute(next);
     if (attr) document.documentElement.dataset.theme = attr;
     else delete document.documentElement.dataset.theme;
+    router.refresh();
   }
 
   return (

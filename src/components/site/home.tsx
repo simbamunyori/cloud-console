@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { AUDIENCES, BUILDERS, CLOSING, CONSOLE, HERO, marketCopy, PLATE } from "@/config/site";
 import { formatMoney } from "@/lib/domain/money";
 import type { ServiceFrom } from "@/server/site/site";
+import { currentTheme } from "@/server/theme";
 
 const PLATE_ICONS = [Users, CreditCard, LifeBuoy, ShieldCheck];
 const SERVICE_ICONS: Record<string, typeof Users> = { productivity: Mail, servers: Server, security: Lock, protection: HardDrive, web: LayoutGrid, apps: Boxes };
@@ -16,6 +17,31 @@ export interface HomeMarket {
   name: string;
   locale: string;
   supportEmail: string;
+}
+
+const HERO_ALT = "The Cloud Console home page, showing this month's total, the next invoice and services that need attention";
+// The hero is half the content width on wide screens and the full width, less the gutter, on phones.
+const HERO_SIZES = "(min-width: 1024px) 512px, calc(100vw - 32px)";
+const heroSet = (scheme: "light" | "dark") =>
+  `/site/console-home-${scheme}-640.webp 640w, /site/console-home-${scheme}-960.webp 960w, /site/console-home-${scheme}.webp 1280w`;
+
+/**
+ * The console screenshot in the visitor's theme. Only one picture is
+ * fetched: the chosen theme's, or for "match device" the browser picks by
+ * prefers-color-scheme. Phones get a smaller file.
+ */
+async function HeroShot() {
+  const theme = await currentTheme();
+  const img = (scheme: "light" | "dark") => (
+    <img src={`/site/console-home-${scheme}.webp`} srcSet={heroSet(scheme)} sizes={HERO_SIZES} alt={HERO_ALT} width={1280} height={800} fetchPriority="high" className="block h-auto w-full" />
+  );
+  if (theme !== "system") return img(theme);
+  return (
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcSet={heroSet("dark")} sizes={HERO_SIZES} />
+      {img("light")}
+    </picture>
+  );
 }
 
 function SectionHeading({ id, kicker, title, children }: { id: string; kicker?: string; title: string; children?: React.ReactNode }) {
@@ -66,22 +92,7 @@ export function HomeContent({ market, services, taxNote }: { market: HomeMarket;
           </div>
           <figure className="relative">
             <div className="overflow-hidden rounded-lg border border-border bg-surface-0 shadow-elevation-3">
-              <img
-                src="/site/console-home-light.webp"
-                alt="The Cloud Console home page, showing this month's total, the next invoice and services that need attention"
-                width={1280}
-                height={800}
-                fetchPriority="high"
-                className="block h-auto w-full dark:hidden"
-              />
-              <img
-                src="/site/console-home-dark.webp"
-                alt="The Cloud Console home page, showing this month's total, the next invoice and services that need attention"
-                width={1280}
-                height={800}
-                loading="lazy"
-                className="hidden h-auto w-full dark:block"
-              />
+              <HeroShot />
             </div>
             <figcaption className="mt-3 text-caption text-ink-muted">The Cloud Console, with demo data.</figcaption>
           </figure>

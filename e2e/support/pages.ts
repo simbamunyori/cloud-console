@@ -78,6 +78,12 @@ export async function resolvePath(page: Page, spec: PageSpec, base: string): Pro
   }
   if (!spec.follow) return spec.path;
   await page.goto(`${base}${spec.path}`);
-  const href = await page.locator(spec.follow).first().getAttribute("href", { timeout: 5_000 }).catch(() => null);
+  const href = await page.locator(spec.follow).first().getAttribute("href", { timeout: 15_000 }).catch(() => null);
   return href;
+}
+
+/** Waits for a page to finish streaming: no loading skeleton left, fonts in. */
+export async function settled(page: Page) {
+  await page.locator("[data-loading]").first().waitFor({ state: "detached", timeout: 30_000 });
+  await page.evaluate(() => document.fonts.ready);
 }

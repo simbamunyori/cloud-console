@@ -16,7 +16,9 @@
     "db:seed": "tsx prisma/seed.ts",
     "copy-check": "tsx scripts/check-copy.ts",
     "check": "npm run lint && npm run typecheck && npm run copy-check && npm test",
-    "screenshots:hero": "tsx scripts/hero-screenshots.ts"
+    "screenshots:hero": "tsx scripts/hero-screenshots.ts",
+    "screenshots": "tsx scripts/screenshots.ts",
+    "test:a11y": "playwright test"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.128.0",
@@ -39,6 +41,7 @@
   "devDependencies": {
     "@axe-core/playwright": "^4.13.0",
     "@eslint/eslintrc": "^3",
+    "@lhci/cli": "^0.15.1",
     "@playwright/test": "1.56.1",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
