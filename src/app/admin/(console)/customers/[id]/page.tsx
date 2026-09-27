@@ -15,11 +15,15 @@ import { scopedBilling } from "@/server/billing/scoped";
 import { amountOwed, isOverdue, monthlyTotal } from "@/server/billing/views";
 import { prisma } from "@/server/db";
 import { ROLE_LABEL } from "@/server/org/access";
+import { countryName } from "@/lib/countries";
+import { listMarkets } from "@/server/markets/markets";
+import { staffCan } from "@/server/staff/access";
+import { ChangeMarketForm } from "../../markets/forms";
 
 export const metadata: Metadata = { title: "Customer" };
 
 export default async function CustomerPage({ params }: { params: Promise<{ id: string }> }) {
-  await requireStaffCan("viewCustomers");
+  const { staff } = await requireStaffCan("viewCustomers");
   const { id } = await params;
   const detail = await customerDetail(prisma, id);
   if (!detail) notFound();
@@ -29,6 +33,8 @@ export default async function CustomerPage({ params }: { params: Promise<{ id: s
   const account = await prisma.billingAccount.findUnique({ where: { organisationId: org.id } });
   const billing = account ? await scopedBilling(prisma, billingAdapter(), org.id) : null;
   const [services, invoices] = billing ? await Promise.all([billing.listServices(), billing.listInvoices()]) : [[], []];
+  const markets = staffCan(staff, "manageMarkets") ? await listMarkets(prisma) : null;
+  const market = await prisma.market.findUniqueOrThrow({ where: { code: org.billingMarket } });
 
   return (
     <>
@@ -59,12 +65,19 @@ export default async function CustomerPage({ params }: { params: Promise<{ id: s
               <DetailList
                 items={[
                   ["Billing email", org.billingEmail ?? "Not set"],
+                  ["Billing country", countryName(org.country)],
+                  ["Market", market.name],
                   ["Currency", org.currency],
                   ["VAT number", org.vatNumber ?? "None"],
                   ["Address", [org.addressLine1, org.city].filter(Boolean).join(", ") || "Not set"],
                   ["Opened", formatDay(org.createdAt, true)],
                 ]}
               />
+              {markets ? (
+                <div className="mt-6 border-t border-border pt-6">
+                  <ChangeMarketForm organisationId={org.id} current={org.billingMarket} markets={markets.map((m) => ({ value: m.code, label: `${m.name} (${m.currency})${m.enabled ? "" : ", off"}` }))} />
+                </div>
+              ) : null}
             </CardBody>
           </Card>
           <Card aria-labelledby="people-title">

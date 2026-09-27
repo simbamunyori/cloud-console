@@ -21,6 +21,8 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     { href: "/admin/orders", label: "Orders", icon: "orders", needs: "viewCustomers" },
     { href: "/admin/payments", label: "EFT payments", icon: "payments", needs: "confirmPayments", badge: counts.eft || undefined },
     { href: "/admin/pricing", label: "Pricing", icon: "pricing", needs: "managePricing" },
+    { href: "/admin/markets", label: "Markets", icon: "markets", needs: "manageMarkets" },
+    { href: "/admin/waitlist", label: "Waiting list", icon: "waitlist", needs: "viewCustomers", badge: counts.waitlist || undefined },
   ];
   const nav: NavItem[] = all.filter((i) => staffCan(staff, i.needs)).map(({ needs: _needs, ...i }) => i);
   const user = <UserCard name={staff.name} role={`${STAFF_ROLE_LABEL[staff.staffRole]} staff`} signOut={staffSignOutAction} />;

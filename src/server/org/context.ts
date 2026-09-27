@@ -15,7 +15,7 @@ export const requireMember = cache(async () => {
   const membership = session.activeOrganisationId
     ? await prisma.membership.findUnique({
         where: { organisationId_userId: { organisationId: session.activeOrganisationId, userId: session.userId } },
-        include: { organisation: true },
+        include: { organisation: { include: { market: true } } },
       })
     : null;
   if (!membership || !membership.active || membership.organisation.deletedAt) {
@@ -35,10 +35,13 @@ export const requireMember = cache(async () => {
     name: session.user.name,
     role: membership.role,
   };
+  const { market, ...organisation } = membership.organisation;
   return {
     session,
     actor,
-    organisation: membership.organisation,
+    organisation,
+    /** The account's market: its currency, locale, contacts and bank details, wherever the member is browsing from. */
+    market,
     db: tenantDb(membership.organisation.id),
   };
 });

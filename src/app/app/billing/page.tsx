@@ -13,7 +13,7 @@ import type { InvoiceStatus } from "@/server/billing/adapter";
 import { requireBilling } from "@/server/billing/context";
 import { poNumbers } from "@/server/billing/po";
 import { amountOwed, isOverdue, nextInvoice } from "@/server/billing/views";
-import { bankDetails } from "@/server/payments/bank";
+import { eftDetails } from "@/server/markets/markets";
 
 export const metadata: Metadata = { title: "Billing" };
 
@@ -26,13 +26,13 @@ const FILTERS: { key: string; label: string; status?: InvoiceStatus }[] = [
 export default async function BillingPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const params = await searchParams;
   const filter = FILTERS.find((f) => f.key === params.show) ?? FILTERS[0];
-  const { billing, db, today, currency } = await requireBilling();
+  const { billing, db, today, currency, market } = await requireBilling();
   const [invoices, services, domains] = await Promise.all([billing.listInvoices(), billing.listServices(), billing.listDomains()]);
   const shown = filter.status ? invoices.filter((i) => i.status === filter.status) : invoices;
   const pos = await poNumbers(db, shown.map((i) => i.invoiceId));
   const owed = amountOwed(invoices, currency);
   const next = nextInvoice(services, domains, currency);
-  const bank = bankDetails();
+  const bank = eftDetails(market);
 
   return (
     <>

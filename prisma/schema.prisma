@@ -21,15 +21,113 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ─── Markets ─────────────────────────────────────────────────────────
+
+enum TaxDisplay {
+  /// Prices are shown with tax included.
+  INCLUSIVE
+  /// Prices are shown before tax, which is added on the invoice.
+  EXCLUSIVE
+}
+
+/// A market decides currency, prices, catalogue, content and legal pages.
+/// Everything else is the same everywhere. Edited in /admin/markets.
+model Market {
+  /// "bw", "za", "zw", "global". Also the public site's path.
+  code                  String     @id
+  name                  String
+  /// ISO 3166-1 alpha-2 countries this market serves. Empty for the
+  /// market that serves every other country.
+  countries             String[]
+  /// ISO 4217. Data, not code: a new currency is a new row.
+  currency              String
+  /// BCP 47, for formatting money and dates, e.g. "en-ZA".
+  locale                String
+  timeZone              String
+  enabled               Boolean    @default(false)
+  /// Where visitors go when their market can't be told. Exactly one.
+  isDefault             Boolean    @default(false)
+  sortOrder             Int        @default(0)
+
+  taxEnabled            Boolean    @default(false)
+  /// Basis points: 1,400 is 14%.
+  taxRateBps            Int        @default(0)
+  taxDisplay            TaxDisplay @default(EXCLUSIVE)
+  taxLabel              String     @default("VAT")
+  /// Our tax registration number, shown on invoices.
+  taxRegistrationNumber String?
+
+  /// "card", "eft".
+  paymentMethods        String[]
+  eftBankName           String?
+  eftAccountName        String?
+  eftAccountNumber      String?
+  eftBranchCode         String?
+  eftSwiftCode          String?
+
+  supportEmail          String
+  supportPhone          String?
+  /// Plain words, e.g. "Monday to Friday, 8:00 to 17:00".
+  supportHours          String
+  /// Domain endings shown first, e.g. [".bw", ".co.bw"].
+  highlightedTlds       String[]
+  /// The data protection law named on the security page, if any.
+  dataProtectionLaw     String?
+  /// Links to lawyer-approved legal pages by kind ("privacy", "terms",
+  /// "dataProtection"). Missing kinds show the placeholder page.
+  legalPages            Json       @default("{}")
+  updatedAt             DateTime   @updatedAt
+
+  organisations Organisation[]
+  changes       MarketChange[]
+}
+
+/// Every change to a market's settings, for the staff audit.
+model MarketChange {
+  id         String   @id @default(cuid())
+  marketCode String
+  userId     String
+  field      String
+  fromValue  String?
+  toValue    String?
+  createdAt  DateTime @default(now())
+
+  market Market @relation(fields: [marketCode], references: [code], onDelete: Restrict)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@index([marketCode, createdAt])
+}
+
+/// People who tried to sign up from a country we don't serve yet.
+model WaitlistEntry {
+  id          String    @id @default(cuid())
+  name        String
+  email       String
+  company     String?
+  /// ISO 3166-1 alpha-2.
+  country     String
+  phone       String?
+  message     String?
+  /// Set when a staff member has been in touch.
+  contactedAt DateTime?
+  contactedBy String?
+  createdAt   DateTime  @default(now())
+
+  @@index([country, createdAt])
+}
+
 // ─── People and organisations ────────────────────────────────────────
 
 model Organisation {
   id                 String    @id @default(cuid())
   name               String
   slug               String    @unique
-  /// ISO 3166-1 alpha-2. Decides tax rules and which products are offered.
+  /// ISO 3166-1 alpha-2: the billing country given at sign-up.
   country            String    @default("BW")
-  /// ISO 4217. Prices and invoices are in this currency.
+  /// Decides prices, catalogue, content and legal pages. Set at sign-up
+  /// from the billing country; only staff change it, with an audit event.
+  billingMarket      String    @default("bw")
+  /// ISO 4217, from the market at sign-up. Invoices always use it.
   currency           String    @default("BWP")
   timeZone           String    @default("Africa/Gaborone")
   registrationNumber String?
@@ -47,6 +145,7 @@ model Organisation {
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
 
+  market            Market       @relation(fields: [billingMarket], references: [code], onDelete: Restrict)
   memberships       Membership[]
   invitations       Invitation[]
   billingAccount    BillingAccount?
@@ -104,6 +203,7 @@ model User {
   confirmedEft    EftPayment[]       @relation("eftConfirmedBy")
   assignedTickets Ticket[]           @relation("ticketAssignee")
   settingsChanged PricingChange[]
+  marketChanges   MarketChange[]
 }
 
 enum StaffRole {
@@ -882,6 +982,15 @@ model StubDomain {
   registrationYears Int      @default(1)
 
   client StubClient @relation(fields: [clientId], references: [id], onDelete: Cascade)
+}
+
+/// Tax rules, as WHMCS keeps them (Setup > Payments > Tax Configuration):
+/// a rate per client country, "*" for every other country. The console
+/// writes these from market settings; on WHMCS they are set up to match.
+model StubTaxRule {
+  country String @id
+  rateBps Int
+  label   String
 }
 
 model StubTldPrice {

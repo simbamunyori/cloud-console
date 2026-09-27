@@ -27,12 +27,10 @@ const schema = z.object({
   WHMCS_API_URL: optionalUrl(),
   /** Which card gateway takes card payments. Not chosen yet. */
   PAYMENT_ADAPTER: z.enum(["stub"]).default("stub"),
-  /** Our bank account for EFT payments, shown on invoices and the pay page. */
-  EFT_BANK_NAME: optionalText(),
-  EFT_ACCOUNT_NAME: optionalText(),
-  EFT_ACCOUNT_NUMBER: optionalText(),
-  EFT_BRANCH_CODE: optionalText(),
-  EFT_SWIFT_CODE: optionalText(),
+  /** Request header carrying the visitor's country, set by the CDN in front of the console. */
+  GEO_COUNTRY_HEADER: z.string().min(1).default("cf-ipcountry"),
+  /** Optional MaxMind GeoLite2 Country database, used when the header is missing. */
+  GEOLITE2_DB_PATH: optionalText(),
   /** Comma-separated IPs or IPv4 ranges (CIDR) allowed to open /admin. Empty allows any address. */
   ADMIN_IP_ALLOWLIST: z.string().default(""),
   /** Set to "off" to stop background jobs on this server. */

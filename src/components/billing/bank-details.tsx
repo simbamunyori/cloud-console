@@ -1,5 +1,5 @@
 import { DetailList } from "@/components/ui/card";
-import type { BankDetails } from "@/server/payments/bank";
+import type { EftDetails as BankDetails } from "@/server/markets/markets";
 
 /** Where to pay by EFT. The invoice number is the reference, so we can match the payment. */
 export function BankDetailsList({ bank, reference }: { bank: BankDetails; reference?: string }) {

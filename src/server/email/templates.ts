@@ -83,7 +83,7 @@ export const TEMPLATES: Record<string, Template> = {
           "Your account now asks for a code from your authenticator app each time you sign in.",
           "Keep your backup codes somewhere safe. Each one lets you sign in once if you lose your phone.",
         ],
-        footnote: `If this wasn't you, reply to this email or contact ${company.supportEmail} straight away.`,
+        footnote: "If this wasn't you, reply to this email straight away.",
         facts: [["When", formatMoment(new Date(str(p.at)), TZ)]],
       },
     };

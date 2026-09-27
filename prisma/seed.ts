@@ -21,6 +21,7 @@ import { scopedBilling } from "../src/server/billing/scoped";
 import { tenantDb } from "../src/server/db";
 import { placeOrder } from "../src/server/orders/orders";
 import { openTicket } from "../src/server/support/tickets";
+import { syncStubTaxRules } from "../src/server/markets/tax-sync";
 
 const db = new PrismaClient();
 const DEMO_PASSWORD = "demo-password-2026";
@@ -47,6 +48,13 @@ async function main() {
   if (process.env.NODE_ENV === "production" && process.env.SEED_DEMO !== "yes") {
     throw new Error("Not seeding demo accounts in production. Set SEED_DEMO=yes if you really mean it.");
   }
+
+  // Demo bank details for the Botswana market. Staff enter the real ones at /admin/markets.
+  await db.market.updateMany({
+    where: { code: "bw", eftBankName: null },
+    data: { eftBankName: "Demo Bank Botswana", eftAccountName: "Fourth Generation Technologies (Pty) Ltd", eftAccountNumber: "000000000000", eftBranchCode: "000000" },
+  });
+  await syncStubTaxRules(db);
 
   const products = await seedStubCatalogue(db);
   console.log(`Stub catalogue: ${Object.keys(products).length} products and domain prices loaded.`);

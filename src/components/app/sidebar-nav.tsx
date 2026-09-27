@@ -1,6 +1,8 @@
 "use client";
 
 import {
+  Globe,
+  Hourglass,
   Building2,
   ClipboardList,
   House,
@@ -36,6 +38,8 @@ const ICONS = {
   overview: LayoutDashboard,
   orders: Package,
   pricing: Percent,
+  markets: Globe,
+  waitlist: Hourglass,
 };
 
 export interface NavItem {

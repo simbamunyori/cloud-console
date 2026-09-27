@@ -22,7 +22,9 @@ export type StaffPermission =
   /** Answer support tickets. */
   | "answerTickets"
   /** Change margins, the currency buffer and exchange rates. */
-  | "managePricing";
+  | "managePricing"
+  /** Change market settings, switch markets on and off, and move a customer to another market. */
+  | "manageMarkets";
 
 const ALLOWED: Record<StaffPermission, StaffRole[]> = {
   viewCustomers: ["SUPPORT", "PROVISIONING", "FINANCE", "ADMIN"],
@@ -30,6 +32,7 @@ const ALLOWED: Record<StaffPermission, StaffRole[]> = {
   confirmPayments: ["FINANCE", "ADMIN"],
   answerTickets: ["SUPPORT", "ADMIN"],
   managePricing: ["ADMIN"],
+  manageMarkets: ["ADMIN"],
 };
 
 export function staffCan(actor: Pick<StaffActor, "staffRole">, permission: StaffPermission): boolean {

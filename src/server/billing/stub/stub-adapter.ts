@@ -56,7 +56,10 @@ type Tx = Prisma.TransactionClient;
 
 export interface StubOptions {
   now?: () => Date;
-  /** VAT on taxed lines, in basis points. Off unless configured. */
+  /**
+   * Tax on taxed lines, in basis points, for every client. When unset the
+   * stub uses its tax rules by client country, as WHMCS does.
+   */
   taxRateBps?: number;
   /** Days between an invoice's date and its due date. */
   invoiceTermsDays?: number;
@@ -133,7 +136,7 @@ const DOMAIN_PATTERN = /^(?=.{1,253}$)([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[
 export class StubBillingAdapter implements BillingAdapter {
   readonly provider = "STUB" as const;
   private readonly now: () => Date;
-  private readonly taxRateBps: number;
+  private readonly taxRateBps: number | undefined;
   private readonly termsDays: number;
   private readonly leadDays: number;
 
@@ -142,7 +145,7 @@ export class StubBillingAdapter implements BillingAdapter {
     options: StubOptions = {},
   ) {
     this.now = options.now ?? (() => new Date());
-    this.taxRateBps = options.taxRateBps ?? 0;
+    this.taxRateBps = options.taxRateBps;
     this.termsDays = options.invoiceTermsDays ?? 7;
     this.leadDays = options.invoiceLeadDays ?? 7;
   }
@@ -226,10 +229,19 @@ export class StubBillingAdapter implements BillingAdapter {
 
   // ─── Invoices (shared) ────────────────────────────────────────────
 
+  /** The client's country's tax rule, else the rule for every other country, else none. */
+  private async taxRateFor(tx: Tx, clientId: number): Promise<number> {
+    if (this.taxRateBps !== undefined) return this.taxRateBps;
+    const client = await tx.stubClient.findUnique({ where: { id: clientId }, select: { country: true } });
+    const rules = await tx.stubTaxRule.findMany({ where: { country: { in: [client?.country ?? "", "*"] } } });
+    return (rules.find((r) => r.country === client?.country) ?? rules.find((r) => r.country === "*"))?.rateBps ?? 0;
+  }
+
   private async createInvoice(tx: Tx, clientId: number, currency: string, lines: NewLine[], opts: { date?: Date; dueDate?: Date; notes?: string } = {}) {
     const date = opts.date ?? this.today();
     const subtotal = sum(lines.map((l) => l.amount));
-    const tax = applyBps(sum(lines.filter((l) => l.taxed !== false).map((l) => l.amount)), this.taxRateBps);
+    const taxRateBps = await this.taxRateFor(tx, clientId);
+    const tax = applyBps(sum(lines.filter((l) => l.taxed !== false).map((l) => l.amount)), taxRateBps);
     const invoice = await tx.stubInvoice.create({
       data: {
         clientId,
@@ -239,7 +251,7 @@ export class StubBillingAdapter implements BillingAdapter {
         status: "Unpaid",
         currency,
         subtotal,
-        taxRateBps: this.taxRateBps,
+        taxRateBps,
         tax,
         total: subtotal + tax,
         notes: opts.notes,

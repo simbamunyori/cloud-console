@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto";
 import type { Prisma, PrismaClient, Role, Session, SessionStage, SignInOutcome, User, UserKind } from "@prisma/client";
-import { DEFAULT_CURRENCY, DEFAULT_TIME_ZONE } from "@/config/app";
+import { defaultMarket, marketForCountry } from "@/lib/domain/markets";
 import { audit } from "@/server/org/audit";
 import { queueEmail } from "@/server/email/outbox";
 import { burnPasswordCheck, hashPassword, passwordStrength, verifyPassword } from "./password";
@@ -58,6 +58,7 @@ export class AuthError extends Error {
       | "email-taken"
       | "weak-password"
       | "invalid-input"
+      | "no-market"
       | "no-session",
     message: string,
     public readonly lockedUntil?: Date,
@@ -161,6 +162,7 @@ export interface SignUpInput {
   name: string;
   email: string;
   password: string;
+  /** ISO 3166-1 alpha-2 billing country. Decides the market; the default market when left out. */
   country?: string;
 }
 
@@ -183,6 +185,10 @@ export async function signUp(
   if (passwordStrength(input.password, [email, name, organisationName]) !== "strong") {
     throw new AuthError("weak-password", "Choose a password of at least 12 characters that isn't easy to guess.");
   }
+  const markets = await deps.db.market.findMany();
+  const market = input.country ? marketForCountry(input.country, markets) : defaultMarket(markets);
+  if (!market) throw new AuthError("no-market", "We don't serve that country yet.");
+  const country = (input.country ?? market.countries[0] ?? "BW").toUpperCase();
   const passwordHash = await hashPassword(input.password);
   const now = clock(deps);
 
@@ -199,9 +205,10 @@ export async function signUp(
       data: {
         name: organisationName,
         slug,
-        country: input.country ?? "BW",
-        currency: DEFAULT_CURRENCY,
-        timeZone: DEFAULT_TIME_ZONE,
+        country,
+        billingMarket: market.code,
+        currency: market.currency,
+        timeZone: market.timeZone,
         billingEmail: email,
       },
     });

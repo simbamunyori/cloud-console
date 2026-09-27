@@ -3,6 +3,8 @@ import Link from "next/link";
 import { Logo } from "@/components/ui/logo";
 import { company } from "@/config/app";
 import { env } from "@/server/env";
+import { prisma } from "@/server/db";
+import { defaultMarket } from "@/lib/domain/markets";
 
 export const metadata: Metadata = { title: "Privacy" };
 
@@ -16,7 +18,9 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 
 /** How the console handles personal data, in plain words. Public: no sign-in needed. */
-export default function PrivacyPage() {
+export default async function PrivacyPage() {
+  // Replaced by the per-market legal pages in milestone 5.
+  const market = defaultMarket(await prisma.market.findMany());
   const consoleName = env().CONSOLE_NAME;
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-col gap-10 px-4 py-10 sm:py-16">
@@ -53,8 +57,8 @@ export default function PrivacyPage() {
       <Section title="Your rights">
         <p>
           Botswana&apos;s Data Protection Act 18 of 2024 gives you the right to see the personal data we hold about you, to have it corrected, and to ask us to delete it. We tell you 30 days before anything is deleted. Write to{" "}
-          <a href={`mailto:${company.supportEmail}`} className="text-link underline">
-            {company.supportEmail}
+          <a href={`mailto:${market.supportEmail}`} className="text-link underline">
+            {market.supportEmail}
           </a>{" "}
           to ask.
         </p>

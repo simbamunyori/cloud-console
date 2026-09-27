@@ -18,6 +18,9 @@ import { ensureBillingAccount } from "@/server/billing/accounts";
 import { prisma } from "@/server/db";
 import { runSoon } from "@/server/jobs/boss";
 import { enforce, LIMITS, RateLimitedError } from "@/server/security/rate-limit";
+import { isCountryCode } from "@/lib/countries";
+import { joinWaitlist } from "@/server/markets/waitlist";
+import { DomainError } from "@/server/org/access";
 import { lockedMessage, rateLimitedMessage } from "./messages";
 
 export interface FormState {
@@ -27,6 +30,10 @@ export interface FormState {
   values?: Record<string, string>;
   /** Changes on every failed attempt, so code boxes can reset. */
   attempt?: number;
+  /** Sign-up only: the billing country has no market yet, so no account was made. */
+  unavailable?: boolean;
+  /** Waiting list only: the details were saved. */
+  joined?: boolean;
 }
 
 export interface SetupState extends FormState {
@@ -57,18 +64,19 @@ async function limitByIp(kind: keyof typeof LIMITS) {
 // ─── Customers ───────────────────────────────────────────────────────
 
 export async function signUpAction(_prev: FormState, form: FormData): Promise<FormState> {
-  const values = { organisation: field(form, "organisation"), name: field(form, "name"), email: field(form, "email") };
+  const values = { organisation: field(form, "organisation"), name: field(form, "name"), email: field(form, "email"), country: field(form, "country") };
   const fieldErrors: Record<string, string> = {};
   if (!values.organisation.trim()) fieldErrors.organisation = "Enter your organisation's name.";
   if (!values.name.trim()) fieldErrors.name = "Enter your name.";
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(values.email.trim())) fieldErrors.email = "Enter an email address like name@company.co.bw.";
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(values.email.trim())) fieldErrors.email = "Enter an email address like name@company.com.";
+  if (!isCountryCode(values.country)) fieldErrors.country = "Choose the country your organisation is billed in.";
   if (Object.keys(fieldErrors).length) return { fieldErrors, values };
 
   try {
     await limitByIp("signUpPerIp");
     const result = await signUp(
       authDeps(),
-      { organisationName: values.organisation, name: values.name, email: values.email, password: field(form, "password") },
+      { organisationName: values.organisation, name: values.name, email: values.email, password: field(form, "password"), country: values.country },
       await requestContext(),
     );
     await setSessionCookie(result.token);
@@ -81,10 +89,25 @@ export async function signUpAction(_prev: FormState, form: FormData): Promise<Fo
       if (e.code === "email-taken") return { fieldErrors: { email: "There's already an account with this email. Sign in instead." }, values };
       if (e.code === "weak-password") return { fieldErrors: { password: "Use at least 12 characters, and avoid your name or email." }, values };
       if (e.code === "invalid-input") return { error: "Fill in every field.", values };
+      if (e.code === "no-market") return { unavailable: true, values };
     }
     throw e;
   }
   redirect("/setup-authenticator");
+}
+
+/** Saves someone's details when we don't serve their country yet. */
+export async function joinWaitlistAction(_prev: FormState, form: FormData): Promise<FormState> {
+  const values = { name: field(form, "name"), email: field(form, "email"), company: field(form, "company"), country: field(form, "country"), phone: field(form, "phone"), message: field(form, "message") };
+  try {
+    await limitByIp("waitlistPerIp");
+    await joinWaitlist(prisma, values);
+  } catch (e) {
+    if (e instanceof RateLimitedError) return { error: rateLimitedMessage(e.retryAt), values };
+    if (e instanceof DomainError) return { error: e.message, fieldErrors: e.fieldErrors, values };
+    throw e;
+  }
+  return { joined: true, values };
 }
 
 async function passwordStep(audience: UserKind, form: FormData): Promise<FormState> {

@@ -17,7 +17,7 @@ import { requireBilling } from "@/server/billing/context";
 import { poNumbers } from "@/server/billing/po";
 import { compareInvoices, invoicesBefore, isOverdue, isPeriodic, type LineChange } from "@/server/billing/views";
 import { can } from "@/server/org/access";
-import { bankDetails } from "@/server/payments/bank";
+import { eftDetails } from "@/server/markets/markets";
 import { isPayable } from "@/server/payments/card";
 import { payByCardAction } from "../../actions";
 import { EftReportForm, PoForm, PrintButton } from "./invoice-forms";
@@ -69,7 +69,7 @@ const CARD_MESSAGE: Record<string, { tone: "positive" | "negative" | "info"; tex
 export default async function InvoicePage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ card?: string }> }) {
   const { id } = await params;
   const { card } = await searchParams;
-  const { billing, db, organisation, actor, today } = await requireBilling();
+  const { billing, db, organisation, actor, today, market } = await requireBilling();
   const invoice = await billing.getInvoice(id);
   if (!invoice) notFound();
 
@@ -87,7 +87,7 @@ export default async function InvoicePage({ params, searchParams }: { params: Pr
   const paid = money(invoice.total.amountMinor - invoice.balance.amountMinor, invoice.total.currency);
   const payable = isPayable(invoice);
   const canPay = payable && can(actor, "pay");
-  const bank = payable ? bankDetails() : null;
+  const bank = payable ? eftDetails(market) : null;
   const waiting = eftReports.find((r) => r.status === "AWAITING_CONFIRMATION");
   const cardMessage = card === "failed" ? { tone: "negative" as const, text: `${lastCard?.failureReason ?? "The card payment didn't go through."} Nothing was taken. You can try again or pay by bank transfer.` } : card ? CARD_MESSAGE[card] : undefined;
   const address = [organisation.addressLine1, organisation.addressLine2, organisation.city, organisation.postcode].filter(Boolean);
@@ -131,7 +131,12 @@ export default async function InvoicePage({ params, searchParams }: { params: Pr
             <div className="flex flex-col gap-1">
               <span className="label-kicker text-ink-muted">From</span>
               <span className="font-semibold text-ink">{company.legalName}</span>
-              <span className="text-callout text-ink-muted">{company.supportEmail}</span>
+              <span className="text-callout text-ink-muted">{market.supportEmail}</span>
+              {market.taxRegistrationNumber ? (
+                <span className="text-callout text-ink-muted">
+                  {market.taxLabel} number {market.taxRegistrationNumber}
+                </span>
+              ) : null}
             </div>
             <div className="flex flex-col gap-1">
               <span className="label-kicker text-ink-muted">To</span>

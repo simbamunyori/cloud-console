@@ -9,7 +9,6 @@ export const company = {
   /** How it appears on invoices and statements. */
   legalName: "Fourth Generation Technologies (Pty) Ltd",
   country: "BW",
-  supportEmail: "support@localhost",
   tagline: "Managed cloud for business.",
 } as const;
 

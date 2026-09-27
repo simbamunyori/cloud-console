@@ -17,7 +17,7 @@ export const metadata: Metadata = { title: "Find a domain" };
 
 export default async function DomainsPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const q = ((await searchParams).q ?? "").slice(0, 100);
-  const { billing, actor, currency } = await requireBilling();
+  const { billing, actor, currency, market } = await requireBilling();
   let results: DomainResult[] = [];
   let error: string | null = null;
   if (q.trim()) {
@@ -35,7 +35,10 @@ export default async function DomainsPage({ searchParams }: { searchParams: Prom
       <Link href="/app/marketplace" className="mb-4 inline-flex items-center gap-1 text-callout text-link hover:underline">
         <ArrowLeft aria-hidden className="size-4" /> Marketplace
       </Link>
-      <PageHeader title="Find a domain" description=".bw and .co.bw names are registered in Botswana through BOCRA. Renewals go on your monthly invoice each year." />
+      <PageHeader
+        title="Find a domain"
+        description={`Search for a name, or try ${market.highlightedTlds.join(", ")}. Renewals go on your monthly invoice each year.`}
+      />
       <div className="flex flex-col gap-6">
         <form method="get" role="search" className="flex flex-col gap-3 sm:flex-row">
           <label htmlFor="q" className="sr-only">

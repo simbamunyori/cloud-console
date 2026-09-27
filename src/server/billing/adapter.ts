@@ -37,7 +37,8 @@ export interface BillingClient {
 }
 
 export type NewBillingClient = Omit<BillingClient, "clientId" | "status">;
-export type BillingClientPatch = Partial<Omit<BillingClient, "clientId" | "currency">>;
+/** The currency can only change while the client has no invoices; the console checks first. */
+export type BillingClientPatch = Partial<Omit<BillingClient, "clientId">>;
 
 export interface BillingProductPrice {
   monthly?: Money;
