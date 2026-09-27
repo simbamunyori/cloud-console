@@ -26,6 +26,9 @@ export interface MarketFormValues {
   taxDisplay: "INCLUSIVE" | "EXCLUSIVE";
   taxLabel: string;
   taxRegistrationNumber: string;
+  companyRegistrationNumber: string;
+  registeredAddress: string;
+  ownDataCentre: boolean;
   paymentMethods: string[];
   eftBankName: string;
   eftAccountName: string;
@@ -94,7 +97,15 @@ export function MarketSettingsForm({ market, catchAll }: { market: MarketFormVal
             { value: "INCLUSIVE", label: "Including tax" },
           ]}
         />
-        <TextField id="taxRegistrationNumber" label="Our registration number" defaultValue={v.taxRegistrationNumber} error={fe.taxRegistrationNumber} hint="Shown on invoices." />
+        <TextField id="taxRegistrationNumber" label="Our tax number" defaultValue={v.taxRegistrationNumber} error={fe.taxRegistrationNumber} hint="e.g. our VAT number. Shown on invoices while tax is on." />
+      </Section>
+      <Section title="Company" description="Shown in the From block of every invoice and statement in this market.">
+        <TextField id="companyRegistrationNumber" label="Company registration number" defaultValue={v.companyRegistrationNumber} error={fe.companyRegistrationNumber} />
+        <TextField id="registeredAddress" label="Registered office" defaultValue={v.registeredAddress} error={fe.registeredAddress} hint="One line, parts separated by commas." />
+        <div className="sm:col-span-2">
+          <Check name="ownDataCentre" label="Our own data centre is live here" defaultChecked={v.ownDataCentre} />
+          <p className="text-callout text-ink-muted">Until this is on, no page says &ldquo;our own data centre&rdquo;.</p>
+        </div>
       </Section>
       <Section title="Payments" description="EFT details are shown on invoices, with the invoice number as the reference.">
         <div className="flex flex-col sm:col-span-2 sm:flex-row sm:gap-8">

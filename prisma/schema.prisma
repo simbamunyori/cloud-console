@@ -54,8 +54,16 @@ model Market {
   taxRateBps            Int        @default(0)
   taxDisplay            TaxDisplay @default(EXCLUSIVE)
   taxLabel              String     @default("VAT")
-  /// Our tax registration number, shown on invoices.
+  /// Our tax registration number (e.g. VAT number), shown on invoices while tax is on.
   taxRegistrationNumber String?
+
+  /// The company as invoices name it in this market: registration number
+  /// and registered office, shown in the invoice's "From" block.
+  companyRegistrationNumber String?
+  registeredAddress         String?
+  /// True once our own data centre (colocation) is live for this market.
+  /// Until then no page says "our own data centre".
+  ownDataCentre             Boolean @default(false)
 
   /// "card", "eft".
   paymentMethods        String[]

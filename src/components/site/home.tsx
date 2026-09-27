@@ -2,7 +2,7 @@
 import { Boxes, Building2, Check, CreditCard, GraduationCap, Handshake, HardDrive, LayoutGrid, LifeBuoy, Lock, Mail, Server, ShieldCheck, Sparkles, TrendingUp, Users } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { AUDIENCES, BUILDERS, CLOSING, CONSOLE, HERO, marketCopy, PLATE } from "@/config/site";
+import { AUDIENCES, BUILDERS, CLOSING, CONSOLE, HERO, marketCopy, PLATE, withDataCentre } from "@/config/site";
 import { formatMoney } from "@/lib/domain/money";
 import type { ServiceFrom } from "@/server/site/site";
 import { currentTheme } from "@/server/theme";
@@ -17,6 +17,7 @@ export interface HomeMarket {
   name: string;
   locale: string;
   supportEmail: string;
+  ownDataCentre: boolean;
 }
 
 const HERO_ALT = "The Cloud Console home page, showing this month's total, the next invoice and services that need attention";
@@ -88,7 +89,6 @@ export function HomeContent({ market, services, taxNote }: { market: HomeMarket;
                 </li>
               ))}
             </ul>
-            {copy.localHosting ? <p className="text-callout text-ink-muted">{copy.localHosting}</p> : null}
           </div>
           <figure className="relative">
             <div className="overflow-hidden rounded-lg border border-border bg-surface-0 shadow-elevation-3">
@@ -131,7 +131,10 @@ export function HomeContent({ market, services, taxNote }: { market: HomeMarket;
                 <li key={card.key} className="flex flex-col gap-3 rounded-lg border border-border bg-surface-0 p-6">
                   <Icon aria-hidden className="size-6 text-link" />
                   <h3 className="text-headline text-ink">{card.title}</h3>
-                  <p className="flex-1 text-callout text-ink-muted">{card.body}</p>
+                  <div className="flex flex-1 flex-col gap-2 text-callout text-ink-muted">
+                    <p>{card.key === "servers" ? withDataCentre(card.body, market) : card.body}</p>
+                    {card.key === "protection" && copy.localHosting ? <p>{copy.localHosting}</p> : null}
+                  </div>
                   <p className="text-callout text-ink">
                     {from ? (
                       <>

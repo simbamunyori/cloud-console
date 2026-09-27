@@ -3,6 +3,7 @@ import Link from "next/link";
 import { AssistantNotice, PageIntro, ProseSection } from "@/components/site/prose";
 import { SitePage } from "@/components/site/site-page";
 import { company, DELETION_NOTICE_DAYS } from "@/config/app";
+import { marketCopy } from "@/config/site";
 import { CATCH_ALL } from "@/lib/domain/markets";
 import { siteMarket, siteMetadata } from "@/server/site/site";
 
@@ -37,6 +38,7 @@ export default async function SecurityPage({ params }: Props) {
 
         <ProseSection id="data" title="Where your data is kept">
           <p>The Cloud Console and its database run on our servers in Botswana, with an encrypted backup copy kept off-site for 30 days. We never see your full card number: the card company handles it.</p>
+          {marketCopy(m.code).localHosting ? <p>{marketCopy(m.code).localHosting}</p> : null}
           <p>Nothing you own is deleted without {DELETION_NOTICE_DAYS} days&apos; notice.</p>
         </ProseSection>
 

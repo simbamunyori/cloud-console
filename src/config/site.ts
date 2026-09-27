@@ -38,7 +38,7 @@ export const SERVICES: ServiceCard[] = [
   {
     key: "servers",
     title: "Cloud servers",
-    body: "Managed servers with patching, monitoring and backups, sized to what you run.",
+    body: "Managed servers, monitored and backed up.",
     products: { categories: ["servers", "public-cloud"] },
   },
   {
@@ -96,9 +96,22 @@ export const CLOSING = {
   heading: "Tell us what you run today and we'll show you what it looks like done properly.",
 };
 
+/**
+ * Added to server copy only in markets whose settings say our own data
+ * centre is live (colocation). Until then no page makes that claim.
+ */
+export const OWN_DATA_CENTRE_LINE = "Run from our own data centre.";
+
+export function withDataCentre(text: string, market: { ownDataCentre: boolean }): string {
+  return market.ownDataCentre ? `${text} ${OWN_DATA_CENTRE_LINE}` : text;
+}
+
 /** Words that differ by market. Keyed by market code; anything missing uses the default. */
 export interface MarketCopy {
-  /** A line under the hero for buyers who must keep data in the country. */
+  /**
+   * For buyers who must keep data in the country. Shown only on the Data
+   * protection service card and the Security page, never in the hero.
+   */
   localHosting?: string;
   /** Real customer quotes only. The section stays hidden while this is empty. */
   testimonials: { quote: string; name: string; role: string }[];

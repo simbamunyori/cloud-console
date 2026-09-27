@@ -5,6 +5,7 @@ import { Amount } from "@/components/ui/amount";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
+import { withDataCentre } from "@/config/site";
 import { monthOf } from "@/lib/domain/pricing";
 import { requireBilling } from "@/server/billing/context";
 import { marketplace } from "@/server/catalogue/price-book";
@@ -48,7 +49,7 @@ export default async function MarketplacePage() {
               <h2 id={`cat-${category.key}`} className="text-title-2 text-ink">
                 {category.name}
               </h2>
-              <p className="text-ink-muted">{category.description}</p>
+              <p className="text-ink-muted">{category.key === "servers" ? withDataCentre(category.description, market) : category.description}</p>
             </div>
             <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {products.map(({ product, price }) => (

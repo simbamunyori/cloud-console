@@ -31,6 +31,8 @@ const FIELDS = [
   "taxDisplay",
   "taxLabel",
   "taxRegistrationNumber",
+  "companyRegistrationNumber",
+  "registeredAddress",
   "eftBankName",
   "eftAccountName",
   "eftAccountNumber",
@@ -51,6 +53,7 @@ export async function saveMarketAction(_prev: ActionState, form: FormData): Prom
       ...values,
       taxDisplay: values.taxDisplay as "INCLUSIVE" | "EXCLUSIVE",
       taxEnabled: form.get("taxEnabled") === "on",
+      ownDataCentre: form.get("ownDataCentre") === "on",
       paymentMethods: form.getAll("paymentMethods").filter((v): v is "card" | "eft" => v === "card" || v === "eft"),
     });
     await syncTax();

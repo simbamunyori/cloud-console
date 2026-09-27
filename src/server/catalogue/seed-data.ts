@@ -65,7 +65,7 @@ const SEAT_TERMS = "Billed monthly. Add users at any time; the part month is cha
 
 export const CATEGORIES: CategorySeed[] = [
   { key: "productivity", name: "Productivity", description: "Email, documents and meetings for your team.", family: "PRODUCTIVITY", marginBps: 2000, sortOrder: 1 },
-  { key: "servers", name: "Servers", description: "Managed servers in our own data centre.", family: "SERVERS", marginBps: 4000, sortOrder: 2 },
+  { key: "servers", name: "Servers", description: "Managed servers, monitored and backed up.", family: "SERVERS", marginBps: 4000, sortOrder: 2 },
   { key: "web", name: "Web and domains", description: "Websites, business email and domain names.", family: "WEB_AND_DOMAINS", marginBps: 4000, sortOrder: 3 },
   { key: "protection", name: "Protection", description: "Backups, recovery and security monitoring.", family: "PROTECTION", marginBps: 3500, sortOrder: 4 },
   { key: "public-cloud", name: "Public cloud", description: "Microsoft Azure, set up and looked after by us.", family: "PUBLIC_CLOUD", marginBps: 1500, sortOrder: 5 },
@@ -230,7 +230,7 @@ export const PRODUCTS: ProductSeed[] = [
     name: "Server backup",
     summary: "Nightly backups of one server, kept for 30 days in a second site.",
     includes: ["Nightly backup", "Kept for 30 days", "A test restore every month, with the result recorded"],
-    excludes: ["Servers outside our data centre (ask us)"],
+    excludes: ["Servers we don't manage (ask us)"],
     unitLabel: "per server",
     cost: [18000n, "BWP"],
     setupHours: 8,

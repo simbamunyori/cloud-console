@@ -82,6 +82,8 @@ export default async function InvoicePage({ params, searchParams }: { params: Pr
   const bank = payable ? eftDetails(market) : null;
   const waiting = eftReports.find((r) => r.status === "AWAITING_CONFIRMATION");
   const cardMessage = card === "failed" ? { tone: "negative" as const, text: `${lastCard?.failureReason ?? "The card payment didn't go through."} Nothing was taken. You can try again or pay by bank transfer.` } : card ? CARD_MESSAGE[card] : undefined;
+  // The market's registered office, one part per line as on a letterhead.
+  const registeredOffice = (market.registeredAddress ?? "").split(",").map((part) => part.trim()).filter(Boolean);
   const address = [organisation.addressLine1, organisation.addressLine2, organisation.city, organisation.postcode].filter(Boolean);
 
   return (
@@ -123,12 +125,18 @@ export default async function InvoicePage({ params, searchParams }: { params: Pr
             <div className="flex flex-col gap-1">
               <span className="label-kicker text-ink-muted">From</span>
               <span className="font-semibold text-ink">{company.legalName}</span>
-              <span className="text-callout text-ink-muted">{market.supportEmail}</span>
-              {market.taxRegistrationNumber ? (
+              {registeredOffice.map((line) => (
+                <span key={line} className="text-callout text-ink-muted">
+                  {line}
+                </span>
+              ))}
+              {market.companyRegistrationNumber ? <span className="text-callout text-ink-muted">Company registration {market.companyRegistrationNumber}</span> : null}
+              {market.taxEnabled && market.taxRegistrationNumber ? (
                 <span className="text-callout text-ink-muted">
                   {market.taxLabel} number {market.taxRegistrationNumber}
                 </span>
               ) : null}
+              <span className="text-callout text-ink-muted">{market.supportEmail}</span>
             </div>
             <div className="flex flex-col gap-1">
               <span className="label-kicker text-ink-muted">To</span>
