@@ -191,6 +191,25 @@ export const TEMPLATES: Record<string, Template> = {
       },
     };
   },
+  async "payment.eft_not_found"(p, ctx) {
+    const amount = fromJson(p.amount as MoneyJson);
+    return {
+      subject: `We couldn't find your payment for invoice ${str(p.invoiceNumber)}`,
+      body: {
+        heading: "We couldn't match your bank transfer",
+        paragraphs: [
+          `You told us you paid ${formatMoney(amount)} for invoice ${str(p.invoiceNumber)}, but we can't see it in our bank account yet.`,
+          `Our team says: ${str(p.note)}`,
+          "If you've checked and it went through, reply to this email with proof of payment and we'll look again.",
+        ],
+        facts: [
+          ["Invoice", str(p.invoiceNumber)],
+          ["Amount", formatMoney(amount)],
+        ],
+        button: { label: "View the invoice", url: `${ctx.appUrl}/app/billing/invoices/${encodeURIComponent(str(p.invoiceId))}` },
+      },
+    };
+  },
 };
 
 export function registerTemplate(kind: string, template: Template) {

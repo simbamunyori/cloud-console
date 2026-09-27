@@ -893,3 +893,17 @@ model StubTldPrice {
   /// Names ending in this TLD that the stub treats as taken.
   takenNames String[]
 }
+
+/// Stub card gateway only: what the pretend card company knows about a charge.
+model StubCardCharge {
+  id          String   @id
+  amountMinor BigInt
+  currency    String
+  description String
+  returnUrl   String
+  /// "pending", "succeeded" or "declined".
+  status      String   @default("pending")
+  lastFour    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}

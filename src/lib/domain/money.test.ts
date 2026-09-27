@@ -3,6 +3,7 @@ import {
   CurrencyMismatchError,
   MoneyParseError,
   add,
+  toPlainAmount,
   applyBps,
   divCeil,
   divRound,
@@ -94,5 +95,15 @@ describe("arithmetic", () => {
     const m = P(9007199254740993n);
     expect(fromJson(toJson(m))).toEqual(m);
     expect(() => fromJson({ amountMinor: "1.5", currency: "BWP" })).toThrow();
+  });
+});
+
+describe("toPlainAmount", () => {
+  it("writes an amount the way it is typed, and parses back", () => {
+    for (const minor of [0n, 5n, 190000n, 123456789n, -250n]) {
+      expect(parseMoney(toPlainAmount(P(minor)))).toBe(minor);
+    }
+    expect(toPlainAmount(P(190000n))).toBe("1900.00");
+    expect(toPlainAmount(P(5n))).toBe("0.05");
   });
 });

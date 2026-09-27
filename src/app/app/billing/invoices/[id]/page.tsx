@@ -1,14 +1,16 @@
-import { ArrowDown, ArrowLeft, ArrowUp, ChevronDown, Plus } from "lucide-react";
+import { ArrowDown, ArrowLeft, ArrowUp, ChevronDown, CreditCard, Plus } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { BankDetailsList } from "@/components/billing/bank-details";
 import { InvoiceStatusBadge } from "@/components/app/status";
+import { Alert } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
 import { Amount } from "@/components/ui/amount";
 import { Card, CardBody, CardHeader, DetailList } from "@/components/ui/card";
 import { company } from "@/config/app";
-import { formatDay, formatLongDate } from "@/lib/dates";
-import { formatMoney, money } from "@/lib/domain/money";
+import { formatDay, formatLongDate, toDateOnly } from "@/lib/dates";
+import { currencyInfo, formatMoney, money, toPlainAmount } from "@/lib/domain/money";
 import type { Invoice, InvoiceLine, InvoiceSummary, Service } from "@/server/billing/adapter";
 import type { ScopedBilling } from "@/server/billing/scoped";
 import { requireBilling } from "@/server/billing/context";
@@ -16,7 +18,9 @@ import { poNumbers } from "@/server/billing/po";
 import { compareInvoices, invoicesBefore, isOverdue, isPeriodic, type LineChange } from "@/server/billing/views";
 import { can } from "@/server/org/access";
 import { bankDetails } from "@/server/payments/bank";
-import { PoForm, PrintButton } from "./invoice-forms";
+import { isPayable } from "@/server/payments/card";
+import { payByCardAction } from "../../actions";
+import { EftReportForm, PoForm, PrintButton } from "./invoice-forms";
 
 export const metadata: Metadata = { title: "Invoice" };
 
@@ -55,19 +59,37 @@ async function previousMonthly(billing: ScopedBilling, all: InvoiceSummary[], cu
   return null;
 }
 
-export default async function InvoicePage({ params }: { params: Promise<{ id: string }> }) {
+const CARD_MESSAGE: Record<string, { tone: "positive" | "negative" | "info"; text: string }> = {
+  paid: { tone: "positive", text: "Thank you, your card payment went through. We've emailed you a receipt." },
+  pending: { tone: "info", text: "The card company hasn't confirmed your payment yet. This page will show it once they do." },
+  unapplied: { tone: "negative", text: "Your card was charged, but we couldn't apply it to this invoice. Our team has been told and will sort it out or refund you." },
+  unavailable: { tone: "negative", text: "This invoice can't be paid by card right now. It may already be paid." },
+};
+
+export default async function InvoicePage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ card?: string }> }) {
   const { id } = await params;
+  const { card } = await searchParams;
   const { billing, db, organisation, actor, today } = await requireBilling();
   const invoice = await billing.getInvoice(id);
   if (!invoice) notFound();
 
-  const [all, services, pos] = await Promise.all([billing.listInvoices(), billing.listServices(), poNumbers(db, [invoice.invoiceId])]);
+  const [all, services, pos, eftReports, lastCard] = await Promise.all([
+    billing.listInvoices(),
+    billing.listServices(),
+    poNumbers(db, [invoice.invoiceId]),
+    db.eftPayment.findMany({ where: { invoiceId: invoice.invoiceId }, orderBy: { createdAt: "desc" }, take: 5 }),
+    card === "failed" ? db.cardPayment.findFirst({ where: { invoiceId: invoice.invoiceId, status: "FAILED" }, orderBy: { updatedAt: "desc" } }) : null,
+  ]);
   const comparison = isPeriodic(invoice) ? compareInvoices(invoice, await previousMonthly(billing, all, invoice)) : null;
   const serviceById = new Map<string, Service>(services.map((s) => [s.serviceId, s]));
   const po = pos.get(invoice.invoiceId) ?? "";
   const overdue = isOverdue(invoice, today);
   const paid = money(invoice.total.amountMinor - invoice.balance.amountMinor, invoice.total.currency);
-  const bank = invoice.balance.amountMinor > 0n ? bankDetails() : null;
+  const payable = isPayable(invoice);
+  const canPay = payable && can(actor, "pay");
+  const bank = payable ? bankDetails() : null;
+  const waiting = eftReports.find((r) => r.status === "AWAITING_CONFIRMATION");
+  const cardMessage = card === "failed" ? { tone: "negative" as const, text: `${lastCard?.failureReason ?? "The card payment didn't go through."} Nothing was taken. You can try again or pay by bank transfer.` } : card ? CARD_MESSAGE[card] : undefined;
   const address = [organisation.addressLine1, organisation.addressLine2, organisation.city, organisation.postcode].filter(Boolean);
 
   return (
@@ -86,6 +108,24 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
       </div>
 
       <div className="flex flex-col gap-6">
+        {cardMessage ? (
+          <Alert tone={cardMessage.tone} className="print:hidden">
+            {cardMessage.text}
+          </Alert>
+        ) : null}
+        {waiting ? (
+          <Alert tone="info" className="print:hidden">
+            You told us on {formatDay(waiting.createdAt, true)} that you paid {formatMoney(money(waiting.amountMinor, waiting.currency))} by bank transfer. We&apos;re checking our bank account and will email you when it&apos;s confirmed.
+          </Alert>
+        ) : null}
+        {eftReports
+          .filter((r) => r.status === "REJECTED" && !waiting && payable)
+          .slice(0, 1)
+          .map((r) => (
+            <Alert key={r.id} tone="warning" className="print:hidden">
+              We couldn&apos;t find the {formatMoney(money(r.amountMinor, r.currency))} bank transfer you told us about on {formatDay(r.createdAt, true)}. Our team says: {r.staffNote}
+            </Alert>
+          ))}
         <Card>
           <CardBody className="grid gap-6 sm:grid-cols-2">
             <div className="flex flex-col gap-1">
@@ -206,8 +246,44 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
           </Card>
         ) : null}
 
+        {canPay ? (
+          <Card aria-labelledby="pay-title" className="print:hidden">
+            <CardHeader id="pay-title" title={`Pay ${formatMoney(invoice.balance)}`} description="By card now, or by bank transfer from your bank." />
+            <CardBody className="flex flex-col gap-6">
+              <form action={payByCardAction}>
+                <input type="hidden" name="invoiceId" value={invoice.invoiceId} />
+                <Button type="submit" size="lg" className="w-full sm:w-auto">
+                  <CreditCard aria-hidden /> Pay {formatMoney(invoice.balance)} by card
+                </Button>
+              </form>
+              <div className="flex flex-col gap-4 border-t border-border pt-6">
+                <h3 className="text-headline text-ink">Pay by bank transfer (EFT)</h3>
+                {bank ? <BankDetailsList bank={bank} reference={invoice.number} /> : <p className="text-ink-muted">Our bank details will appear here soon. Until then, contact support to pay by EFT.</p>}
+                {!waiting ? (
+                  <details className="group rounded-md border border-border">
+                    <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 font-semibold text-ink [&::-webkit-details-marker]:hidden">
+                      Already paid by bank transfer? Tell us
+                      <ChevronDown aria-hidden className="size-4 shrink-0 text-ink-muted transition-transform group-open:rotate-180" />
+                    </summary>
+                    <div className="border-t border-border px-4 py-4">
+                      <EftReportForm
+                        invoiceId={invoice.invoiceId}
+                        amount={toPlainAmount(invoice.balance)}
+                        currencySymbol={currencyInfo(invoice.balance.currency).prefix}
+                        reference={invoice.number}
+                        today={toDateOnly(today)}
+                      />
+                    </div>
+                  </details>
+                ) : (
+                  <Alert tone="info">Thanks for telling us about your transfer. We&apos;ll email you once we see it in our bank account, usually within one working day.</Alert>
+                )}
+              </div>
+            </CardBody>
+          </Card>
+        ) : null}
         {bank ? (
-          <Card aria-labelledby="eft-title" className="print:break-inside-avoid">
+          <Card aria-labelledby="eft-title" className={canPay ? "hidden print:block print:break-inside-avoid" : "print:break-inside-avoid"}>
             <CardHeader id="eft-title" title="Pay by bank transfer (EFT)" description="Use the reference below so we can match your payment." />
             <CardBody>
               <BankDetailsList bank={bank} reference={invoice.number} />

@@ -28,9 +28,16 @@ const backoffMs = (attempt: number) => 60_000 * 2 ** Math.max(0, attempt - 1);
  * Sends what is due. Each row is claimed with a conditional update first,
  * so two workers never send the same email twice.
  */
-export async function deliverDue(db: PrismaClient, adapter: EmailAdapter, now = new Date(), limit = 50): Promise<number> {
+export async function deliverDue(
+  db: PrismaClient,
+  adapter: EmailAdapter,
+  now = new Date(),
+  limit = 50,
+  /** Narrows what is sent; tests use it so parallel suites don't take each other's rows. */
+  only: Prisma.OutboundEmailWhereInput = {},
+): Promise<number> {
   const due = await db.outboundEmail.findMany({
-    where: { status: "QUEUED", nextAttemptAt: { lte: now } },
+    where: { ...only, status: "QUEUED", nextAttemptAt: { lte: now } },
     orderBy: { createdAt: "asc" },
     take: limit,
   });

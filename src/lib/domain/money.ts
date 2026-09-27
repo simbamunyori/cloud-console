@@ -144,6 +144,15 @@ export function parseMoney(input: string, currency = "BWP"): Minor {
   return negative ? -value : value;
 }
 
+/** An amount as a person would type it, without the currency: "1900.00". Round-trips through parseMoney. */
+export function toPlainAmount(m: Money): string {
+  const { exponent } = currencyInfo(m.currency);
+  const negative = m.amountMinor < 0n;
+  const digits = (negative ? -m.amountMinor : m.amountMinor).toString().padStart(exponent + 1, "0");
+  const plain = exponent ? `${digits.slice(0, -exponent)}.${digits.slice(-exponent)}` : digits;
+  return negative ? `-${plain}` : plain;
+}
+
 function groupThousands(digits: string): string {
   return digits.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 }

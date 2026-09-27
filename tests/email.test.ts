@@ -12,7 +12,7 @@ describe.skipIf(!hasDb)("email outbox", () => {
     expect((await db.invitation.findUniqueOrThrow({ where: { id: inv.id } })).tokenHash).toBeNull();
 
     const adapter = new MemoryEmailAdapter();
-    await deliverDue(db, adapter);
+    await deliverDue(db, adapter, new Date(), 50, { toAddress: email });
     const [message] = adapter.sent.filter((m) => m.to === email);
     expect(message.to).toBe(email);
     expect(message.subject).toContain("Maun Safaris");
@@ -30,7 +30,7 @@ describe.skipIf(!hasDb)("email outbox", () => {
     const inv = await inviteMember(org.tenant, org.organisationId, org.owner, { email, role: "ADMIN" });
     await revokeInvitation(org.tenant, org.organisationId, org.owner, inv.id);
     const adapter = new MemoryEmailAdapter();
-    await deliverDue(db, adapter);
+    await deliverDue(db, adapter, new Date(), 50, { toAddress: email });
     expect(adapter.sent.filter((m) => m.to === email)).toEqual([]);
     expect((await db.outboundEmail.findFirstOrThrow({ where: { toAddress: email } })).status).toBe("FAILED");
   });
@@ -42,7 +42,7 @@ describe.skipIf(!hasDb)("email outbox", () => {
     const broken: EmailAdapter = { send: async () => { throw new Error("Mail server down"); } };
     let now = new Date(Date.now() + 1000);
     for (let i = 0; i < 6; i++) {
-      await deliverDue(db, broken, now);
+      await deliverDue(db, broken, now, 50, { toAddress: to });
       now = new Date(now.getTime() + 60 * 60_000);
     }
     const row = await db.outboundEmail.findFirstOrThrow({ where: { toAddress: to } });
