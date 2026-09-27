@@ -53,6 +53,8 @@ function field(form: FormData, key: string): string {
 /** Only relative paths inside the console, so a link can't bounce people elsewhere. */
 function safeNext(next: string, audience: UserKind): string {
   if (audience === "STAFF") return /^\/admin(\/[\w\-/]*)?$/.test(next) ? next : "/admin";
+  // The domain search may carry its query, as the site's "Find your domain" sends it.
+  if (/^\/app\/marketplace\/domains\?q=[\w.%-]{1,300}$/.test(next)) return next;
   return /^\/(app(\/[\w\-/]*)?|invite\/[\w\-%]+)$/.test(next) ? next : "/app";
 }
 

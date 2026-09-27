@@ -67,6 +67,70 @@ export const SERVICES: ServiceCard[] = [
   },
 ];
 
+/**
+ * The header's Services menu. Links go to the market's pricing page,
+ * which lists every product under its category (`#cat-<key>`), so each
+ * price shown is the market's own.
+ */
+export interface MenuGroup {
+  key: "productivity" | "servers" | "security" | "web" | "apps";
+  title: string;
+  blurb: string;
+  links: { label: string; href: string }[];
+}
+
+export const SERVICE_MENU: MenuGroup[] = [
+  {
+    key: "productivity",
+    title: "Productivity",
+    blurb: "Email, documents and meetings for every user.",
+    links: [
+      { label: "Microsoft 365", href: "/pricing#cat-productivity" },
+      { label: "Google Workspace", href: "/pricing#cat-productivity" },
+      { label: "Mailbox backup", href: "/pricing#cat-protection" },
+    ],
+  },
+  {
+    key: "servers",
+    title: "Servers",
+    blurb: "Managed servers, monitored and backed up.",
+    links: [
+      { label: "Managed servers", href: "/pricing#cat-servers" },
+      { label: "Microsoft Azure", href: "/pricing#cat-public-cloud" },
+      { label: "Server backup", href: "/pricing#cat-protection" },
+    ],
+  },
+  {
+    key: "security",
+    title: "Security",
+    blurb: "Threats watched and handled, data kept safe.",
+    links: [
+      { label: "Managed detection and response", href: "/pricing#cat-protection" },
+      { label: "Disaster recovery", href: "/pricing#cat-protection" },
+      { label: "How we keep you safe", href: "/security" },
+    ],
+  },
+  {
+    key: "web",
+    title: "Web and domains",
+    blurb: "Websites, business email and domain names.",
+    links: [
+      { label: "Web and WordPress hosting", href: "/pricing#cat-web" },
+      { label: "Business email", href: "/pricing#cat-web" },
+      { label: "Domain names", href: "/pricing#domains-title" },
+    ],
+  },
+  {
+    key: "apps",
+    title: "Applications",
+    blurb: "Software we build, host and support.",
+    links: [
+      { label: "Thebe", href: "/pricing#cat-our-software" },
+      { label: "Managed support plan", href: "/pricing#cat-services" },
+    ],
+  },
+];
+
 export const CONSOLE = {
   heading: "One account. One invoice. One place to get help.",
   points: [
@@ -80,6 +144,10 @@ export const CONSOLE = {
 export const BUILDERS = {
   heading: "Built by people who build software.",
   body: "We don't just host software. We build it. Our own applications run on our own platform, starting with Thebe.",
+  thebe: {
+    name: "Thebe",
+    body: "Company ledgers where every payment is countersigned. Each payment waits for your signatories to approve it, in one tap from their email, before it leaves the bank.",
+  },
 };
 
 export const AUDIENCES = {

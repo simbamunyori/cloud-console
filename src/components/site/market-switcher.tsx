@@ -11,9 +11,10 @@ export interface SwitcherMarket {
  * The country switcher, in the header and footer. Each choice goes through
  * /switch-market, which remembers it in a cookie that beats detection, then
  * opens the same page in that market. A disclosure, so it works without
- * JavaScript and from the keyboard.
+ * JavaScript and from the keyboard. `up` opens the list upwards, as at the
+ * bottom of the phone menu.
  */
-export function MarketSwitcher({ markets, current, path, align = "end", tone = "default" }: { markets: SwitcherMarket[]; current: SwitcherMarket; path: string; align?: "start" | "end"; tone?: "default" | "navy" }) {
+export function MarketSwitcher({ markets, current, path, align = "end", tone = "default", up = false }: { markets: SwitcherMarket[]; current: SwitcherMarket; path: string; align?: "start" | "end"; tone?: "default" | "navy"; up?: boolean }) {
   return (
     <details className="group relative">
       <summary
@@ -31,7 +32,7 @@ export function MarketSwitcher({ markets, current, path, align = "end", tone = "
         className={cn(
           "absolute z-20 mt-2 flex w-64 flex-col rounded-md border border-border bg-surface-1 p-1 text-ink shadow-elevation-3",
           align === "end" ? "right-0" : "left-0",
-          tone === "navy" ? "bottom-full mb-2" : "top-full",
+          tone === "navy" || up ? "bottom-full mb-2" : "top-full",
         )}
       >
         {markets.map((m) => (

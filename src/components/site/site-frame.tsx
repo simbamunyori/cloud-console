@@ -1,11 +1,14 @@
+/* eslint-disable @next/next/no-img-element -- the brand SVG lockups are fixed-size files. */
+import { Activity } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Logo, LogoMark } from "@/components/ui/logo";
+import { Logo } from "@/components/ui/logo";
 import { company } from "@/config/app";
-import { LEGAL_PAGES } from "@/config/site";
+import { LEGAL_PAGES, SERVICE_MENU } from "@/config/site";
 import type { Theme } from "@/lib/theme";
 import { ThemeSwitch } from "@/components/theme/theme-switch";
 import { MarketSwitcher, type SwitcherMarket } from "./market-switcher";
+import { ServicesMenu, SiteMenu } from "./site-nav";
 
 export interface FrameMarket extends SwitcherMarket {
   supportEmail: string;
@@ -26,6 +29,7 @@ export function SiteFrame({
   path,
   signedIn,
   theme,
+  statusUrl,
   children,
 }: {
   market: FrameMarket;
@@ -33,6 +37,8 @@ export function SiteFrame({
   path: string;
   signedIn: boolean;
   theme: Theme;
+  /** The service status page, when one is set up (STATUS_PAGE_URL). */
+  statusUrl?: string;
   children: React.ReactNode;
 }) {
   const base = `/${market.code}`;
@@ -43,15 +49,14 @@ export function SiteFrame({
         Skip to content
       </a>
       <header className="sticky top-0 z-30 border-b border-border bg-surface-1/95 backdrop-blur">
-        <div className="mx-auto flex h-16 max-w-content items-center gap-2 px-4 sm:gap-6 sm:px-6">
+        <div className="mx-auto flex h-16 max-w-content items-center gap-2 px-4 sm:px-6 lg:h-20 lg:gap-6">
           <Link href={base} className="flex shrink-0 items-center rounded-sm" aria-label={`${company.name} home`}>
-            <LogoMark size={32} className="sm:hidden" title="" />
-            <Logo height={36} className="hidden sm:inline-flex" />
+            {/* The full lockup at every width: 42 px tall is its 160 px minimum width (brand/BRAND.md). */}
+            <Logo height={42} className="lg:hidden" />
+            <Logo height={48} className="hidden lg:inline-flex" />
           </Link>
-          <nav aria-label="Site" className="hidden flex-1 items-center gap-1 md:flex">
-            <Link href={`${base}#services`} className="rounded-md px-3 py-2 text-callout font-medium text-ink hover:bg-surface-2">
-              Services
-            </Link>
+          <nav aria-label="Site" className="hidden flex-1 items-center gap-1 lg:flex">
+            <ServicesMenu base={base} groups={SERVICE_MENU} />
             <Link href={`${base}/pricing`} aria-current={path === "/pricing" ? "page" : undefined} className="rounded-md px-3 py-2 text-callout font-medium text-ink hover:bg-surface-2 aria-[current=page]:text-link">
               Pricing
             </Link>
@@ -59,40 +64,47 @@ export function SiteFrame({
               Security
             </Link>
           </nav>
-          <div className="ml-auto flex items-center gap-1 sm:gap-2">
-            <MarketSwitcher markets={markets} current={market} path={path} />
+          <div className="ml-auto flex items-center gap-2">
+            <div className="hidden lg:block">
+              <MarketSwitcher markets={markets} current={market} path={path} />
+            </div>
             {signedIn ? (
               <Button asChild size="md">
                 <Link href="/app">Open console</Link>
               </Button>
             ) : (
               <>
-                <Button asChild variant="ghost" size="md" className="hidden sm:inline-flex">
+                <Button asChild variant="ghost" size="md" className="hidden lg:inline-flex">
                   <Link href="/sign-in">Sign in</Link>
                 </Button>
-                <Button asChild size="md">
+                <Button asChild size="md" className="hidden sm:inline-flex">
                   <Link href="/sign-up">Get started</Link>
                 </Button>
               </>
             )}
+            <div className="lg:hidden">
+              <SiteMenu
+                base={base}
+                groups={SERVICE_MENU}
+                pages={[
+                  { label: "Pricing", href: `${base}/pricing` },
+                  { label: "Security", href: `${base}/security` },
+                  ...(signedIn ? [] : [{ label: "Sign in", href: "/sign-in" }]),
+                ]}
+                footer={
+                  <>
+                    <MarketSwitcher markets={markets} current={market} path={path} align="start" up />
+                    {signedIn ? null : (
+                      <Button asChild size="lg" className="w-full">
+                        <Link href="/sign-up">Get started</Link>
+                      </Button>
+                    )}
+                  </>
+                }
+              />
+            </div>
           </div>
         </div>
-        <nav aria-label="Site, small screens" className="mx-auto flex max-w-content gap-1 overflow-x-auto px-3 pb-2 md:hidden">
-          <Link href={`${base}#services`} className="rounded-md px-3 py-2 text-callout font-medium text-ink hover:bg-surface-2">
-            Services
-          </Link>
-          <Link href={`${base}/pricing`} className="rounded-md px-3 py-2 text-callout font-medium text-ink hover:bg-surface-2">
-            Pricing
-          </Link>
-          <Link href={`${base}/security`} className="rounded-md px-3 py-2 text-callout font-medium text-ink hover:bg-surface-2">
-            Security
-          </Link>
-          {signedIn ? null : (
-            <Link href="/sign-in" className="rounded-md px-3 py-2 text-callout font-medium text-ink hover:bg-surface-2">
-              Sign in
-            </Link>
-          )}
-        </nav>
       </header>
 
       <main id="main" className="flex-1">
@@ -103,7 +115,7 @@ export function SiteFrame({
         <div className="mx-auto grid max-w-content gap-10 px-4 py-12 sm:px-6 md:grid-cols-4">
           <div className="flex flex-col gap-4">
             <Link href={base} aria-label={`${company.name} home`} className="w-fit rounded-sm">
-              <LogoMark size={40} onDark title="" />
+              <img src="/brand/logo/fgt-logo-reverse.svg" alt="" width={184} height={48} />
             </Link>
             <p className="text-callout">{company.tagline}</p>
             <MarketSwitcher markets={markets} current={market} path={path} align="start" tone="navy" />
@@ -149,6 +161,12 @@ export function SiteFrame({
               </a>
             ) : null}
             <p className="text-callout">{market.supportHours}</p>
+            {statusUrl ? (
+              <a href={statusUrl} className="inline-flex items-center gap-2 text-callout hover:text-on-navy hover:underline">
+                <Activity aria-hidden className="size-4" />
+                Service status
+              </a>
+            ) : null}
             {pay.length ? <p className="text-callout">Pay by {pay.join(" or ")}.</p> : null}
           </div>
         </div>
