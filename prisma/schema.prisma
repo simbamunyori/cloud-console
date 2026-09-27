@@ -286,24 +286,27 @@ enum EmailStatus {
 }
 
 /// Every email the console sends, queued in the same transaction as the
-/// change that caused it and sent by a background job.
+/// change that caused it and sent by a background job. The message is
+/// written at send time from kind and payload, so links with secrets in
+/// them (invitations) are never stored.
 model OutboundEmail {
   id             String      @id @default(cuid())
   organisationId String?
   kind           String
   toAddress      String
-  subject        String
-  text           String
-  html           String
+  payload        Json
+  /// Filled in once sent, for the record.
+  subject        String?
   status         EmailStatus @default(QUEUED)
   attempts       Int         @default(0)
+  nextAttemptAt  DateTime    @default(now())
   lastError      String?
   sentAt         DateTime?
   createdAt      DateTime    @default(now())
 
   organisation Organisation? @relation(fields: [organisationId], references: [id], onDelete: Restrict)
 
-  @@index([status, createdAt])
+  @@index([status, nextAttemptAt])
 }
 
 // ─── Rate limiting ───────────────────────────────────────────────────

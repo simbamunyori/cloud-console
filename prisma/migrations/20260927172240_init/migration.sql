@@ -207,11 +207,11 @@ CREATE TABLE "OutboundEmail" (
     "organisationId" TEXT,
     "kind" TEXT NOT NULL,
     "toAddress" TEXT NOT NULL,
-    "subject" TEXT NOT NULL,
-    "text" TEXT NOT NULL,
-    "html" TEXT NOT NULL,
+    "payload" JSONB NOT NULL,
+    "subject" TEXT,
     "status" "EmailStatus" NOT NULL DEFAULT 'QUEUED',
     "attempts" INTEGER NOT NULL DEFAULT 0,
+    "nextAttemptAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "lastError" TEXT,
     "sentAt" TIMESTAMP(3),
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -696,7 +696,7 @@ CREATE INDEX "AuditEvent_organisationId_createdAt_idx" ON "AuditEvent"("organisa
 CREATE INDEX "StaffAuditEvent_createdAt_idx" ON "StaffAuditEvent"("createdAt");
 
 -- CreateIndex
-CREATE INDEX "OutboundEmail_status_createdAt_idx" ON "OutboundEmail"("status", "createdAt");
+CREATE INDEX "OutboundEmail_status_nextAttemptAt_idx" ON "OutboundEmail"("status", "nextAttemptAt");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "BillingAccount_organisationId_key" ON "BillingAccount"("organisationId");
@@ -898,7 +898,6 @@ ALTER TABLE "StubPayMethod" ADD CONSTRAINT "StubPayMethod_clientId_fkey" FOREIGN
 
 -- AddForeignKey
 ALTER TABLE "StubDomain" ADD CONSTRAINT "StubDomain_clientId_fkey" FOREIGN KEY ("clientId") REFERENCES "StubClient"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
 -- ─── Integrity guarantees enforced by the database ──────────────────
 
 -- The audit logs are append-only: not even the application can edit or

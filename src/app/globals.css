@@ -39,6 +39,7 @@
   --color-accent-soft: var(--accent-soft);
   --color-navy: var(--brand-navy);
   --color-ink-on-dark: var(--brand-ink-on-dark);
+  --color-on-navy: var(--brand-white);
   --color-positive: var(--success);
   --color-positive-soft: var(--success-soft);
   --color-negative: var(--danger);

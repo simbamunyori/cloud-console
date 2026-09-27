@@ -27,6 +27,7 @@ const shared = {
   "--brand-blue": tokens.brand.electricBlue,
   "--brand-teal": tokens.brand.teal,
   "--brand-ink-on-dark": tokens.brand.inkOnDark,
+  "--brand-white": tokens.brand.white,
   "--brand-gradient": tokens.brand.gradient,
   "--font-family": tokens.font.family,
   "--font-family-mono": tokens.font.mono,

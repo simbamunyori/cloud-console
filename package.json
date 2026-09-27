@@ -53,9 +53,6 @@
   "engines": {
     "node": ">=22"
   },
-  "prisma": {
-    "seed": "tsx prisma/seed.ts"
-  },
   "overrides": {
     "postcss": "^8.5.28",
     "deepmerge-ts": "^8.0.2"

@@ -1,10 +1,7 @@
-import { Logo } from "@/components/ui/logo";
+import { redirect } from "next/navigation";
+import { currentSession, homeFor } from "@/server/auth/next";
 
-/** Placeholder until sign-in arrives in the next milestone. */
-export default function Root() {
-  return (
-    <main className="flex min-h-dvh items-center justify-center p-6">
-      <Logo />
-    </main>
-  );
+/** The console has no public home page: send people to sign in or to their console. */
+export default async function Root() {
+  redirect(homeFor(await currentSession()));
 }

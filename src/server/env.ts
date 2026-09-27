@@ -6,7 +6,9 @@ import { z } from "zod";
  * credentials) are read through src/server/secrets.ts instead, so a
  * vault can take over from the environment later.
  */
-const optional = (s: z.ZodTypeAny) => z.preprocess((v) => (v === "" ? undefined : v), s.optional());
+/** Unset and empty both mean "not configured". */
+const optionalText = () => z.string().optional().transform((v) => (v ? v : undefined));
+const optionalUrl = () => z.union([z.literal(""), z.string().url()]).optional().transform((v) => (v ? v : undefined));
 
 const schema = z.object({
   DATABASE_URL: z.string().url(),
@@ -15,22 +17,22 @@ const schema = z.object({
   /** What customers see the console called. Not decided yet, so it lives here. */
   CONSOLE_NAME: z.string().min(1).default("Cloud Console"),
   /** Outgoing mail server, e.g. smtps://user:pass@smtp.example.com:465, or smtp://localhost:1025 for Mailpit. */
-  SMTP_URL: optional(z.string().url()),
+  SMTP_URL: optionalUrl(),
   MAIL_FROM: z.string().min(3).default("Fourth Generation Technologies <no-reply@localhost>"),
   /** Model for the support assistant. Change it here, never in code. */
   ANTHROPIC_MODEL: z.string().min(1).default("claude-sonnet-5"),
   /** Which billing engine the console talks to. */
   BILLING_ADAPTER: z.enum(["stub", "whmcs"]).default("stub"),
   /** Base URL of WHMCS, e.g. https://billing.internal.example/includes/api.php. */
-  WHMCS_API_URL: optional(z.string().url()),
+  WHMCS_API_URL: optionalUrl(),
   /** Which card gateway takes card payments. Not chosen yet. */
   PAYMENT_ADAPTER: z.enum(["stub"]).default("stub"),
   /** Our bank account for EFT payments, shown on invoices and the pay page. */
-  EFT_BANK_NAME: optional(z.string()),
-  EFT_ACCOUNT_NAME: optional(z.string()),
-  EFT_ACCOUNT_NUMBER: optional(z.string()),
-  EFT_BRANCH_CODE: optional(z.string()),
-  EFT_SWIFT_CODE: optional(z.string()),
+  EFT_BANK_NAME: optionalText(),
+  EFT_ACCOUNT_NAME: optionalText(),
+  EFT_ACCOUNT_NUMBER: optionalText(),
+  EFT_BRANCH_CODE: optionalText(),
+  EFT_SWIFT_CODE: optionalText(),
   /** Comma-separated IPs or IPv4 ranges (CIDR) allowed to open /admin. Empty allows any address. */
   ADMIN_IP_ALLOWLIST: z.string().default(""),
   /** Set to "off" to stop background jobs on this server. */
