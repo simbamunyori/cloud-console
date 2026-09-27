@@ -43,7 +43,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
   // nonce from src/middleware.ts.
   await headers();
   return (
-    <html lang="en-BW" className={poppins.variable}>
+    <html lang="en" className={poppins.variable}>
       <body>{children}</body>
     </html>
   );

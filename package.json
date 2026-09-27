@@ -15,7 +15,8 @@
     "db:dev": "prisma migrate dev",
     "db:seed": "tsx prisma/seed.ts",
     "copy-check": "tsx scripts/check-copy.ts",
-    "check": "npm run lint && npm run typecheck && npm run copy-check && npm test"
+    "check": "npm run lint && npm run typecheck && npm run copy-check && npm test",
+    "screenshots:hero": "tsx scripts/hero-screenshots.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.128.0",
@@ -24,6 +25,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^1.48.0",
+    "maxmind": "^5.0.7",
     "next": "15.5.26",
     "nodemailer": "^10.0.10",
     "pg-boss": "^10.1.6",
@@ -35,7 +37,9 @@
     "zod": "^4.6.5"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
     "@eslint/eslintrc": "^3",
+    "@playwright/test": "1.56.1",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/nodemailer": "^8.0.2",

@@ -1,0 +1,11 @@
+import type { MetadataRoute } from "next";
+import { env } from "@/server/env";
+
+/** The public site is for search engines; the consoles and the switcher aren't. */
+export default function robots(): MetadataRoute.Robots {
+  const base = env().APP_URL.replace(/\/$/, "");
+  return {
+    rules: [{ userAgent: "*", allow: "/", disallow: ["/app", "/admin", "/sign-in", "/sign-up", "/invite", "/setup-authenticator", "/switch-market", "/stub-gateway"] }],
+    sitemap: `${base}/sitemap.xml`,
+  };
+}

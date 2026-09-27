@@ -65,6 +65,10 @@
   --shadow-elevation-2: var(--elevation2);
   --shadow-elevation-3: var(--elevation3);
 
+  --text-hero: var(--type-hero-size);
+  --text-hero--line-height: var(--type-hero-line);
+  --text-hero--letter-spacing: var(--type-hero-tracking);
+  --text-hero--font-weight: var(--type-hero-weight);
   --text-display: var(--type-display-size);
   --text-display--line-height: var(--type-display-line);
   --text-display--letter-spacing: var(--type-display-tracking);
