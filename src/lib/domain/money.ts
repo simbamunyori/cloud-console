@@ -17,14 +17,16 @@ interface CurrencyInfo {
   exponent: number;
   /** What goes before the amount on screen. */
   prefix: string;
+  /** In a sentence: "in pula". */
+  name: string;
 }
 
 const CURRENCIES: Record<string, CurrencyInfo> = {
-  BWP: { exponent: 2, prefix: "P" },
-  ZAR: { exponent: 2, prefix: "R" },
-  USD: { exponent: 2, prefix: "US$" },
-  ZWG: { exponent: 2, prefix: "ZiG" },
-  EUR: { exponent: 2, prefix: "€" },
+  BWP: { exponent: 2, prefix: "P", name: "pula" },
+  ZAR: { exponent: 2, prefix: "R", name: "rand" },
+  USD: { exponent: 2, prefix: "US$", name: "US dollars" },
+  ZWG: { exponent: 2, prefix: "ZiG", name: "ZiG" },
+  EUR: { exponent: 2, prefix: "€", name: "euro" },
 };
 
 export function currencyInfo(currency: string): CurrencyInfo {

@@ -5,6 +5,7 @@ import { env } from "@/server/env";
 import { emailAdapter } from "@/server/email/adapter";
 import { deliverDue } from "@/server/email/outbox";
 import { billingAdapter } from "@/server/billing";
+import { applyDefaultPoNumbers } from "@/server/billing/po";
 import { StubBillingAdapter } from "@/server/billing/stub/stub-adapter";
 
 /**
@@ -25,6 +26,7 @@ const JOBS: Job[] = [
       if (adapter instanceof StubBillingAdapter) await adapter.runBillingCycle();
     },
   },
+  { name: "default-po-numbers", cron: "0 3 * * *", run: () => applyDefaultPoNumbers(prisma, billingAdapter()) },
 ];
 
 /** Later milestones add their jobs here (billing sync, purges). */
