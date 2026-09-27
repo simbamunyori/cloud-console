@@ -1,0 +1,140 @@
+@import "tailwindcss";
+@plugin "../config/theme/tokens-plugin.mjs";
+
+/*
+ * No values live here. Every colour, font, radius and spacing value comes
+ * from src/config/theme/tokens.json through the plugin above; this file
+ * only gives those variables Tailwind names. Components use the names
+ * (bg-surface-1, text-ink-muted, border-border-strong ...), never hex.
+ *
+ * Dark mode follows the device, or data-theme="dark" on <html>.
+ */
+
+@custom-variant dark {
+  &:where([data-theme="dark"], [data-theme="dark"] *) {
+    @slot;
+  }
+  @media (prefers-color-scheme: dark) {
+    &:where(:root:not([data-theme="light"]), :root:not([data-theme="light"]) *) {
+      @slot;
+    }
+  }
+}
+
+@theme inline {
+  --color-*: initial;
+  --color-surface-0: var(--page);
+  --color-surface-1: var(--card);
+  --color-surface-2: var(--subtle);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-ink: var(--text);
+  --color-ink-body: var(--text-body);
+  --color-ink-muted: var(--text-muted);
+  --color-brand: var(--primary);
+  --color-on-brand: var(--on-primary);
+  --color-brand-soft: var(--primary-soft);
+  --color-link: var(--primary-text);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-navy: var(--brand-navy);
+  --color-ink-on-dark: var(--brand-ink-on-dark);
+  --color-positive: var(--success);
+  --color-positive-soft: var(--success-soft);
+  --color-negative: var(--danger);
+  --color-negative-soft: var(--danger-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-focus: var(--focus);
+  --color-scrim: var(--scrim);
+  --color-transparent: transparent;
+  --color-current: currentColor;
+
+  --font-sans: var(--font-poppins), var(--font-family);
+  --font-mono: var(--font-family-mono);
+
+  --radius-sm: var(--radius-token-sm);
+  --radius-md: var(--radius-token-md);
+  --radius-lg: var(--radius-token-lg);
+  --radius-full: 9999px;
+
+  --spacing: var(--space-unit);
+
+  --shadow-elevation-1: var(--elevation1);
+  --shadow-elevation-2: var(--elevation2);
+  --shadow-elevation-3: var(--elevation3);
+
+  --text-display: var(--type-display-size);
+  --text-display--line-height: var(--type-display-line);
+  --text-display--letter-spacing: var(--type-display-tracking);
+  --text-display--font-weight: var(--type-display-weight);
+  --text-title-1: var(--type-title-1-size);
+  --text-title-1--line-height: var(--type-title-1-line);
+  --text-title-1--letter-spacing: var(--type-title-1-tracking);
+  --text-title-1--font-weight: var(--type-title-1-weight);
+  --text-title-2: var(--type-title-2-size);
+  --text-title-2--line-height: var(--type-title-2-line);
+  --text-title-2--letter-spacing: var(--type-title-2-tracking);
+  --text-title-2--font-weight: var(--type-title-2-weight);
+  --text-headline: var(--type-headline-size);
+  --text-headline--line-height: var(--type-headline-line);
+  --text-headline--font-weight: var(--type-headline-weight);
+  --text-body: var(--type-body-size);
+  --text-body--line-height: var(--type-body-line);
+  --text-callout: var(--type-callout-size);
+  --text-callout--line-height: var(--type-callout-line);
+  --text-caption: var(--type-caption-size);
+  --text-caption--line-height: var(--type-caption-line);
+
+  --tracking-headline: var(--tracking-headline);
+  --tracking-label: var(--tracking-label);
+
+  --container-sidebar: var(--layout-sidebar);
+  --container-content: var(--layout-content);
+  --container-auth-panel: var(--layout-auth-panel);
+}
+
+@utility bg-brand-gradient {
+  background-image: var(--brand-gradient);
+}
+
+/* Section labels (BRAND.md): Medium, uppercase, wide tracking. Use sparingly. */
+@utility label-kicker {
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+  font-weight: 500;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    background: var(--page);
+    color: var(--text-body);
+    font-family: var(--font-poppins), var(--font-family);
+    font-size: var(--type-body-size);
+    line-height: var(--type-body-line);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  h1,
+  h2,
+  h3 {
+    color: var(--text);
+  }
+  :focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
