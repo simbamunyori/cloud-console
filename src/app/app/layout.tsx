@@ -4,11 +4,13 @@ import { MobileNav } from "@/components/app/mobile-nav";
 import { OrgSwitcher } from "@/components/app/org-switcher";
 import { SidebarNav, type NavItem } from "@/components/app/sidebar-nav";
 import { UserCard } from "@/components/app/user-card";
+import { ThemeSwitch } from "@/components/theme/theme-switch";
 import { Logo, LogoMark } from "@/components/ui/logo";
 import { organisationsFor } from "@/server/auth/service";
 import { prisma } from "@/server/db";
 import { ROLE_LABEL } from "@/server/org/access";
 import { requireMember } from "@/server/org/context";
+import { currentTheme } from "@/server/theme";
 
 const NAV: NavItem[] = [
   { href: "/app", label: "Home", icon: "home", exact: true },
@@ -33,6 +35,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   );
   const user = <UserCard name={actor.name} role={ROLE_LABEL[actor.role]} signOut={signOutAction} />;
 
+  const themeSwitch = <ThemeSwitch current={await currentTheme()} />;
+
   return (
     <div className="min-h-dvh lg:flex">
       <a
@@ -47,7 +51,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         </Link>
         {org()}
         <SidebarNav items={NAV} />
-        <div className="mt-auto">{user}</div>
+        <div className="mt-auto flex flex-col gap-4">
+          {themeSwitch}
+          {user}
+        </div>
       </aside>
       <header className="sticky top-0 z-10 flex h-14 items-center justify-between border-b border-border bg-surface-1 px-4 lg:hidden">
         <Link href="/app" className="rounded-sm">
@@ -59,6 +66,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           footer={
             <div className="flex flex-col gap-4">
               {org(true)}
+              {themeSwitch}
               {user}
             </div>
           }

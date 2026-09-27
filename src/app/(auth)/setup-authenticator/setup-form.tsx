@@ -51,17 +51,17 @@ export function SetupForm({
       <ol className="flex flex-col gap-6 rounded-lg border border-border bg-surface-1 p-6">
         <li className="flex flex-col gap-5 sm:flex-row sm:items-start">
           <div
-            className="size-[176px] shrink-0 self-center rounded-md border border-border bg-white p-3 sm:self-start [&_svg]:size-full"
+            className="size-44 shrink-0 self-center rounded-md border border-border bg-white p-3 sm:self-start [&_svg]:size-full"
             role="img"
             aria-label="QR code for your authenticator app"
             dangerouslySetInnerHTML={{ __html: qrSvg }}
           />
           <div className="flex flex-col gap-2">
             <span className="font-semibold text-ink">1. Scan this code</span>
-            <span className="text-[14px] leading-5 text-ink-muted">
+            <span className="text-callout text-ink-muted">
               Use Google Authenticator, Microsoft Authenticator or 1Password.
             </span>
-            <a href={otpauthUri} className="text-[14px] leading-5 font-medium text-link hover:underline sm:hidden">
+            <a href={otpauthUri} className="text-callout font-medium text-link hover:underline sm:hidden">
               On this phone? Open in your authenticator app
             </a>
             <span className="mt-1 text-callout text-ink-muted">Can&apos;t scan? Enter this key:</span>
@@ -93,7 +93,7 @@ function CopyableKey({ value }: { value: string }) {
   const [copied, setCopied] = useState(false);
   return (
     <div className="flex items-center gap-2">
-      <code className="rounded-sm bg-surface-2 px-2.5 py-1.5 font-mono text-[14px] leading-5 text-ink">{value}</code>
+      <code className="rounded-sm bg-surface-2 px-2.5 py-1.5 font-mono text-callout text-ink">{value}</code>
       <button
         type="button"
         onClick={async () => {
@@ -156,7 +156,7 @@ function RecoveryCodes({ codes, consoleName, home }: { codes: string[]; consoleN
           type="checkbox"
           checked={saved}
           onChange={(e) => setSaved(e.target.checked)}
-          className="mt-1 size-4 accent-[var(--brand)]"
+          className="mt-1 size-4 accent-brand"
         />
         I&apos;ve saved these codes somewhere safe
       </label>

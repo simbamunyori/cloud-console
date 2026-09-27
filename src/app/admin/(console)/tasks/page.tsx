@@ -51,7 +51,7 @@ export default async function TasksPage({ searchParams }: { searchParams: Promis
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="flex min-w-0 flex-col gap-1">
                       <span className="text-callout text-ink-muted">
-                        <Link href={`/admin/customers/${t.organisation.id}`} className="text-link hover:underline">
+                        <Link href={`/admin/customers/${t.organisation.id}`} className="text-link underline underline-offset-2">
                           {t.organisation.name}
                         </Link>
                         {t.order ? `, order ${t.order.reference}` : ""}

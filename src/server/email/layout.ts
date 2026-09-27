@@ -45,7 +45,7 @@ export function renderEmail(body: EmailBody, appUrl: string): { text: string; ht
         .join("")}</table>`
     : "";
   const button = body.button
-    ? `<p style="margin:0 0 24px"><a href="${escapeHtml(body.button.url)}" style="display:inline-block;background:${t.primary};color:${t.onPrimary};text-decoration:none;font-weight:600;padding:12px 20px;border-radius:${tokens.radius.md}">${escapeHtml(body.button.label)}</a></p>`
+    ? `<p style="margin:0 0 24px"><a href="${escapeHtml(body.button.url)}" style="display:inline-block;background:${tokens.console.light.primaryFill};color:${t.onPrimary};text-decoration:none;font-weight:600;padding:12px 20px;border-radius:${tokens.radius.md}">${escapeHtml(body.button.label)}</a></p>`
     : "";
   const html = `<!doctype html><html><body style="margin:0;background:${tokens.console.light.page};font-family:${font};color:${t.text}">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:32px 16px">

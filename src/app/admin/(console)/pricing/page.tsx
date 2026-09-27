@@ -125,7 +125,7 @@ export default async function PricingPage({ searchParams }: { searchParams: Prom
             action={<ApproveAllForm market={selected.code} count={waiting} />}
           />
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[60rem] text-left text-callout">
+            <table className="w-full min-w-240 text-left text-callout">
               <thead className="text-ink-muted">
                 <tr className="border-b border-border">
                   <th scope="col" className="px-5 py-3 font-semibold sm:px-6">Product</th>

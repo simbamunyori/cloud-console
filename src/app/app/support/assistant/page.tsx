@@ -79,7 +79,7 @@ export default async function AssistantPage({ searchParams }: { searchParams: Pr
         <ArrowLeft aria-hidden className="size-4" /> Support
       </Link>
       <PageHeader title="Assistant" description="It looks up your own account to answer, and never changes anything unless you confirm." />
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_16rem] [&>*]:min-w-0">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_var(--layout-aside)] [&>*]:min-w-0">
         <div className="flex flex-col gap-4">
           {!on ? <Alert tone="info">The assistant isn&apos;t switched on yet. <Link href="/app/support/new" className="font-semibold underline">Ask our team</Link> instead.</Alert> : null}
           {action === "failed" ? <Alert>That couldn&apos;t be done. It may have changed since the assistant suggested it. Ask again, or ask our team.</Alert> : null}
@@ -109,11 +109,11 @@ export default async function AssistantPage({ searchParams }: { searchParams: Pr
             <ol className="flex flex-col gap-4" aria-label="Conversation">
               {turns.map(({ m, actions, last }) => (
                 <li key={m.id} id={last ? "latest" : undefined} className={cn("flex flex-col gap-3", m.role === "USER" ? "items-end" : "items-start")}>
-                  <div className={cn("max-w-[36rem] rounded-lg px-4 py-3", m.role === "USER" ? "bg-navy text-on-navy" : "border border-border bg-surface-1 text-ink-body")}>
+                  <div className={cn("max-w-xl rounded-lg px-4 py-3", m.role === "USER" ? "bg-navy text-on-navy" : "border border-border bg-surface-1 text-ink-body")}>
                     <p className="text-body whitespace-pre-wrap">{m.text}</p>
                   </div>
                   {actions.map((a) => (
-                    <div key={a.id} className="w-full max-w-[36rem]">
+                    <div key={a.id} className="w-full max-w-xl">
                       <ActionCard action={a} conversationId={conversation!.id} />
                     </div>
                   ))}

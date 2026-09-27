@@ -86,11 +86,11 @@ export default async function StatementsPage({ searchParams }: { searchParams: P
           ) : (
             <ul className="divide-y divide-border">
               {statement.rows.map((r, i) => (
-                <li key={i} className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-0.5 px-5 py-3 sm:grid-cols-[7rem_1fr_8rem_8rem] sm:items-center sm:px-6">
+                <li key={i} className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-0.5 px-5 py-3 sm:grid-cols-[var(--layout-column-date)_1fr_var(--layout-column-amount)_var(--layout-column-amount)] sm:items-center sm:px-6">
                   <span className="text-callout text-ink-muted sm:text-body sm:text-ink-body">{formatDay(r.date, true)}</span>
                   <span className="order-first col-span-2 text-ink sm:order-none sm:col-span-1">
                     {r.kind === "invoice" && r.invoiceId ? (
-                      <Link href={`/app/billing/invoices/${r.invoiceId}`} className="text-link hover:underline">
+                      <Link href={`/app/billing/invoices/${r.invoiceId}`} className="text-link underline underline-offset-2">
                         {r.description}
                       </Link>
                     ) : (

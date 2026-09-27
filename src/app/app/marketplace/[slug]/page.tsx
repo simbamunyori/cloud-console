@@ -40,7 +40,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
         <ArrowLeft aria-hidden className="size-4" /> Marketplace
       </Link>
       <PageHeader eyebrow={product.category.name} title={product.name} description={product.summary} />
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_24rem] [&>*]:min-w-0">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_var(--layout-aside-wide)] [&>*]:min-w-0">
         <div className="flex flex-col gap-6">
           <Card>
             <CardBody className="grid gap-6 sm:grid-cols-2">

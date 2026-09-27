@@ -108,7 +108,7 @@ export default async function ServicePage({ params }: { params: Promise<{ id: st
 
         <p className="text-callout text-ink-muted">
           Something not right with this service?{" "}
-          <Link href={`/app/support?service=${service.serviceId}`} className="text-link hover:underline">
+          <Link href={`/app/support?service=${service.serviceId}`} className="text-link underline underline-offset-2">
             Ask for help
           </Link>
           .

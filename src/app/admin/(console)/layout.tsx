@@ -3,12 +3,14 @@ import { staffSignOutAction } from "@/app/(auth)/actions";
 import { MobileNav } from "@/components/app/mobile-nav";
 import { SidebarNav, type NavItem } from "@/components/app/sidebar-nav";
 import { UserCard } from "@/components/app/user-card";
+import { ThemeSwitch } from "@/components/theme/theme-switch";
 import { Badge } from "@/components/ui/badge";
 import { Logo, LogoMark } from "@/components/ui/logo";
 import { requireStaff } from "@/server/admin/context";
 import { staffOverview } from "@/server/admin/customers";
 import { prisma } from "@/server/db";
 import { STAFF_ROLE_LABEL, staffCan, type StaffPermission } from "@/server/staff/access";
+import { currentTheme } from "@/server/theme";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const { staff } = await requireStaff();
@@ -27,6 +29,8 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const nav: NavItem[] = all.filter((i) => staffCan(staff, i.needs)).map(({ needs: _needs, ...i }) => i);
   const user = <UserCard name={staff.name} role={`${STAFF_ROLE_LABEL[staff.staffRole]} staff`} signOut={staffSignOutAction} />;
 
+  const themeSwitch = <ThemeSwitch current={await currentTheme()} />;
+
   return (
     <div className="min-h-dvh lg:flex">
       <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:rounded-md focus:bg-surface-1 focus:px-4 focus:py-2">
@@ -38,14 +42,23 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           <Badge tone="warning">Staff console</Badge>
         </Link>
         <SidebarNav items={nav} />
-        <div className="mt-auto">{user}</div>
+        <div className="mt-auto flex flex-col gap-4">
+          {themeSwitch}
+          {user}
+        </div>
       </aside>
       <header className="sticky top-0 z-10 flex h-14 items-center justify-between border-b border-border bg-surface-1 px-4 lg:hidden">
         <Link href="/admin" className="flex items-center gap-2 rounded-sm">
           <LogoMark size={32} />
           <Badge tone="warning">Staff</Badge>
         </Link>
-        <MobileNav items={nav} header={<LogoMark size={32} />} footer={user} />
+        <MobileNav items={nav} header={<LogoMark size={32} />} footer={
+            <div className="flex flex-col gap-4">
+              {themeSwitch}
+              {user}
+            </div>
+          }
+        />
       </header>
       <main id="main" className="min-w-0 flex-1 px-4 py-6 sm:px-8 lg:px-12 lg:py-10">
         <div className="mx-auto max-w-content">{children}</div>

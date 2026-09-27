@@ -3,6 +3,8 @@ import { Button } from "@/components/ui/button";
 import { Logo, LogoMark } from "@/components/ui/logo";
 import { company } from "@/config/app";
 import { LEGAL_PAGES } from "@/config/site";
+import type { Theme } from "@/lib/theme";
+import { ThemeSwitch } from "@/components/theme/theme-switch";
 import { MarketSwitcher, type SwitcherMarket } from "./market-switcher";
 
 export interface FrameMarket extends SwitcherMarket {
@@ -23,12 +25,14 @@ export function SiteFrame({
   markets,
   path,
   signedIn,
+  theme,
   children,
 }: {
   market: FrameMarket;
   markets: SwitcherMarket[];
   path: string;
   signedIn: boolean;
+  theme: Theme;
   children: React.ReactNode;
 }) {
   const base = `/${market.code}`;
@@ -149,9 +153,12 @@ export function SiteFrame({
           </div>
         </div>
         <div className="border-t border-on-navy/10">
-          <p className="mx-auto max-w-content px-4 py-6 text-caption sm:px-6">
-            © {new Date().getFullYear()} {company.legalName}
-          </p>
+          <div className="mx-auto flex max-w-content flex-wrap items-center justify-between gap-4 px-4 py-6 sm:px-6">
+            <p className="text-caption">
+              © {new Date().getFullYear()} {company.legalName}
+            </p>
+            <ThemeSwitch current={theme} tone="navy" />
+          </div>
         </div>
       </footer>
     </div>

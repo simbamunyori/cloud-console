@@ -1,8 +1,9 @@
-import { Search } from "lucide-react";
+import { PackageOpen, Search } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Amount } from "@/components/ui/amount";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
 import { monthOf } from "@/lib/domain/pricing";
 import { requireBilling } from "@/server/billing/context";
@@ -34,6 +35,12 @@ export default async function MarketplacePage() {
             <Search aria-hidden /> Search
           </Button>
         </form>
+
+        {categories.length ? null : (
+          <EmptyState icon={PackageOpen} title="Nothing to order here yet">
+            We&apos;re still setting prices for your country. Contact support and we&apos;ll quote you directly.
+          </EmptyState>
+        )}
 
         {categories.map(({ category, products }) => (
           <section key={category.key} aria-labelledby={`cat-${category.key}`} className="flex flex-col gap-4">

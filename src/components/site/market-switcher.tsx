@@ -25,7 +25,7 @@ export function MarketSwitcher({ markets, current, path, align = "end", tone = "
       >
         <Globe aria-hidden className="size-4" />
         <span>{current.name}</span>
-        <ChevronDown aria-hidden className="size-4 transition-transform duration-150 group-open:rotate-180 motion-reduce:transition-none" />
+        <ChevronDown aria-hidden className="size-4 transition-transform duration-fast group-open:rotate-180 motion-reduce:transition-none" />
       </summary>
       <ul
         className={cn(

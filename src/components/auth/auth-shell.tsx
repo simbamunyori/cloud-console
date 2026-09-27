@@ -41,7 +41,7 @@ export function AuthShell({ title = PROMISE, points = OUTCOMES, children }: Auth
       </aside>
       <main className="flex flex-1 flex-col items-center justify-center px-4 py-12 sm:px-12">
         <Logo className="mb-10 lg:hidden" />
-        <div className="w-full max-w-[440px]">{children}</div>
+        <div className="w-full max-w-form">{children}</div>
       </main>
     </div>
   );

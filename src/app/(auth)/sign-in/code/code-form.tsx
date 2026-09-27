@@ -64,7 +64,7 @@ export function CodeForm({
       <Button type="submit" size="lg" disabled={pending} className="w-full">
         {pending ? "Checking…" : "Sign in"}
       </Button>
-      <div className="flex flex-col gap-2 border-t border-border pt-4 text-[14px] leading-5">
+      <div className="flex flex-col gap-2 border-t border-border pt-4 text-callout">
         <button type="button" onClick={() => setUseBackup((v) => !v)} className="self-start font-medium text-link hover:underline">
           {useBackup ? "Use the code from my app" : "I don't have my phone"}
         </button>

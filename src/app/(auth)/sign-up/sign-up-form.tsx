@@ -64,7 +64,7 @@ export function SignUpForm({ consoleName, countries, detectedCountry }: { consol
           Next you&apos;ll set up an authenticator app. Every account needs one.
         </p>
       </div>
-      <p className="border-t border-border pt-4 text-[14px] leading-5 text-ink-muted">
+      <p className="border-t border-border pt-4 text-callout text-ink-muted">
         Already use {consoleName}?{" "}
         <Link href="/sign-in" className="font-medium text-link hover:underline">
           Sign in

@@ -30,7 +30,7 @@ export default async function StaffTicketPage({ params }: { params: Promise<{ re
       <PageHeader
         eyebrow={
           <>
-            <Link href={`/admin/customers/${ticket.organisation.id}`} className="text-link hover:underline">
+            <Link href={`/admin/customers/${ticket.organisation.id}`} className="text-link underline underline-offset-2">
               {ticket.organisation.name}
             </Link>
             , ticket {ticket.reference}

@@ -45,7 +45,7 @@ export function SignInForm({
         {pending ? "Checking…" : "Continue"}
       </Button>
       {signUp ? (
-        <p className="border-t border-border pt-4 text-[14px] leading-5 text-ink-muted">
+        <p className="border-t border-border pt-4 text-callout text-ink-muted">
           New here?{" "}
           <Link href="/sign-up" className="font-medium text-link hover:underline">
             Open an account

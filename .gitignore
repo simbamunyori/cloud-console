@@ -45,3 +45,9 @@ backups/
 
 # copied from brand/ by scripts/copy-brand.mjs
 /public/brand/
+
+# Browser checks
+/test-results/
+/playwright-report/
+/.lighthouseci/
+/screenshots-full/

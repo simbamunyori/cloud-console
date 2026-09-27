@@ -69,7 +69,7 @@ export function SidebarNav({ items, onNavigate }: { items: NavItem[]; onNavigate
               active ? "bg-brand-soft font-semibold text-link" : "text-ink-muted hover:bg-surface-2 hover:text-ink",
             )}
           >
-            <Icon aria-hidden className="size-[18px]" strokeWidth={active ? 2 : 1.75} />
+            <Icon aria-hidden className="size-5" strokeWidth={active ? 2 : 1.75} />
             <span className="flex-1">{label}</span>
             {badge ? (
               <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-brand px-1.5 text-caption font-semibold text-on-brand tabular-nums">

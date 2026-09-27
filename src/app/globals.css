@@ -31,7 +31,8 @@
   --color-ink: var(--text);
   --color-ink-body: var(--text-body);
   --color-ink-muted: var(--text-muted);
-  --color-brand: var(--primary);
+  --color-brand: var(--primary-fill);
+  --color-brand-hover: var(--primary-fill-hover);
   --color-on-brand: var(--on-primary);
   --color-brand-soft: var(--primary-soft);
   --color-link: var(--primary-text);
@@ -97,6 +98,30 @@
   --container-sidebar: var(--layout-sidebar);
   --container-content: var(--layout-content);
   --container-auth-panel: var(--layout-auth-panel);
+  --container-form: var(--layout-form);
+
+  --ease-standard: var(--motion-ease);
+  --default-transition-duration: var(--motion-fast);
+  --default-transition-timing-function: var(--motion-ease);
+}
+
+/* Motion (tokens.json "motion"): 150 to 250 ms, and off when the device asks. */
+@utility duration-fast {
+  transition-duration: var(--motion-fast);
+}
+@utility duration-base {
+  transition-duration: var(--motion-base);
+}
+@utility duration-slow {
+  transition-duration: var(--motion-slow);
+}
+
+/* Widths that are a token capped by the screen, so dialogs and the menu never touch its edges. */
+@utility w-dialog {
+  width: min(var(--layout-dialog), 100% - 2 * var(--space-4));
+}
+@utility w-drawer {
+  width: min(var(--layout-drawer), 100% - var(--space-7));
 }
 
 @utility bg-brand-gradient {
@@ -139,7 +164,9 @@
     *::before,
     *::after {
       animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
       transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
     }
   }
 }

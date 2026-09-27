@@ -104,7 +104,7 @@ export default async function HomePage() {
               <CardBody>
                 <p className="text-ink-muted">
                   Nothing yet.{" "}
-                  <Link href="/app/marketplace" className="text-link hover:underline">
+                  <Link href="/app/marketplace" className="text-link underline underline-offset-2">
                     Browse the marketplace
                   </Link>{" "}
                   to add your first service.

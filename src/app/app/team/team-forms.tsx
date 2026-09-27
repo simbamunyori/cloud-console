@@ -22,7 +22,7 @@ export function InviteForm({ roles }: { roles: RoleOption[] }) {
     <form ref={formRef} action={action} className="flex flex-col gap-4" noValidate>
       {state.error ? <Alert>{state.error}</Alert> : null}
       {state.ok && state.message ? <Alert tone="positive">{state.message}</Alert> : null}
-      <div className="grid gap-4 sm:grid-cols-[1fr_220px]">
+      <div className="grid gap-4 sm:grid-cols-[2fr_1fr]">
         <TextField id="email" label="Email" type="email" inputMode="email" autoComplete="off" required defaultValue={state.ok ? "" : state.values?.email} error={fe.email} />
         <SelectField
           id="role"
@@ -58,7 +58,7 @@ export function MemberActions({ membershipId, name, role, roles }: { membershipI
             <legend className="mb-1 text-callout font-semibold text-ink">Role</legend>
             {roles.map((r) => (
               <label key={r.value} className="flex items-start gap-3 rounded-md border border-border p-3 has-[:checked]:border-brand has-[:checked]:bg-brand-soft">
-                <input type="radio" name="role" value={r.value} defaultChecked={r.value === role} className="mt-1 accent-[var(--primary)]" />
+                <input type="radio" name="role" value={r.value} defaultChecked={r.value === role} className="mt-1 accent-brand" />
                 <span className="flex flex-col">
                   <span className="font-semibold text-ink">{r.label}</span>
                   <span className="text-callout text-ink-muted">{r.description}</span>

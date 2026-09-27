@@ -34,7 +34,7 @@ export function MobileNav({ header, footer, items }: { header: React.ReactNode; 
         ref={ref}
         onClose={() => setOpen(false)}
         onClick={(e) => e.target === ref.current && setOpen(false)}
-        className="m-0 h-dvh max-h-none w-72 max-w-[85vw] bg-surface-1 p-0 text-ink backdrop:bg-scrim"
+        className="m-0 h-dvh max-h-none w-drawer bg-surface-1 p-0 text-ink backdrop:bg-scrim"
       >
         <div className="flex h-full flex-col gap-6 p-4">
           <div className="flex items-center justify-between">

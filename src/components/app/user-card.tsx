@@ -19,7 +19,7 @@ export function UserCard({ name, role, signOut }: { name: string; role: string; 
           aria-label="Sign out"
           title="Sign out"
         >
-          <LogOut aria-hidden className="size-[18px]" />
+          <LogOut aria-hidden className="size-5" />
         </button>
       </form>
     </div>

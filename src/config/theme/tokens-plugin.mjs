@@ -37,10 +37,9 @@ const shared = {
   "--radius-token-md": tokens.radius.md,
   "--radius-token-lg": tokens.radius.lg,
   "--space-unit": tokens.space["1"],
-  "--layout-sidebar": tokens.layout.sidebar,
-  "--layout-content": tokens.layout.content,
-  "--layout-auth-panel": tokens.layout.authPanel,
 };
+for (const [k, v] of Object.entries(tokens.layout)) shared[`--layout-${kebab(k)}`] = v;
+for (const [k, v] of Object.entries(tokens.motion)) shared[`--motion-${k}`] = v;
 for (const [k, v] of Object.entries(tokens.space)) shared[`--space-${k}`] = v;
 for (const [name, t] of Object.entries(tokens.font.scale)) {
   shared[`--type-${name}-size`] = t.size;
