@@ -11,12 +11,6 @@ import { SetupForm } from "./setup-form";
 
 export const metadata: Metadata = { title: "Protect your account" };
 
-const POINTS: [string, string][] = [
-  ["One account for every service", "Microsoft 365, Google Workspace, servers, hosting and domains."],
-  ["One monthly invoice in pula", "Every line explained, with what changed since last month."],
-  ["Two-step login for everyone", "A code from your phone on every sign-in, for every user."],
-];
-
 export default async function SetupAuthenticatorPage() {
   const session = await currentSession();
   // Confirming setup signs the person in, and Next.js then re-renders this
@@ -36,7 +30,7 @@ export default async function SetupAuthenticatorPage() {
   const isNewOrganisation = session!.user.lastLoginAt === null;
 
   return (
-    <AuthShell title="Your cloud, in one place." points={POINTS}>
+    <AuthShell>
       <SetupForm
         consoleName={env().CONSOLE_NAME}
         eyebrow={isNewOrganisation ? "Step 2 of 2" : undefined}

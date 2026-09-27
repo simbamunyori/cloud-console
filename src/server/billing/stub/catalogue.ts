@@ -25,7 +25,7 @@ export const STUB_PRODUCTS = [
   { key: "backup-gws", gid: 5, groupName: "Protection", name: "Backup for Google Workspace", type: "other", monthly: 3500n },
   { key: "backup-server", gid: 5, groupName: "Protection", name: "Server backup", type: "other", monthly: 25000n },
   { key: "disaster-recovery", gid: 5, groupName: "Protection", name: "Disaster recovery", type: "other", monthly: 120000n },
-  { key: "botswana-copy", gid: 5, groupName: "Protection", name: "Botswana Copy", type: "other", monthly: 30000n },
+  { key: "local-data-copy", gid: 5, groupName: "Protection", name: "Local data copy", type: "other", monthly: 30000n },
   { key: "mdr", gid: 5, groupName: "Protection", name: "Managed detection and response", type: "other", monthly: 12000n },
   { key: "thebe", gid: 6, groupName: "Our software", name: "Thebe", type: "other", monthly: 65000n },
   { key: "migration-pack", gid: 7, groupName: "Services", name: "Setup and migration pack", type: "other", monthly: 0n, setup: 250000n },
@@ -35,7 +35,7 @@ export const STUB_PRODUCTS = [
 
 export type StubProductKey = (typeof STUB_PRODUCTS)[number]["key"];
 
-/** Domain endings we sell, in pula. `taken` are names the stub treats as registered elsewhere. */
+/** Domain endings we sell, priced in BWP. `taken` are names the stub treats as registered elsewhere. */
 export const STUB_TLDS = [
   { tld: ".bw", register: 35000n, renew: 35000n, transfer: 35000n, taken: ["bocra", "debswana", "gov", "mascom", "btc", "orange"] },
   { tld: ".co.bw", register: 18000n, renew: 18000n, transfer: 18000n, taken: ["debswana", "mascom", "orange", "fnb", "choppies", "example"] },

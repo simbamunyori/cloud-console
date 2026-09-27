@@ -32,7 +32,7 @@ export default async function PricingPage() {
     <>
       <PageHeader
         title="Pricing"
-        description={`Prices are worked out from our cost, the exchange rate, the currency buffer and the category margin, then rounded up to a whole pula. ${formatMonth(today)} prices are fixed; changes here apply from ${nextLabel}.`}
+        description={`Prices are worked out from our cost, the exchange rate, the currency buffer and the category margin, then rounded up to a whole unit of the currency. ${formatMonth(today)} prices are fixed; changes here apply from ${nextLabel}.`}
       />
       <div className="flex flex-col gap-6">
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 [&>*]:min-w-0">

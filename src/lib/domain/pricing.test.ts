@@ -3,7 +3,7 @@ import { money } from "./money";
 import { customerPrice, PricingError, roundUpToUnit } from "./pricing";
 
 describe("customer prices", () => {
-  it("converts, adds the buffer and the margin, then rounds up to a whole pula", () => {
+  it("converts, adds the buffer and the margin, then rounds up to a whole unit", () => {
     // US$ 12.50 at P 13.45, 3% buffer, 20% margin:
     // 1250 * 13.45 = 16812.5 -> 16813; +3% = 17317 (504.39 -> 504); +20% = 20780 (3463.4 -> 3463); up to P 208.00.
     const { price, breakdown } = customerPrice({ cost: money(1250n, "USD"), marginBps: 2000, bufferBps: 300, rateMicros: 13_450_000n }, "BWP");

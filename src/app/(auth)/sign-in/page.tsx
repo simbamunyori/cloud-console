@@ -8,12 +8,6 @@ import { SignInForm } from "./sign-in-form";
 
 export const metadata: Metadata = { title: "Sign in" };
 
-const POINTS: [string, string][] = [
-  ["One account for every service", "Microsoft 365, Google Workspace, servers, hosting and domains."],
-  ["One monthly invoice in pula", "Every line explained, with what changed since last month."],
-  ["Two-step login for everyone", "A code from your phone on every sign-in, for every user."],
-];
-
 export default async function SignInPage({
   searchParams,
 }: {
@@ -29,7 +23,7 @@ export default async function SignInPage({
   else if (params["signed-out"]) notice = { tone: "positive", text: "You've signed out." };
 
   return (
-    <AuthShell title="Your cloud, in one place." points={POINTS}>
+    <AuthShell>
       <SignInForm consoleName={env().CONSOLE_NAME} next={typeof params.next === "string" ? params.next : "/app"} notice={notice} />
     </AuthShell>
   );

@@ -123,7 +123,7 @@ export default async function AssistantPage({ searchParams }: { searchParams: Pr
           )}
           {on && !conversation?.handedOverAt ? <AskForm conversationId={conversation?.id} /> : null}
           <p className="text-caption text-ink-muted">
-            The assistant uses an AI service run outside Botswana. It only sees what it looks up to answer you, never your passwords or payment details, and everything it looks up is in your{" "}
+            The assistant uses an AI service hosted outside your country. It only sees what it looks up to answer you, never your passwords or payment details, and everything it looks up is in your{" "}
             <Link href="/app/security" className="underline">
               activity log
             </Link>

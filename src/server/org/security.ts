@@ -4,7 +4,7 @@ import { can, type Actor } from "./access";
 
 /**
  * What the Security page shows. The page is built from cards so later
- * phases (security score, protected devices, SOC alerts, Botswana Copy,
+ * phases (security score, protected devices, SOC alerts, local data copy,
  * compliance documents) add a card without changing the rest.
  */
 

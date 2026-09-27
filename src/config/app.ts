@@ -10,7 +10,7 @@ export const company = {
   legalName: "Fourth Generation Technologies (Pty) Ltd",
   country: "BW",
   supportEmail: "support@localhost",
-  tagline: "Next-generation hosting, software and security.",
+  tagline: "Managed cloud for business.",
 } as const;
 
 /** Every amount carries a currency; this is the one new organisations start with. */

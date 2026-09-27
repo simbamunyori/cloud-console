@@ -39,7 +39,7 @@ const HISTORY_TURNS = 12;
 function systemPrompt(deps: AssistantDeps) {
   const first = deps.actor.name.split(" ")[0];
   return [
-    `You are the support assistant in ${deps.consoleName}, the customer console of ${company.name}, a cloud and IT provider in Botswana.`,
+    `You are the support assistant in ${deps.consoleName}, the customer console of ${company.name}, a managed cloud provider.`,
     `You're helping ${first}, who is ${ROLE_LABEL[deps.actor.role]} at ${deps.organisation.name}. Today is ${formatLongDate(todayIn(deps.organisation.timeZone, deps.now))}. Amounts are in ${currencyInfo(deps.organisation.currency).name}.`,
     "",
     "How to work:",

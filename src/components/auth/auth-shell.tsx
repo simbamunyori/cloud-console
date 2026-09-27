@@ -2,10 +2,11 @@ import { Check } from "lucide-react";
 import * as React from "react";
 import { Logo, LogoMark } from "@/components/ui/logo";
 import { company } from "@/config/app";
+import { OUTCOMES, PROMISE } from "@/config/positioning";
 
 export interface AuthShellProps {
-  title: string;
-  points: [string, string][];
+  title?: string;
+  points?: [string, string][];
   children: React.ReactNode;
 }
 
@@ -14,7 +15,7 @@ export interface AuthShellProps {
  * navy brand panel on wide screens, the form on the right. On phones
  * only the form shows, under the mark.
  */
-export function AuthShell({ title, points, children }: AuthShellProps) {
+export function AuthShell({ title = PROMISE, points = OUTCOMES, children }: AuthShellProps) {
   return (
     <div className="flex min-h-dvh">
       <aside className="relative hidden w-auth-panel shrink-0 flex-col overflow-hidden bg-navy px-14 py-12 text-ink-on-dark lg:flex">

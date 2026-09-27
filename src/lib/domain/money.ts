@@ -1,5 +1,5 @@
 /**
- * Money is always an integer count of minor units (thebe for pula, cents
+ * Money is always an integer count of minor units (thebe for BWP, cents
  * for dollars) held in a bigint, and always travels with its currency
  * code. Floats never touch an amount.
  */

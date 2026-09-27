@@ -8,7 +8,7 @@ import { recoveryCodesLeft, twoStepCoverage } from "@/server/org/security";
  * The summary cards at the top of the Security page. Each source returns
  * a card, or null when it has nothing to say for this organisation. Later
  * phases add sources here (security score, protected devices, open
- * alerts, backup and Botswana Copy status, compliance documents) without
+ * alerts, backup and local data copy status, compliance documents) without
  * changing the page.
  */
 

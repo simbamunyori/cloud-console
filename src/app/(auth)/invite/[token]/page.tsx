@@ -15,12 +15,6 @@ export const metadata: Metadata = {
   referrer: "no-referrer",
 };
 
-const POINTS: [string, string][] = [
-  ["One account for every service", "Microsoft 365, Google Workspace, servers, hosting and domains."],
-  ["One monthly invoice in pula", "Every line explained, with what changed since last month."],
-  ["Two-step login for everyone", "A code from your phone on every sign-in, for every user."],
-];
-
 export default async function InvitePage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
   const session = await currentSession();
@@ -36,7 +30,7 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
             ? "This invitation was withdrawn. Ask the person who invited you if you still need access."
             : "This link doesn't work. It may be an older invitation that was sent again, or it was cut short when copied. Use the newest email.";
     return (
-      <AuthShell title="Your cloud, in one place." points={POINTS}>
+      <AuthShell>
         <div className="flex flex-col gap-6">
           <AuthHeading title="This invitation can't be used" />
           <Alert tone="info">{text}</Alert>
@@ -54,7 +48,7 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
   const signedIn = session?.stage === "ACTIVE" ? session : null;
 
   return (
-    <AuthShell title="Your cloud, in one place." points={POINTS}>
+    <AuthShell>
       <div className="flex flex-col gap-6">
         <AuthHeading eyebrow={found.hasAccount ? undefined : "Step 1 of 2"} title={`Join ${inv.organisation.name}`}>
           {inviter} invited you with {role} access. The invitation is for {inv.email} and works until{" "}
