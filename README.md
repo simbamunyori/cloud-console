@@ -48,7 +48,8 @@ authenticator app at first sign-in.
 The demo organisation has six months of invoices, a server being set up, a
 bank transfer waiting for finance to confirm and a support ticket. The seed
 is safe to run again: it leaves an existing demo organisation alone. It
-refuses to run in production unless `SEED_DEMO=yes`.
+refuses to run in production unless `SEED_DEMO=yes`, and a production server
+started on demo data refuses to start unless `ALLOW_PLACEHOLDERS=yes`.
 
 ### Test payments
 
@@ -145,6 +146,8 @@ the UI and never sent to the assistant.
 | `CONSOLE_JOBS` | No | `off` stops background jobs on this server, for extra app servers |
 | `POSTGRES_PASSWORD`, `DOMAIN` | Production compose | Database password, and the domain Caddy gets a certificate for |
 | `SEED_DEMO` | No | `yes` lets the seed run in production. Don't |
+| `STATUS_PAGE_URL` | Recommended | The service status page linked from the site footer. The link is hidden while unset |
+| `ALLOW_PLACEHOLDERS` | Demo servers only | In production the server refuses to start while a development placeholder is set: a `support@localhost` market email, the demo bank details, seeded exchange rates, the demo accounts, or a localhost `APP_URL` or `MAIL_FROM`. It lists each one and where to fix it. `yes` starts anyway with a warning, for demo and CI servers |
 
 The company name and legal name live in `src/config/app.ts`. Support
 contacts, bank details for EFT, tax and legal page links are per market,

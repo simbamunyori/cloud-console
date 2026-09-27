@@ -73,6 +73,9 @@ jobs:
       BASE_URL: http://localhost:3000
       # No background jobs, so the demo data stays put while pages are checked.
       CONSOLE_JOBS: "off"
+      # A demo server: it runs on the seeded placeholders on purpose.
+      ALLOW_PLACEHOLDERS: "yes"
+      STATUS_PAGE_URL: https://status.example.com
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

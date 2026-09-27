@@ -33,6 +33,8 @@ const schema = z.object({
   GEOLITE2_DB_PATH: optionalText(),
   /** Comma-separated IPs or IPv4 ranges (CIDR) allowed to open /admin. Empty allows any address. */
   ADMIN_IP_ALLOWLIST: z.string().default(""),
+  /** The service status page linked from the site footer. The link is hidden while this is unset. */
+  STATUS_PAGE_URL: optionalUrl(),
   /** Set to "off" to stop background jobs on this server. */
   CONSOLE_JOBS: z.enum(["on", "off"]).default("on"),
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
