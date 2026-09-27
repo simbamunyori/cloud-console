@@ -12,6 +12,7 @@ import { billingAdapter } from "@/server/billing";
 import { prisma } from "@/server/db";
 import { runSoon } from "@/server/jobs/boss";
 import { confirmEftPayment, rejectEftPayment } from "@/server/payments/eft";
+import { staffReply } from "@/server/support/tickets";
 
 async function deps() {
   const { staff } = await requireStaff();
@@ -100,5 +101,22 @@ export async function setRateAction(_prev: ActionState, form: FormData): Promise
     return "Saved for next month.";
   }, values);
   revalidatePath("/admin/pricing");
+  return result;
+}
+
+export async function staffReplyAction(_prev: ActionState, form: FormData): Promise<ActionState> {
+  const reference = field(form, "reference");
+  const values = { body: field(form, "body") };
+  const internal = field(form, "internal") === "on";
+  const status = field(form, "status") as "OPEN" | "WAITING_ON_CUSTOMER" | "RESOLVED";
+  const result = await run(async () => {
+    const { staff } = await requireStaff();
+    await staffReply({ db: prisma, staff }, reference, { body: values.body, internal, status: ["OPEN", "WAITING_ON_CUSTOMER", "RESOLVED"].includes(status) ? status : undefined });
+    return internal ? "Note added." : "Reply sent. The customer has been emailed.";
+  }, values);
+  if (result.ok) {
+    await sendEmails();
+    revalidatePath(`/admin/tickets/${reference}`);
+  }
   return result;
 }

@@ -15,6 +15,7 @@ export default async function AdminHome() {
   const c = await staffOverview(prisma);
   const tiles = [
     { label: "Tasks waiting", value: c.openTasks, hint: c.lateTasks ? `${c.lateTasks} past their expected time` : "None late", href: "/admin/tasks", show: true, alert: c.lateTasks > 0 },
+    { label: "Tickets that need us", value: c.tickets, hint: "Oldest first", href: "/admin/tickets", show: true, alert: c.tickets > 0 },
     { label: "Orders being set up", value: c.settingUp, hint: "Customers are waiting on these", href: "/admin/orders", show: true, alert: false },
     { label: "EFT payments to check", value: c.eft, hint: "Customers say they've paid", href: "/admin/payments", show: staffCan(staff, "confirmPayments"), alert: c.eft > 0 },
   ].filter((t) => t.show);
@@ -22,7 +23,7 @@ export default async function AdminHome() {
   return (
     <>
       <PageHeader title={`Hello, ${staff.name.split(" ")[0]}`} description="What needs our team today." />
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         {tiles.map((t) => (
           <Card key={t.label} className="p-0">
             <Link href={t.href} className="flex h-full flex-col gap-1 rounded-lg p-5 hover:bg-surface-2">

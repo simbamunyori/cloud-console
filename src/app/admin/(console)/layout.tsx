@@ -17,6 +17,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     { href: "/admin", label: "Overview", icon: "overview", exact: true, needs: "viewCustomers" },
     { href: "/admin/customers", label: "Customers", icon: "customers", needs: "viewCustomers" },
     { href: "/admin/tasks", label: "Setup queue", icon: "tasks", needs: "viewCustomers", badge: counts.openTasks || undefined },
+    { href: "/admin/tickets", label: "Tickets", icon: "support", needs: "viewCustomers", badge: counts.tickets || undefined },
     { href: "/admin/orders", label: "Orders", icon: "orders", needs: "viewCustomers" },
     { href: "/admin/payments", label: "EFT payments", icon: "payments", needs: "confirmPayments", badge: counts.eft || undefined },
     { href: "/admin/pricing", label: "Pricing", icon: "pricing", needs: "managePricing" },

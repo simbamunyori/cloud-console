@@ -111,3 +111,29 @@ export function SelectField({
     </Field>
   );
 }
+
+export function TextareaField({
+  id,
+  label,
+  hint,
+  error,
+  className,
+  rows = 5,
+  ...props
+}: BaseProps & Omit<React.TextareaHTMLAttributes<HTMLTextAreaElement>, "id">) {
+  return (
+    <Field id={id} label={label} hint={hint} error={error} className={className}>
+      {(describedBy, invalid) => (
+        <textarea
+          id={id}
+          name={id}
+          rows={rows}
+          aria-describedby={describedBy}
+          aria-invalid={invalid || undefined}
+          className={cn(inputClass, "h-auto min-h-24 py-2.5 leading-6")}
+          {...props}
+        />
+      )}
+    </Field>
+  );
+}

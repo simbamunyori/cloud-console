@@ -210,6 +210,20 @@ export const TEMPLATES: Record<string, Template> = {
       },
     };
   },
+  /** The reply itself isn't in the email: it may hold account details, so it's read after signing in. */
+  async "ticket.reply"(p, ctx) {
+    const ticket = await ctx.db.ticket.findUnique({ where: { id: str(p.ticketId) } });
+    if (!ticket || ticket.deletedAt) return null;
+    return {
+      subject: `We've replied to ${ticket.reference}: ${ticket.subject}`,
+      body: {
+        heading: "We've replied to your question",
+        paragraphs: [`Our team has answered "${ticket.subject}". Sign in to read the reply and answer if you need to.`],
+        facts: [["Ticket", ticket.reference]],
+        button: { label: "Read the reply", url: `${ctx.appUrl}/app/support/tickets/${encodeURIComponent(ticket.reference)}` },
+      },
+    };
+  },
 };
 
 export function registerTemplate(kind: string, template: Template) {

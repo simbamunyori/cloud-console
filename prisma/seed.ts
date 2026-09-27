@@ -20,6 +20,7 @@ import { StubBillingAdapter } from "../src/server/billing/stub/stub-adapter";
 import { scopedBilling } from "../src/server/billing/scoped";
 import { tenantDb } from "../src/server/db";
 import { placeOrder } from "../src/server/orders/orders";
+import { openTicket } from "../src/server/support/tickets";
 
 const db = new PrismaClient();
 const DEMO_PASSWORD = "demo-password-2026";
@@ -191,6 +192,12 @@ async function main() {
       });
     }
   }
+
+  // A question waiting for the support team.
+  await openTicket(
+    { db: tenant, organisation: orgRow, actor: { membershipId: owner.id, userId: owner.userId, name: owner.user.name, role: "OWNER" } },
+    { subject: "Shared mailbox for deliveries", body: "Hello, can we add a shared mailbox deliveries@kgalehill.co.bw that Kabo and Lesego can both read? Does it need its own licence?" },
+  );
 
   const invoices = await stub.listInvoices(clientId);
   console.log(`Demo organisation: Kgale Hill Logistics, ${invoices.length} invoices from ${start.toISOString().slice(0, 10)}.`);

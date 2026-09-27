@@ -7,7 +7,8 @@ import type { TenantDb } from "@/server/db";
 import { queueEmail } from "@/server/email/outbox";
 import { assertCan, DomainError } from "@/server/org/access";
 import { audit, customerAudit } from "@/server/org/audit";
-import { assertStaffCan, staffLabel, type StaffActor } from "@/server/staff/access";
+import { assertStaffCan, type StaffActor } from "@/server/staff/access";
+import { staffAudit } from "@/server/staff/audit";
 import { payableInvoice, paymentRecipients, type PaymentDeps } from "./card";
 
 /**
@@ -126,17 +127,13 @@ export async function confirmEftPayment(deps: StaffPaymentDeps, eftPaymentId: st
 
   const to = await paymentRecipients(deps.db as unknown as TenantDb, eft.reportedById, eft.organisation.billingEmail);
   await deps.db.$transaction(async (tx) => {
-    await audit(tx, {
-      organisationId: eft.organisationId,
-      actorKind: "STAFF",
-      actorUserId: deps.staff.userId,
-      actorLabel: staffLabel(deps.staff),
+    await audit(tx, staffAudit(deps.staff, eft.organisationId, {
       action: "payment.eft_confirmed",
       summary: `Confirmed ${formatMoney(amount)} received by bank transfer for invoice ${invoice.number}`,
       targetType: "Invoice",
       targetId: eft.invoiceId,
       data: { eftPaymentId: eft.id, reported: { ...toJson(money(eft.amountMinor, eft.currency)) } },
-    });
+    }));
     for (const email of to) {
       await queueEmail(tx, {
         organisationId: eft.organisationId,
@@ -167,17 +164,13 @@ export async function rejectEftPayment(deps: StaffPaymentDeps, eftPaymentId: str
       data: { status: "REJECTED", confirmedById: deps.staff.userId, decidedAt: deps.now ?? new Date(), staffNote: reason },
     });
     if (!claimed.count) throw new DomainError("conflict", "Someone has already dealt with this payment.");
-    await audit(tx, {
-      organisationId: eft.organisationId,
-      actorKind: "STAFF",
-      actorUserId: deps.staff.userId,
-      actorLabel: staffLabel(deps.staff),
+    await audit(tx, staffAudit(deps.staff, eft.organisationId, {
       action: "payment.eft_not_found",
       summary: `Couldn't find the ${formatMoney(amount)} bank transfer for invoice ${number}: ${reason}`,
       targetType: "Invoice",
       targetId: eft.invoiceId,
       data: { eftPaymentId: eft.id },
-    });
+    }));
     for (const email of to) {
       await queueEmail(tx, {
         organisationId: eft.organisationId,

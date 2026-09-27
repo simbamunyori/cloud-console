@@ -4,8 +4,9 @@ import { useActionState } from "react";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { TextField } from "@/components/ui/field";
+import { SelectField, TextareaField } from "@/components/ui/inputs";
 import type { ActionState } from "@/server/action-state";
-import { completeTaskAction, confirmEftAction, rejectEftAction, startTaskAction } from "./actions";
+import { completeTaskAction, confirmEftAction, rejectEftAction, staffReplyAction, startTaskAction } from "./actions";
 
 type ServerAction = (prev: ActionState, form: FormData) => Promise<ActionState>;
 
@@ -115,6 +116,33 @@ export function SettingForm({
       </div>
       {state.ok && state.message ? <p className="text-callout text-positive">{state.message}</p> : null}
       {state.error && !state.fieldErrors ? <p className="text-callout text-negative">{state.error}</p> : null}
+    </form>
+  );
+}
+
+export function StaffReplyForm({ reference }: { reference: string }) {
+  const [state, action, pending] = useActionState<ActionState, FormData>(staffReplyAction, {});
+  return (
+    <form action={action} className="flex flex-col gap-4" noValidate>
+      <Result state={state.fieldErrors ? {} : state} />
+      <input type="hidden" name="reference" value={reference} />
+      <TextareaField id="body" label="Message" rows={6} defaultValue={state.ok ? "" : state.values?.body} error={state.fieldErrors?.body} hint="The customer reads replies here and gets an email. Team notes stay with us." />
+      <label className="flex items-center gap-2 text-callout text-ink">
+        <input type="checkbox" name="internal" className="size-4" /> Team note only (the customer won&apos;t see it)
+      </label>
+      <SelectField
+        id="status"
+        label="Then"
+        defaultValue="WAITING_ON_CUSTOMER"
+        options={[
+          { value: "WAITING_ON_CUSTOMER", label: "Wait for the customer" },
+          { value: "OPEN", label: "Keep it with us" },
+          { value: "RESOLVED", label: "Mark as sorted" },
+        ]}
+      />
+      <Button type="submit" disabled={pending} className="self-start">
+        {pending ? "Sending…" : "Send"}
+      </Button>
     </form>
   );
 }

@@ -2,8 +2,9 @@ import type { PrismaClient, TaskStatus } from "@prisma/client";
 import { BillingError, type BillingAdapter } from "@/server/billing/adapter";
 import { queueEmail } from "@/server/email/outbox";
 import { DomainError } from "@/server/org/access";
-import { audit, type AuditInput } from "@/server/org/audit";
-import { assertStaffCan, staffLabel, type StaffActor } from "@/server/staff/access";
+import { audit } from "@/server/org/audit";
+import { assertStaffCan, type StaffActor } from "@/server/staff/access";
+import { staffAudit } from "@/server/staff/audit";
 
 /**
  * The provisioning queue: work the manual connectors hand to staff. When
@@ -20,10 +21,6 @@ export interface StaffDeps {
 }
 
 const OPEN: TaskStatus[] = ["OPEN", "IN_PROGRESS"];
-
-export function staffAudit(staff: StaffActor, organisationId: string, rest: Omit<AuditInput, "organisationId" | "actorKind" | "actorUserId" | "actorLabel" | "visibleToCustomer">): AuditInput {
-  return { organisationId, actorKind: "STAFF", actorUserId: staff.userId, actorLabel: staffLabel(staff), visibleToCustomer: true, ...rest };
-}
 
 export async function taskQueue(db: PrismaClient, filter: { status?: "open" | "done"; assigneeId?: string } = {}) {
   return db.provisioningTask.findMany({

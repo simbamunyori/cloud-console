@@ -32,8 +32,9 @@ export interface OrderDeps {
 export const MAX_QUANTITY = 500;
 const REFERENCE_ALPHABET = "23456789ABCDEFGHJKMNPQRSTUVWXYZ";
 
-export function newReference(): string {
-  return `ORD-${Array.from({ length: 6 }, () => REFERENCE_ALPHABET[randomInt(REFERENCE_ALPHABET.length)]).join("")}`;
+/** A short reference people can read out, e.g. "ORD-7K2M9Q". */
+export function newReference(prefix = "ORD"): string {
+  return `${prefix}-${Array.from({ length: 6 }, () => REFERENCE_ALPHABET[randomInt(REFERENCE_ALPHABET.length)]).join("")}`;
 }
 
 const catalogueDb = (db: TenantDb) => db as unknown as PrismaClient;
