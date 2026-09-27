@@ -77,6 +77,42 @@ export const TEMPLATES: Record<string, Template> = {
     };
   },
 
+  /** Like invitations, the link is made now and only its hash is kept. */
+  async "auth.password_reset"(p, ctx) {
+    const reset = await ctx.db.passwordReset.findUnique({ where: { id: str(p.resetId) } });
+    if (!reset || reset.usedAt || reset.expiresAt <= ctx.now) return null;
+    const token = newToken();
+    await ctx.db.passwordReset.update({ where: { id: reset.id }, data: { tokenHash: hashToken(token) } });
+    return {
+      subject: `Choose a new password for ${ctx.consoleName}`,
+      body: {
+        heading: "Choose a new password",
+        paragraphs: [
+          "Someone asked to reset the password for your account. If it was you, use the button below. The link works once.",
+          "You'll still need the code from your authenticator app to sign in afterwards.",
+        ],
+        button: { label: "Choose a new password", url: `${ctx.appUrl}/reset-password/${encodeURIComponent(token)}` },
+        footnote: `The link works for 30 minutes, until ${formatMoment(reset.expiresAt, ctx.timeZone)}. If you didn't ask for this, you can ignore it; your password hasn't changed.`,
+      },
+    };
+  },
+
+  async "security.password_changed"(p, ctx) {
+    return {
+      subject: "Your password was changed",
+      body: {
+        heading: "Your password was changed",
+        paragraphs: ["The password for your account was changed using a link we emailed you, and every device was signed out."],
+        facts: [
+          ["When", formatMoment(new Date(str(p.at)), ctx.timeZone)],
+          ["Device", describeDevice(str(p.userAgent))],
+          ["Address", str(p.ipAddress) || "Unknown"],
+        ],
+        footnote: "If this wasn't you, reply to this email straight away. Your account is still protected by your authenticator code.",
+      },
+    };
+  },
+
   async "security.two_step_on"(p, ctx) {
     return {
       subject: "Two-step login is on for your account",

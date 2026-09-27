@@ -22,7 +22,7 @@ export default async function StaffSignInPage({ searchParams }: { searchParams: 
 
   return (
     <AuthShell title={`${company.name} staff`} points={STAFF_POINTS}>
-      <SignInForm consoleName="the staff console" action={staffSignInAction} signUp={false} next={typeof params.next === "string" ? params.next : "/admin"} notice={notice} />
+      <SignInForm consoleName="the staff console" action={staffSignInAction} signUp={false} forgot={false} next={typeof params.next === "string" ? params.next : "/admin"} notice={notice} />
     </AuthShell>
   );
 }

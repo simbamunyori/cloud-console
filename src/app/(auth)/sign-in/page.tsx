@@ -20,6 +20,7 @@ export default async function SignInPage({
   let notice: { tone: "info" | "negative" | "positive"; text: string } | undefined;
   if (typeof params.locked === "string") notice = { tone: "negative", text: lockedMessage(new Date(params.locked)) };
   else if (params.expired) notice = { tone: "info", text: "Your sign-in timed out. Enter your password again." };
+  else if (params.reset) notice = { tone: "positive", text: "Your password is changed and every device is signed out. Sign in with the new password, then your authenticator code." };
   else if (params["signed-out"]) notice = { tone: "positive", text: "You've signed out." };
 
   return (

@@ -26,6 +26,8 @@ export const PAGES: PageSpec[] = [
   { name: "not-found", audience: "public", path: "/no-such-page" },
   { name: "sign-in", audience: "public", path: "/sign-in" },
   { name: "sign-up", audience: "public", path: "/sign-up" },
+  { name: "forgot-password", audience: "public", path: "/forgot-password" },
+  { name: "reset-link-expired", audience: "public", path: "/reset-password/expired-example" },
   { name: "staff-sign-in", audience: "public", path: "/admin/sign-in" },
 
   { name: "home", audience: "customer", path: "/app" },

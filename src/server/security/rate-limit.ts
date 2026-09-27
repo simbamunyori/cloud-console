@@ -18,6 +18,10 @@ export const LIMITS = {
   codePerIp: { max: 30, windowMs: 10 * 60_000 },
   /** New organisations from one address. */
   signUpPerIp: { max: 5, windowMs: 60 * 60_000 },
+  /** "Forgot password?" requests from one address. */
+  resetPerIp: { max: 10, windowMs: 60 * 60_000 },
+  /** "Forgot password?" emails to one account. */
+  resetPerEmail: { max: 3, windowMs: 60 * 60_000 },
   /** Waiting list sign-ups from one address. */
   waitlistPerIp: { max: 10, windowMs: 60 * 60_000 },
   /** Questions to the assistant from one person. */

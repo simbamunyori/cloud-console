@@ -15,6 +15,7 @@ export function SignInForm({
   notice,
   action: serverAction = signInAction,
   signUp = true,
+  forgot = true,
 }: {
   consoleName: string;
   next: string;
@@ -22,6 +23,8 @@ export function SignInForm({
   action?: typeof signInAction;
   /** Offer "Open an account"; off for staff. */
   signUp?: boolean;
+  /** Offer "Forgot password?"; off for staff (docs/decisions.md). */
+  forgot?: boolean;
 }) {
   const [state, action, pending] = useActionState<FormState, FormData>(serverAction, {});
   const message = state.error ? { tone: "negative" as const, text: state.error } : notice;
@@ -40,7 +43,14 @@ export function SignInForm({
         autoFocus
         defaultValue={state.values?.email}
       />
-      <PasswordField id="password" label="Password" autoComplete="current-password" />
+      <div className="flex flex-col gap-2">
+        <PasswordField id="password" label="Password" autoComplete="current-password" />
+        {forgot ? (
+          <Link href="/forgot-password" className="self-end text-callout font-medium text-link underline-offset-2 hover:underline">
+            Forgot password?
+          </Link>
+        ) : null}
+      </div>
       <Button type="submit" size="lg" disabled={pending} className="w-full">
         {pending ? "Checking…" : "Continue"}
       </Button>

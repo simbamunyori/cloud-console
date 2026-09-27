@@ -34,6 +34,8 @@ export const KNOWN_DEVICE_MS = 90 * 24 * 60 * 60 * 1000;
 const TOUCH_INTERVAL_MS = 5 * 60 * 1000;
 /** Invitation links stop working after seven days. */
 export const INVITATION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+/** "Forgot password?" links stop working after 30 minutes. */
+export const PASSWORD_RESET_TTL_MS = 30 * 60 * 1000;
 
 export interface AuthDeps {
   db: PrismaClient;
@@ -515,6 +517,80 @@ export async function regenerateRecoveryCodes(
     }
   });
   return codes;
+}
+
+// ─── Forgotten passwords ─────────────────────────────────────────────
+
+/**
+ * Emails a link to choose a new password, if the address has a customer
+ * account. Says nothing either way, so the form can't be used to find out
+ * who has an account. Asking again cancels any earlier link. The link's
+ * token is made when the email is sent (see the email template), so no
+ * usable link is ever stored.
+ */
+export async function requestPasswordReset(deps: AuthDeps, emailInput: string, ctx: RequestContext = {}): Promise<void> {
+  const email = normaliseEmail(emailInput);
+  if (!EMAIL_PATTERN.test(email)) return;
+  const now = clock(deps);
+  const user = await deps.db.user.findUnique({ where: { email }, select: { id: true, kind: true, email: true, deactivatedAt: true } });
+  if (!user || user.kind !== "CUSTOMER" || user.deactivatedAt) return;
+  await deps.db.$transaction(async (tx) => {
+    await tx.passwordReset.updateMany({ where: { userId: user.id, usedAt: null, expiresAt: { gt: now } }, data: { expiresAt: now } });
+    const reset = await tx.passwordReset.create({
+      data: { userId: user.id, expiresAt: new Date(now.getTime() + PASSWORD_RESET_TTL_MS), ipAddress: ctx.ipAddress ?? null, createdAt: now },
+    });
+    await queueEmail(tx, { to: user.email, kind: "auth.password_reset", payload: { resetId: reset.id } });
+  });
+}
+
+/** Whether a reset link can still be used, without using it. */
+export async function checkPasswordReset(deps: AuthDeps, token: string): Promise<"VALID" | "INVALID"> {
+  if (!token || token.length > 100) return "INVALID";
+  const reset = await deps.db.passwordReset.findUnique({ where: { tokenHash: hashToken(token) }, include: { user: true } });
+  const now = clock(deps);
+  if (!reset || reset.usedAt || reset.expiresAt.getTime() <= now.getTime() || reset.user.deactivatedAt) return "INVALID";
+  return "VALID";
+}
+
+/**
+ * Sets a new password from an emailed link. The link works once. Signs
+ * the person out everywhere and doesn't sign them in: they sign in again
+ * with the new password and their authenticator code, as always.
+ */
+export async function resetPassword(deps: AuthDeps, token: string, password: string, ctx: RequestContext = {}): Promise<void> {
+  if ((await checkPasswordReset(deps, token)) !== "VALID") throw new AuthError("invalid-input", "This link has expired or has already been used.");
+  const reset = await deps.db.passwordReset.findUniqueOrThrow({ where: { tokenHash: hashToken(token) }, include: { user: true } });
+  const user = reset.user;
+  // Checked before the link is used up, so a weak choice can be corrected.
+  if (passwordStrength(password, [user.email, user.name]) !== "strong") {
+    throw new AuthError("weak-password", "Choose a password of at least 12 characters that isn't easy to guess.");
+  }
+  const passwordHash = await hashPassword(password);
+  const now = clock(deps);
+  await deps.db.$transaction(async (tx) => {
+    // Conditional update: two submits of the same link can't both win.
+    const claimed = await tx.passwordReset.updateMany({
+      where: { id: reset.id, usedAt: null, expiresAt: { gt: now } },
+      data: { usedAt: now, tokenHash: null },
+    });
+    if (claimed.count !== 1) throw new AuthError("invalid-input", "This link has expired or has already been used.");
+    await tx.passwordReset.updateMany({ where: { userId: user.id, usedAt: null }, data: { usedAt: now, tokenHash: null } });
+    await tx.user.update({ where: { id: user.id }, data: { passwordHash, failedAttempts: 0, lockedUntil: null } });
+    await tx.session.updateMany({ where: { userId: user.id, revokedAt: null }, data: { revokedAt: now } });
+    const memberships = await tx.membership.findMany({ where: { userId: user.id, active: true }, select: { organisationId: true } });
+    for (const m of memberships) {
+      await audit(tx, {
+        organisationId: m.organisationId,
+        actorKind: "CUSTOMER",
+        actorUserId: user.id,
+        actorLabel: user.name,
+        action: "auth.password_reset",
+        summary: "Chose a new password from an emailed link and was signed out everywhere",
+        ipAddress: ctx.ipAddress,
+      });
+    }
+    await queueEmail(tx, { to: user.email, kind: "security.password_changed", payload: { at: now.toISOString(), ipAddress: ctx.ipAddress ?? null, userAgent: ctx.userAgent?.slice(0, 400) ?? null } });
+  });
 }
 
 // ─── Invitations ─────────────────────────────────────────────────────

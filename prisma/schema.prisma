@@ -200,6 +200,7 @@ model User {
   memberships     Membership[]
   sessions        Session[]
   recoveryCodes   RecoveryCode[]
+  passwordResets  PasswordReset[]
   signInEvents    SignInEvent[]
   assignedTasks   ProvisioningTask[] @relation("taskAssignee")
   completedTasks  ProvisioningTask[] @relation("taskCompletedBy")
@@ -258,6 +259,22 @@ model RecoveryCode {
   codeHash  String    @unique
   usedAt    DateTime?
   createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+/// A "forgot password" request. The link's token is made when the email is
+/// sent and only its SHA-256 hash is kept; it works once, for 30 minutes.
+model PasswordReset {
+  id          String    @id @default(cuid())
+  userId      String
+  tokenHash   String?   @unique
+  expiresAt   DateTime
+  usedAt      DateTime?
+  ipAddress   String?
+  createdAt   DateTime  @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 

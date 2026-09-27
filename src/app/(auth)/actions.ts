@@ -9,6 +9,9 @@ import {
   AuthError,
   completeSignIn,
   confirmAuthenticatorSetup,
+  normaliseEmail,
+  requestPasswordReset,
+  resetPassword,
   signOut,
   signUp,
   startSignIn,
@@ -17,7 +20,7 @@ import { billingAdapter } from "@/server/billing";
 import { ensureBillingAccount } from "@/server/billing/accounts";
 import { prisma } from "@/server/db";
 import { runSoon } from "@/server/jobs/boss";
-import { enforce, LIMITS, RateLimitedError } from "@/server/security/rate-limit";
+import { enforce, hit, LIMITS, RateLimitedError } from "@/server/security/rate-limit";
 import { isCountryCode } from "@/lib/countries";
 import { joinWaitlist } from "@/server/markets/waitlist";
 import { DomainError } from "@/server/org/access";
@@ -34,6 +37,8 @@ export interface FormState {
   unavailable?: boolean;
   /** Waiting list only: the details were saved. */
   joined?: boolean;
+  /** "Forgot password?" only: the request was taken (whether or not the account exists). */
+  sent?: boolean;
 }
 
 export interface SetupState extends FormState {
@@ -197,6 +202,44 @@ export async function signOutAction(): Promise<void> {
   await signOut(authDeps(), await readSessionToken("CUSTOMER"));
   await clearSessionCookie("CUSTOMER");
   redirect("/sign-in?signed-out=1");
+}
+
+// ─── Forgotten passwords ─────────────────────────────────────────────
+
+/** Always answers the same way, so it can't reveal whether an account exists. */
+export async function requestResetAction(_prev: FormState, form: FormData): Promise<FormState> {
+  const values = { email: field(form, "email") };
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(values.email.trim())) return { fieldErrors: { email: "Enter an email address like name@company.com." }, values };
+  try {
+    await limitByIp("resetPerIp");
+    // Over the per-account limit, quietly send nothing more: the answer stays the same.
+    const perEmail = await hit(prisma, `resetPerEmail:${normaliseEmail(values.email)}`, LIMITS.resetPerEmail);
+    if (perEmail.allowed) {
+      await requestPasswordReset(authDeps(), values.email, await requestContext());
+      await runSoon("email-deliver").catch(() => undefined);
+    }
+  } catch (e) {
+    if (e instanceof RateLimitedError) return { error: rateLimitedMessage(e.retryAt), values };
+    throw e;
+  }
+  return { sent: true, values };
+}
+
+export async function resetPasswordAction(_prev: FormState, form: FormData): Promise<FormState> {
+  try {
+    await limitByIp("resetPerIp");
+    await resetPassword(authDeps(), field(form, "token"), field(form, "password"), await requestContext());
+    await runSoon("email-deliver").catch(() => undefined);
+  } catch (e) {
+    if (e instanceof RateLimitedError) return { error: rateLimitedMessage(e.retryAt) };
+    if (e instanceof AuthError) {
+      if (e.code === "weak-password") return { fieldErrors: { password: "Use at least 12 characters, and avoid your name or email." } };
+      return { error: "This link has expired or has already been used. Ask for a new one." };
+    }
+    throw e;
+  }
+  await clearSessionCookie("CUSTOMER");
+  redirect("/sign-in?reset=1");
 }
 
 // ─── Staff ───────────────────────────────────────────────────────────
