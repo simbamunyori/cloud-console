@@ -150,3 +150,12 @@ describe("toPlainAmount", () => {
     expect(toPlainAmount(P(5n))).toBe("0.05");
   });
 });
+
+describe("compact amounts", () => {
+  it("shortens large amounts for phone summaries", () => {
+    const plain = (s: string) => s.replace(/[  ]/gu, " ");
+    expect(plain(formatMoney(money(1234500n, "BWP"), "en-BW", { compact: true }))).toBe("P 12.3K");
+    expect(plain(formatMoney(money(98000n, "BWP"), "en-BW", { compact: true }))).toBe("P 980");
+    expect(plain(formatMoney(money(1234500n, "ZAR"), "en-ZA", { compact: true }))).toBe("R 12,3K");
+  });
+});

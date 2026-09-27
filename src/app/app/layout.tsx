@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { signOutAction } from "@/app/(auth)/actions";
+import { Search } from "lucide-react";
 import { MobileNav } from "@/components/app/mobile-nav";
 import { OrgSwitcher } from "@/components/app/org-switcher";
 import { SidebarNav, type NavItem } from "@/components/app/sidebar-nav";
+import { TopActions, TopBar } from "@/components/app/top-bar";
 import { UserCard } from "@/components/app/user-card";
 import { ThemeSwitch } from "@/components/theme/theme-switch";
 import { Logo, LogoMark } from "@/components/ui/logo";
@@ -59,10 +61,14 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           </div>
         </aside>
       </div>
-      <header className="sticky top-0 z-10 flex h-14 items-center justify-between border-b border-border bg-surface-1 px-4 lg:hidden">
-        <Link href="/app" className="rounded-sm">
+      <header className="sticky top-0 z-10 flex h-14 items-center gap-1 border-b border-border bg-surface-1 px-4 lg:hidden">
+        <Link href="/app" className="mr-auto rounded-sm">
           <LogoMark size={32} />
         </Link>
+        <Link href="/app/search" aria-label="Search" className="flex size-11 items-center justify-center rounded-md text-ink hover:bg-surface-2">
+          <Search aria-hidden className="size-5" />
+        </Link>
+        <TopActions />
         <MobileNav
           items={NAV}
           header={<LogoMark size={32} />}
@@ -75,9 +81,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           }
         />
       </header>
-      <main id="main" className="min-w-0 flex-1 px-4 py-6 sm:px-8 lg:px-12 lg:py-10">
-        <div className="mx-auto max-w-content">{children}</div>
-      </main>
+      <div className="flex min-w-0 flex-1 flex-col">
+        <TopBar />
+        <main id="main" className="min-w-0 flex-1 px-4 py-6 sm:px-8 lg:px-12 lg:py-10">
+          <div className="mx-auto max-w-content">{children}</div>
+        </main>
+      </div>
     </div>
   );
 }

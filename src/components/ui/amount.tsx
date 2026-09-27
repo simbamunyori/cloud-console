@@ -17,6 +17,7 @@ export function Amount({
   value,
   locale,
   signed = false,
+  compact = false,
   size = "body",
   className,
 }: {
@@ -24,9 +25,11 @@ export function Amount({
   /** The organisation's (or market's) locale, e.g. "en-ZA". */
   locale: string;
   signed?: boolean;
+  /** "P 12K" rather than "P 12,400.00", for summaries on phones. */
+  compact?: boolean;
   size?: keyof typeof SIZES;
   className?: string;
 }) {
   const m = typeof value.amountMinor === "string" ? fromJson(value as MoneyJson) : (value as Money);
-  return <span className={cn("whitespace-nowrap tabular-nums", SIZES[size], className)}>{formatMoney(m, locale, { signed })}</span>;
+  return <span className={cn("whitespace-nowrap tabular-nums", SIZES[size], className)}>{formatMoney(m, locale, { signed, compact })}</span>;
 }

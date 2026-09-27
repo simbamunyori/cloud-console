@@ -7,6 +7,9 @@ import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
 import { formatDay, formatMonth } from "@/lib/dates";
 import { requireBilling } from "@/server/billing/context";
+import { SecurityScoreCard } from "@/components/app/security-score";
+import { securityFacts } from "@/server/org/security-facts";
+import { securityChecks } from "@/server/org/security-score";
 import { amountOwed, attentionItems, isOverdue, monthlyPrice, monthlyTotal, nextInvoice } from "@/server/billing/views";
 
 export const metadata: Metadata = { title: "Home" };
@@ -15,7 +18,7 @@ const TONE_ICON = { negative: CircleAlert, warning: TriangleAlert, info: Info };
 const TONE_CLASS = { negative: "text-negative", warning: "text-warning", info: "text-link" };
 
 export default async function HomePage() {
-  const { organisation, actor, billing, today, currency, locale } = await requireBilling();
+  const { organisation, actor, billing, db, today, currency, locale } = await requireBilling();
   const [services, domains, invoices] = await Promise.all([billing.listServices(), billing.listDomains(), billing.listInvoices()]);
 
   const live = services.filter((s) => s.status !== "cancelled" && s.status !== "terminated");
@@ -24,70 +27,83 @@ export default async function HomePage() {
   const owed = amountOwed(invoices, currency);
   const attention = attentionItems(invoices, services, domains, today, locale);
   const recent = invoices.slice(0, 3);
+  const checks = securityChecks(await securityFacts(db, actor.userId, live, today));
 
   return (
     <>
       <PageHeader eyebrow={organisation.name} title={`Welcome, ${actor.name.split(" ")[0]}`} />
       <div className="flex flex-col gap-6">
-        <div className="grid gap-4 sm:grid-cols-3">
-          <Card className="flex flex-col gap-1 p-5">
-            <span className="text-callout text-ink-muted">Monthly total, {formatMonth(today)}</span>
-            <Amount locale={locale} value={monthly} size="title-1" className="text-ink" />
-            <span className="text-callout text-ink-muted">
+        {/* Three totals: a compact row on phones, cards from tablet width up. */}
+        <div className="grid grid-cols-3 gap-2 sm:gap-4">
+          <Card className="flex min-w-0 flex-col gap-1 p-3 sm:p-5">
+            <span className="text-caption text-ink-muted sm:text-callout">
+              <span className="sm:hidden">This month</span>
+              <span className="hidden sm:inline">Monthly total, {formatMonth(today)}</span>
+            </span>
+            <Amount locale={locale} value={monthly} compact size="headline" className="text-ink sm:hidden" />
+            <Amount locale={locale} value={monthly} size="title-1" className="hidden text-ink sm:inline" />
+            <span className="hidden text-callout text-ink-muted sm:inline">
               For {live.length} {live.length === 1 ? "service" : "services"}
             </span>
           </Card>
-          <Card className="flex flex-col gap-1 p-5">
-            <span className="text-callout text-ink-muted">Next invoice</span>
+          <Card className="flex min-w-0 flex-col gap-1 p-3 sm:p-5">
+            <span className="text-caption text-ink-muted sm:text-callout">Next invoice</span>
             {next ? (
               <>
-                <span className="text-title-1 text-ink">{formatDay(next.dueOn, next.dueOn.getUTCFullYear() !== today.getUTCFullYear())}</span>
-                <span className="text-callout text-ink-muted">
+                <span className="text-headline text-ink sm:text-title-1">{formatDay(next.dueOn, next.dueOn.getUTCFullYear() !== today.getUTCFullYear())}</span>
+                <span className="hidden text-callout text-ink-muted sm:inline">
                   About <Amount locale={locale} value={next.amount} className="text-callout" /> falls due
                 </span>
               </>
             ) : (
-              <span className="text-title-1 text-ink">None due</span>
+              <span className="text-headline text-ink sm:text-title-1">None due</span>
             )}
           </Card>
-          <Card className="flex flex-col gap-1 p-5">
-            <span className="text-callout text-ink-muted">To pay now</span>
-            <Amount locale={locale} value={owed} size="title-1" className={owed.amountMinor > 0n ? "text-ink" : "text-positive"} />
-            <Link href="/app/billing" className="text-callout text-link hover:underline">
-              {owed.amountMinor > 0n ? "See invoices" : "All paid, thank you"}
-            </Link>
-          </Card>
+          <Link href="/app/billing" className="group min-w-0 rounded-lg">
+            <Card className="flex h-full flex-col gap-1 p-3 group-hover:bg-surface-2 sm:p-5">
+              <span className="text-caption text-ink-muted sm:text-callout">
+                <span className="sm:hidden">To pay</span>
+                <span className="hidden sm:inline">To pay now</span>
+              </span>
+              <Amount locale={locale} value={owed} compact size="headline" className={`sm:hidden ${owed.amountMinor > 0n ? "text-ink" : "text-positive"}`} />
+              <Amount locale={locale} value={owed} size="title-1" className={`hidden sm:inline ${owed.amountMinor > 0n ? "text-ink" : "text-positive"}`} />
+              <span className="hidden text-callout text-link group-hover:underline sm:inline">{owed.amountMinor > 0n ? "See invoices" : "All paid, thank you"}</span>
+            </Card>
+          </Link>
         </div>
 
-        <Card aria-labelledby="attention-title">
-          <CardHeader id="attention-title" title="Needs your attention" />
-          {attention.length === 0 ? (
-            <CardBody className="flex items-center gap-3">
-              <CircleCheck aria-hidden className="size-5 text-positive" />
-              <p className="text-ink">Nothing needs you right now.</p>
-            </CardBody>
-          ) : (
-            <ul className="divide-y divide-border">
-              {attention.map((item) => {
-                const Icon = TONE_ICON[item.tone];
-                return (
-                  <li key={item.key}>
-                    <Link href={item.href} className="flex items-start gap-3 px-5 py-4 hover:bg-surface-2 sm:px-6">
-                      <Icon aria-hidden className={`mt-0.5 size-5 shrink-0 ${TONE_CLASS[item.tone]}`} />
-                      <span className="flex min-w-0 flex-1 flex-col">
-                        <span className="font-semibold text-ink">{item.title}</span>
-                        <span className="text-callout text-ink-muted">{item.detail}</span>
-                      </span>
-                      <span className="hidden shrink-0 items-center gap-1 text-callout text-link sm:flex">
-                        {item.actionLabel} <ArrowRight aria-hidden className="size-4" />
-                      </span>
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </Card>
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[3fr_2fr] [&>*]:min-w-0">
+          <Card aria-labelledby="attention-title">
+            <CardHeader id="attention-title" title="Needs your attention" />
+            {attention.length === 0 ? (
+              <CardBody className="flex items-center gap-3">
+                <CircleCheck aria-hidden className="size-5 text-positive" />
+                <p className="text-ink">Nothing needs you right now.</p>
+              </CardBody>
+            ) : (
+              <ul className="divide-y divide-border">
+                {attention.map((item) => {
+                  const Icon = TONE_ICON[item.tone];
+                  return (
+                    <li key={item.key}>
+                      <Link href={item.href} className="flex items-start gap-3 px-5 py-4 hover:bg-surface-2 sm:px-6">
+                        <Icon aria-hidden className={`mt-0.5 size-5 shrink-0 ${TONE_CLASS[item.tone]}`} />
+                        <span className="flex min-w-0 flex-1 flex-col">
+                          <span className="font-semibold text-ink">{item.title}</span>
+                          <span className="text-callout text-ink-muted">{item.detail}</span>
+                        </span>
+                        <span className="hidden shrink-0 items-center gap-1 text-callout text-link sm:flex">
+                          {item.actionLabel} <ArrowRight aria-hidden className="size-4" />
+                        </span>
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </Card>
+          <SecurityScoreCard checks={checks} />
+        </div>
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[3fr_2fr] [&>*]:min-w-0">
           <Card aria-labelledby="services-title">

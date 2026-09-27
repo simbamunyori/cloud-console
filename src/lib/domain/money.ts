@@ -170,15 +170,17 @@ export interface FormatOptions {
   signed?: boolean;
   /** Hide the currency, for dense table columns. */
   bare?: boolean;
+  /** Short form for tight spaces on phones, e.g. "P 12.3K". It rounds, so the exact amount must be one tap away. */
+  compact?: boolean;
 }
 
 const formatters = new Map<string, Intl.NumberFormat>();
 
-function formatter(locale: string, currency: string, signed: boolean): Intl.NumberFormat {
-  const key = `${locale}|${currency}|${signed}`;
+function formatter(locale: string, currency: string, signed: boolean, compact = false): Intl.NumberFormat {
+  const key = `${locale}|${currency}|${signed}|${compact}`;
   let f = formatters.get(key);
   if (!f) {
-    f = new Intl.NumberFormat(locale, { style: "currency", currency, signDisplay: signed ? "exceptZero" : "auto" });
+    f = new Intl.NumberFormat(locale, { style: "currency", currency, signDisplay: signed ? "exceptZero" : "auto", ...(compact ? { notation: "compact", minimumFractionDigits: 0, maximumFractionDigits: 1 } : {}) });
     formatters.set(key, f);
   }
   return f;
@@ -191,7 +193,7 @@ function formatter(locale: string, currency: string, signed: boolean): Intl.Numb
  * a true minus sign (U+2212), never brackets.
  */
 export function formatMoney(m: Money, locale: string, opts: FormatOptions = {}): string {
-  const parts = formatter(locale, m.currency, opts.signed ?? false).formatToParts(toPlainAmount(m) as Intl.StringNumericLiteral);
+  const parts = formatter(locale, m.currency, opts.signed ?? false, opts.compact).formatToParts(toPlainAmount(m) as Intl.StringNumericLiteral);
   let out = "";
   for (let i = 0; i < parts.length; i++) {
     const p = parts[i];
