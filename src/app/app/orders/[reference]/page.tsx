@@ -17,7 +17,7 @@ export const metadata: Metadata = { title: "Order" };
 
 export default async function OrderPage({ params, searchParams }: { params: Promise<{ reference: string }>; searchParams: Promise<Record<string, string | undefined>> }) {
   const [{ reference }, { new: isNew }] = await Promise.all([params, searchParams]);
-  const { db, organisation } = await requireMember();
+  const { db, organisation, locale } = await requireMember();
   const order = await db.order.findFirst({ where: { reference }, include: { product: true } });
   if (!order) notFound();
   const options = (order.options ?? {}) as Record<string, string>;
@@ -59,8 +59,8 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
                 ...(order.quantity > 1 || order.changesServiceId ? ([["Quantity", String(order.quantity)]] as [string, string][]) : []),
                 ...Object.entries(options).map(([k, v]) => [k, v] as [string, string]),
                 isDomain
-                  ? ["Price", <Amount key="p" value={money(order.unitPriceMinor, order.currency)} />]
-                  : ["Price a month", <Amount key="p" value={money(order.monthlyTotalMinor, order.currency)} />],
+                  ? ["Price", <Amount locale={locale} key="p" value={money(order.unitPriceMinor, order.currency)} />]
+                  : ["Price a month", <Amount locale={locale} key="p" value={money(order.monthlyTotalMinor, order.currency)} />],
               ]}
             />
           </CardBody>

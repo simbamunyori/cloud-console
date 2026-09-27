@@ -32,7 +32,7 @@ describe.skipIf(!hasDb)("payments", () => {
     await stub.runModuleAction(serviceId, "suspend", OVERDUE_REASON);
     await db.organisation.update({ where: { id: org.organisationId }, data: { billingEmail: "accounts@ramotswa.co.bw" } });
     const payments = new StubCardGateway(db);
-    const organisation = { id: org.organisationId, billingEmail: "accounts@ramotswa.co.bw", timeZone: "Africa/Gaborone" };
+    const organisation = { id: org.organisationId, billingEmail: "accounts@ramotswa.co.bw", timeZone: "Africa/Gaborone", locale: "en-BW" };
     const deps = (actor: Actor = org.owner): PaymentDeps & { organisation: typeof organisation } => ({ db: org.tenant, billing, organisation, actor, payments, appUrl: "https://console.test" });
     return { ...org, stub, billing, payments, deps, invoiceId: placed.invoiceId!, serviceId };
   }
@@ -135,7 +135,7 @@ describe.skipIf(!hasDb)("payments", () => {
 
     // The staff action is in the customer's own audit log.
     const event = await o.tenant.auditEvent.findFirstOrThrow({ where: { action: "payment.eft_confirmed" } });
-    expect(event).toMatchObject({ actorKind: "STAFF", visibleToCustomer: true, summary: "Confirmed P 1,900.00 received by bank transfer for invoice " + invoice!.number });
+    expect({ ...event, summary: event.summary.replace(/\u00a0/gu, " ") }).toMatchObject({ actorKind: "STAFF", visibleToCustomer: true, summary: "Confirmed P 1,900.00 received by bank transfer for invoice " + invoice!.number });
     expect(await db.outboundEmail.count({ where: { organisationId: o.organisationId, kind: "payment.confirmed" } })).toBe(2);
   });
 

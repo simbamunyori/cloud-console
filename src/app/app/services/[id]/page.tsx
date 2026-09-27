@@ -18,7 +18,7 @@ export const metadata: Metadata = { title: "Service" };
 
 export default async function ServicePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const { billing, db, actor } = await requireBilling();
+  const { billing, db, actor, locale } = await requireBilling();
   const service = await billing.getService(id);
   if (!service) notFound();
   const limits = service.status === "active" && can(actor, "order") ? await quantityLimits(db, service.productId) : null;
@@ -50,10 +50,10 @@ export default async function ServicePage({ params }: { params: Promise<{ id: st
                   ["Plan", service.name],
                   ...(service.quantity > 1 ? ([["Users", String(service.quantity)]] as [string, string][]) : []),
                   ...(service.domain ? ([["Domain", service.domain]] as [string, string][]) : []),
-                  [service.billingCycle === "annually" ? "Price a year" : "Price a month", <Amount key="p" value={service.recurring} />],
-                  ...(service.billingCycle === "annually" ? ([["Works out at", <span key="m"><Amount value={perMonth} /> a month</span>]] as [string, React.ReactNode][]) : []),
+                  [service.billingCycle === "annually" ? "Price a year" : "Price a month", <Amount locale={locale} key="p" value={service.recurring} />],
+                  ...(service.billingCycle === "annually" ? ([["Works out at", <span key="m"><Amount locale={locale} value={perMonth} /> a month</span>]] as [string, React.ReactNode][]) : []),
                   ...(service.quantity > 1
-                    ? ([["Per user", <span key="u"><Amount value={{ amountMinor: service.recurring.amountMinor / BigInt(service.quantity), currency: service.recurring.currency }} /></span>]] as [string, React.ReactNode][])
+                    ? ([["Per user", <span key="u"><Amount locale={locale} value={{ amountMinor: service.recurring.amountMinor / BigInt(service.quantity), currency: service.recurring.currency }} /></span>]] as [string, React.ReactNode][])
                     : []),
                   [service.status === "active" ? "Renews" : "Next due", formatDay(service.nextDueOn, true)],
                   ["Started", formatDay(service.registeredOn, true)],
@@ -76,7 +76,7 @@ export default async function ServicePage({ params }: { params: Promise<{ id: st
           <Card aria-labelledby="quantity-title">
             <CardHeader id="quantity-title" title={`Change the number of ${limits.unitLabel.replace(/^per /, "")}s`} description="Adding is charged for the rest of this period. Removing lowers your next invoice." />
             <CardBody>
-              <QuantityForm serviceId={service.serviceId} current={service.quantity} min={limits.min} max={limits.max} unitLabel={limits.unitLabel} />
+              <QuantityForm serviceId={service.serviceId} current={service.quantity} min={limits.min} max={limits.max} unitLabel={limits.unitLabel} locale={locale} />
             </CardBody>
           </Card>
         ) : null}

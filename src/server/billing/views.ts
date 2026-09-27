@@ -48,16 +48,16 @@ export interface AttentionItem {
 }
 
 /** Things someone should look at, most urgent first. */
-export function attentionItems(invoices: InvoiceSummary[], services: Service[], domains: Domain[], today: Date): AttentionItem[] {
+export function attentionItems(invoices: InvoiceSummary[], services: Service[], domains: Domain[], today: Date, locale: string): AttentionItem[] {
   const items: AttentionItem[] = [];
   for (const i of invoices) {
     if (i.status !== "unpaid") continue;
     const href = `/app/billing/invoices/${i.invoiceId}`;
     if (i.dueOn < today) {
       const days = daysBetween(i.dueOn, today);
-      items.push({ key: `inv-${i.invoiceId}`, tone: "negative", title: `Invoice ${i.number} is overdue`, detail: `${formatMoney(i.total)} was due ${days === 1 ? "yesterday" : `${days} days ago`}.`, href, actionLabel: "View invoice" });
+      items.push({ key: `inv-${i.invoiceId}`, tone: "negative", title: `Invoice ${i.number} is overdue`, detail: `${formatMoney(i.total, locale)} was due ${days === 1 ? "yesterday" : `${days} days ago`}.`, href, actionLabel: "View invoice" });
     } else if (i.dueOn <= addDays(today, 7)) {
-      items.push({ key: `inv-${i.invoiceId}`, tone: "warning", title: `Invoice ${i.number} is due ${i.dueOn.getTime() === today.getTime() ? "today" : `on ${formatDay(i.dueOn)}`}`, detail: `${formatMoney(i.total)} to pay.`, href, actionLabel: "View invoice" });
+      items.push({ key: `inv-${i.invoiceId}`, tone: "warning", title: `Invoice ${i.number} is due ${i.dueOn.getTime() === today.getTime() ? "today" : `on ${formatDay(i.dueOn)}`}`, detail: `${formatMoney(i.total, locale)} to pay.`, href, actionLabel: "View invoice" });
     }
   }
   for (const s of services) {

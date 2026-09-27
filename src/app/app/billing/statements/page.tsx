@@ -20,7 +20,7 @@ function parseMonth(value: string | undefined): Date | null {
 
 export default async function StatementsPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const params = await searchParams;
-  const { billing, organisation, today, currency } = await requireBilling();
+  const { billing, organisation, today, currency, locale } = await requireBilling();
   const thisMonth = startOfMonth(today);
   const months = Array.from({ length: 24 }, (_, i) => addMonths(thisMonth, -i));
   let from = parseMonth(params.from) ?? addMonths(thisMonth, -2);
@@ -77,7 +77,7 @@ export default async function StatementsPage({ searchParams }: { searchParams: P
           <CardHeader id="statement-title" title="Account activity" description="Invoices add to what you owe; payments take it off." />
           <div className="flex items-center justify-between border-b border-border px-5 py-3 text-callout sm:px-6">
             <span className="text-ink-muted">Owed on {formatDay(statement.from, true)}</span>
-            <Amount value={statement.opening} className="font-semibold text-ink" />
+            <Amount locale={locale} value={statement.opening} className="font-semibold text-ink" />
           </div>
           {statement.rows.length === 0 ? (
             <CardBody>
@@ -100,12 +100,12 @@ export default async function StatementsPage({ searchParams }: { searchParams: P
                     )}
                   </span>
                   <span className="text-right">
-                    {r.charge ? <Amount value={r.charge} className="text-ink" /> : null}
-                    {r.payment ? <Amount value={{ ...r.payment, amountMinor: -r.payment.amountMinor }} className="text-positive" /> : null}
+                    {r.charge ? <Amount locale={locale} value={r.charge} className="text-ink" /> : null}
+                    {r.payment ? <Amount locale={locale} value={{ ...r.payment, amountMinor: -r.payment.amountMinor }} className="text-positive" /> : null}
                   </span>
                   <span className="col-span-2 text-right text-callout text-ink-muted sm:col-span-1">
                     <span className="sm:hidden">Owed after: </span>
-                    <Amount value={r.balance} className="text-callout" />
+                    <Amount locale={locale} value={r.balance} className="text-callout" />
                   </span>
                 </li>
               ))}
@@ -114,9 +114,9 @@ export default async function StatementsPage({ searchParams }: { searchParams: P
           <CardBody className="border-t border-border">
             <DetailList
               items={[
-                ["Invoices in this period", <Amount key="c" value={statement.charges} />],
-                ["Payments in this period", <Amount key="p" value={statement.payments} />],
-                [<span key="l" className="font-semibold text-ink">Owed on {formatDay(statement.to, true)}</span>, <Amount key="o" value={statement.closing} size="headline" className="text-ink" />],
+                ["Invoices in this period", <Amount locale={locale} key="c" value={statement.charges} />],
+                ["Payments in this period", <Amount locale={locale} key="p" value={statement.payments} />],
+                [<span key="l" className="font-semibold text-ink">Owed on {formatDay(statement.to, true)}</span>, <Amount locale={locale} key="o" value={statement.closing} size="headline" className="text-ink" />],
               ]}
             />
           </CardBody>

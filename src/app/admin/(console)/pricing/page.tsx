@@ -3,6 +3,7 @@ import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
 import { DEFAULT_TIME_ZONE } from "@/config/app";
 import { formatMoment, formatMonth, todayIn } from "@/lib/dates";
+import { company } from "@/config/app";
 import { formatMoney } from "@/lib/domain/money";
 import { monthOf } from "@/lib/domain/pricing";
 import { requireStaffCan } from "@/server/admin/context";
@@ -82,9 +83,9 @@ export default async function PricingPage() {
                         {r.name}
                         <span className="block text-caption text-ink-muted">{r.categoryName}</span>
                       </td>
-                      <td className="px-3 py-3 text-right whitespace-nowrap text-ink-muted tabular-nums">{formatMoney(r.cost)}</td>
-                      <td className="px-3 py-3 text-right whitespace-nowrap text-ink tabular-nums">{r.thisMonth ? formatMoney(r.thisMonth) : "Not priced yet"}</td>
-                      <td className={`px-5 py-3 text-right whitespace-nowrap tabular-nums sm:px-6 ${changed ? "font-semibold text-ink" : "text-ink"}`}>{r.nextMonth ? formatMoney(r.nextMonth) : "Needs a rate"}</td>
+                      <td className="px-3 py-3 text-right whitespace-nowrap text-ink-muted tabular-nums">{formatMoney(r.cost, company.staffLocale)}</td>
+                      <td className="px-3 py-3 text-right whitespace-nowrap text-ink tabular-nums">{r.thisMonth ? formatMoney(r.thisMonth, company.staffLocale) : "Not priced yet"}</td>
+                      <td className={`px-5 py-3 text-right whitespace-nowrap tabular-nums sm:px-6 ${changed ? "font-semibold text-ink" : "text-ink"}`}>{r.nextMonth ? formatMoney(r.nextMonth, company.staffLocale) : "Needs a rate"}</td>
                     </tr>
                   );
                 })}

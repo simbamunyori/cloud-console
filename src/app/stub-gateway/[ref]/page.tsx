@@ -12,6 +12,9 @@ import { StubPayForm } from "./pay-form";
 
 export const metadata: Metadata = { title: "Test card payment", robots: { index: false } };
 
+/** A card company's page knows nothing of our markets, so it writes amounts plainly. */
+const GATEWAY_LOCALE = "en";
+
 const spaced = (n: string) => n.replace(/(\d{4})(?=\d)/g, "$1 ");
 
 /** Stands in for a card company's payment page until a gateway is chosen. */
@@ -33,9 +36,9 @@ export default async function StubGatewayPage({ params }: { params: Promise<{ re
         <CardBody className="flex flex-col gap-6">
           <div className="flex flex-col gap-1">
             <span className="text-callout text-ink-muted">{charge.description}</span>
-            <span className="text-title-1 text-ink tabular-nums">{formatMoney(charge.amount)}</span>
+            <span className="text-title-1 text-ink tabular-nums">{formatMoney(charge.amount, GATEWAY_LOCALE)}</span>
           </div>
-          <StubPayForm reference={charge.id} label={`Pay ${formatMoney(charge.amount)}`} />
+          <StubPayForm reference={charge.id} label={`Pay ${formatMoney(charge.amount, GATEWAY_LOCALE)}`} />
         </CardBody>
       </Card>
       <form action={stubCancelAction} className="self-center">

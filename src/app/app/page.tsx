@@ -15,14 +15,14 @@ const TONE_ICON = { negative: CircleAlert, warning: TriangleAlert, info: Info };
 const TONE_CLASS = { negative: "text-negative", warning: "text-warning", info: "text-link" };
 
 export default async function HomePage() {
-  const { organisation, actor, billing, today, currency } = await requireBilling();
+  const { organisation, actor, billing, today, currency, locale } = await requireBilling();
   const [services, domains, invoices] = await Promise.all([billing.listServices(), billing.listDomains(), billing.listInvoices()]);
 
   const live = services.filter((s) => s.status !== "cancelled" && s.status !== "terminated");
   const monthly = monthlyTotal(services, currency);
   const next = nextInvoice(services, domains, currency);
   const owed = amountOwed(invoices, currency);
-  const attention = attentionItems(invoices, services, domains, today);
+  const attention = attentionItems(invoices, services, domains, today, locale);
   const recent = invoices.slice(0, 3);
 
   return (
@@ -32,7 +32,7 @@ export default async function HomePage() {
         <div className="grid gap-4 sm:grid-cols-3">
           <Card className="flex flex-col gap-1 p-5">
             <span className="text-callout text-ink-muted">Monthly total, {formatMonth(today)}</span>
-            <Amount value={monthly} size="title-1" className="text-ink" />
+            <Amount locale={locale} value={monthly} size="title-1" className="text-ink" />
             <span className="text-callout text-ink-muted">
               For {live.length} {live.length === 1 ? "service" : "services"}
             </span>
@@ -43,7 +43,7 @@ export default async function HomePage() {
               <>
                 <span className="text-title-1 text-ink">{formatDay(next.dueOn, next.dueOn.getUTCFullYear() !== today.getUTCFullYear())}</span>
                 <span className="text-callout text-ink-muted">
-                  About <Amount value={next.amount} className="text-callout" /> falls due
+                  About <Amount locale={locale} value={next.amount} className="text-callout" /> falls due
                 </span>
               </>
             ) : (
@@ -52,7 +52,7 @@ export default async function HomePage() {
           </Card>
           <Card className="flex flex-col gap-1 p-5">
             <span className="text-callout text-ink-muted">To pay now</span>
-            <Amount value={owed} size="title-1" className={owed.amountMinor > 0n ? "text-ink" : "text-positive"} />
+            <Amount locale={locale} value={owed} size="title-1" className={owed.amountMinor > 0n ? "text-ink" : "text-positive"} />
             <Link href="/app/billing" className="text-callout text-link hover:underline">
               {owed.amountMinor > 0n ? "See invoices" : "All paid, thank you"}
             </Link>
@@ -124,7 +124,7 @@ export default async function HomePage() {
                         </span>
                       </span>
                       <span className="hidden text-callout text-ink-muted sm:inline">
-                        <Amount value={monthlyPrice(s)} className="text-callout" /> a month
+                        <Amount locale={locale} value={monthlyPrice(s)} className="text-callout" /> a month
                       </span>
                       <ServiceStatusBadge status={s.status} />
                     </Link>
@@ -157,7 +157,7 @@ export default async function HomePage() {
                         <span className="font-semibold text-ink tabular-nums">{i.number}</span>
                         <span className="text-callout text-ink-muted">{formatDay(i.issuedOn, true)}</span>
                       </span>
-                      <Amount value={i.total} className="text-callout text-ink" />
+                      <Amount locale={locale} value={i.total} className="text-callout text-ink" />
                       <InvoiceStatusBadge status={i.status} overdue={isOverdue(i, today)} />
                     </Link>
                   </li>

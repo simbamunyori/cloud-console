@@ -1,7 +1,7 @@
 import type { AssistantAction, PrismaClient, Prisma } from "@prisma/client";
 import { company } from "@/config/app";
 import { formatLongDate, todayIn } from "@/lib/dates";
-import { currencyInfo } from "@/lib/domain/money";
+import { currencyName } from "@/lib/domain/money";
 import type { ScopedBilling } from "@/server/billing/scoped";
 import type { TenantDb } from "@/server/db";
 import { assertCan, DomainError, ROLE_LABEL, type Actor } from "@/server/org/access";
@@ -24,7 +24,7 @@ export interface AssistantDeps {
   prisma: PrismaClient;
   db: TenantDb;
   billing: ScopedBilling;
-  organisation: { id: string; name: string; currency: string; timeZone: string };
+  organisation: { id: string; name: string; currency: string; timeZone: string; locale: string };
   actor: Actor;
   model: AssistantModel | null;
   consoleName: string;
@@ -40,7 +40,7 @@ function systemPrompt(deps: AssistantDeps) {
   const first = deps.actor.name.split(" ")[0];
   return [
     `You are the support assistant in ${deps.consoleName}, the customer console of ${company.name}, a managed cloud provider.`,
-    `You're helping ${first}, who is ${ROLE_LABEL[deps.actor.role]} at ${deps.organisation.name}. Today is ${formatLongDate(todayIn(deps.organisation.timeZone, deps.now))}. Amounts are in ${currencyInfo(deps.organisation.currency).name}.`,
+    `You're helping ${first}, who is ${ROLE_LABEL[deps.actor.role]} at ${deps.organisation.name}. Today is ${formatLongDate(todayIn(deps.organisation.timeZone, deps.now))}. Amounts are in ${currencyName(deps.organisation.currency, "en")} (${deps.organisation.currency}); tools write them the way the customer does.`,
     "",
     "How to work:",
     "- Look things up with the tools. Only look up what the question needs.",

@@ -8,7 +8,7 @@ import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
 import { formatDay } from "@/lib/dates";
-import { currencyInfo } from "@/lib/domain/money";
+import { currencyName } from "@/lib/domain/money";
 import type { InvoiceStatus } from "@/server/billing/adapter";
 import { requireBilling } from "@/server/billing/context";
 import { poNumbers } from "@/server/billing/po";
@@ -26,7 +26,7 @@ const FILTERS: { key: string; label: string; status?: InvoiceStatus }[] = [
 export default async function BillingPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const params = await searchParams;
   const filter = FILTERS.find((f) => f.key === params.show) ?? FILTERS[0];
-  const { billing, db, today, currency, market } = await requireBilling();
+  const { billing, db, today, currency, market, locale } = await requireBilling();
   const [invoices, services, domains] = await Promise.all([billing.listInvoices(), billing.listServices(), billing.listDomains()]);
   const shown = filter.status ? invoices.filter((i) => i.status === filter.status) : invoices;
   const pos = await poNumbers(db, shown.map((i) => i.invoiceId));
@@ -36,12 +36,12 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
 
   return (
     <>
-      <PageHeader title="Billing" description={`One invoice a month for everything, in ${currencyInfo(currency).name}.`} />
+      <PageHeader title="Billing" description={`One invoice a month for everything, in ${currencyName(currency, locale)}.`} />
       <div className="flex flex-col gap-6">
         <div className="grid gap-4 sm:grid-cols-3">
           <Card className="flex flex-col gap-1 p-5">
             <span className="text-callout text-ink-muted">To pay now</span>
-            <Amount value={owed} size="title-1" className="text-ink" />
+            <Amount locale={locale} value={owed} size="title-1" className="text-ink" />
           </Card>
           <Card className="flex flex-col gap-1 p-5">
             <span className="text-callout text-ink-muted">Next invoice</span>
@@ -111,7 +111,7 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
                         {formatDay(i.issuedOn, true)}
                       </span>
                       <span className="hidden text-ink-body sm:inline">{formatDay(i.dueOn, true)}</span>
-                      <Amount value={i.total} className="text-ink sm:text-right" />
+                      <Amount locale={locale} value={i.total} className="text-ink sm:text-right" />
                       <span className="flex justify-end sm:w-28">
                         <InvoiceStatusBadge status={i.status} overdue={isOverdue(i, today)} />
                       </span>

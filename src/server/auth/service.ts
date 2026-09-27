@@ -209,6 +209,7 @@ export async function signUp(
         billingMarket: market.code,
         currency: market.currency,
         timeZone: market.timeZone,
+        locale: market.locale,
         billingEmail: email,
       },
     });

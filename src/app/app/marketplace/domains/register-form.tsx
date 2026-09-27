@@ -7,7 +7,7 @@ import { formatMoney, fromJson, times, type MoneyJson } from "@/lib/domain/money
 import type { ActionState } from "@/server/action-state";
 import { registerDomainAction } from "../actions";
 
-export function RegisterDomainForm({ domain, price }: { domain: string; price: MoneyJson }) {
+export function RegisterDomainForm({ domain, price, locale }: { domain: string; price: MoneyJson; locale: string }) {
   const [state, action, pending] = useActionState<ActionState, FormData>(registerDomainAction, {});
   const yearly = fromJson(price);
   return (
@@ -21,7 +21,7 @@ export function RegisterDomainForm({ domain, price }: { domain: string; price: M
         <select id={`years-${domain}`} name="years" defaultValue="1" className="h-10 rounded-md border border-border-strong bg-surface-1 px-3 text-callout text-ink">
           {[1, 2, 3, 5].map((y) => (
             <option key={y} value={y}>
-              {y} {y === 1 ? "year" : "years"}, {formatMoney(times(yearly, y))}
+              {y} {y === 1 ? "year" : "years"}, {formatMoney(times(yearly, y), locale)}
             </option>
           ))}
         </select>

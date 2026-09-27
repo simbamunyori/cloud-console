@@ -15,7 +15,7 @@ import { monthlyPrice } from "@/server/billing/views";
 export const metadata: Metadata = { title: "Services" };
 
 export default async function ServicesPage() {
-  const { billing } = await requireBilling();
+  const { billing, locale } = await requireBilling();
   const [services, domains] = await Promise.all([billing.listServices(), billing.listDomains()]);
   const current = services.filter((s) => s.status !== "cancelled" && s.status !== "terminated");
   const ended = services.filter((s) => s.status === "cancelled" || s.status === "terminated");
@@ -63,7 +63,7 @@ export default async function ServicesPage() {
                       </span>
                       <span className="flex items-center justify-between gap-4 sm:justify-end">
                         <span className="text-callout text-ink-muted">
-                          <Amount value={monthlyPrice(s)} className="text-ink" /> a month
+                          <Amount locale={locale} value={monthlyPrice(s)} className="text-ink" /> a month
                         </span>
                         <ServiceStatusBadge status={s.status} />
                       </span>
@@ -101,7 +101,7 @@ export default async function ServicesPage() {
                     </span>
                     <span className="flex items-center justify-between gap-4 sm:justify-end">
                       <span className="text-callout text-ink-muted">
-                        <Amount value={d.renewal} className="text-ink" /> a year
+                        <Amount locale={locale} value={d.renewal} className="text-ink" /> a year
                       </span>
                       <DomainStatusBadge status={d.status} />
                     </span>

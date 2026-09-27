@@ -10,10 +10,14 @@ export const company = {
   legalName: "Fourth Generation Technologies (Pty) Ltd",
   country: "BW",
   tagline: "Managed cloud for business.",
+  /** How the admin console writes amounts and dates for staff, in whatever currency. */
+  staffLocale: "en-BW",
 } as const;
 
-/** Every amount carries a currency; this is the one new organisations start with. */
-export const DEFAULT_CURRENCY = "BWP";
+/**
+ * Where the team works: the admin console, scheduled jobs and the billing
+ * engine's calendar use it. Customers see their own market's time zone.
+ */
 export const DEFAULT_TIME_ZONE = "Africa/Gaborone";
 
 /** Nothing customers own is removed sooner than this after they are told. */

@@ -10,7 +10,7 @@ import { Amount } from "@/components/ui/amount";
 import { Card, CardBody, CardHeader, DetailList } from "@/components/ui/card";
 import { company } from "@/config/app";
 import { formatDay, formatLongDate, toDateOnly } from "@/lib/dates";
-import { currencyInfo, formatMoney, money, toPlainAmount } from "@/lib/domain/money";
+import { currencySymbol, formatMoney, money, toPlainAmount } from "@/lib/domain/money";
 import type { Invoice, InvoiceLine, InvoiceSummary, Service } from "@/server/billing/adapter";
 import type { ScopedBilling } from "@/server/billing/scoped";
 import { requireBilling } from "@/server/billing/context";
@@ -33,7 +33,7 @@ const KIND_TEXT: Record<InvoiceLine["kind"], string> = {
   item: "A one-off charge.",
 };
 
-function ChangeChip({ change }: { change?: LineChange }) {
+function ChangeChip({ change, locale }: { change?: LineChange; locale: string }) {
   if (!change || change.kind === "same") return null;
   if (change.kind === "new") {
     return (
@@ -45,7 +45,7 @@ function ChangeChip({ change }: { change?: LineChange }) {
   const Icon = change.kind === "up" ? ArrowUp : ArrowDown;
   return (
     <span className="inline-flex items-center gap-1 text-caption font-semibold text-ink-muted">
-      <Icon aria-hidden className="size-3" /> {change.kind === "up" ? "Up" : "Down"} from {formatMoney(change.previous)}
+      <Icon aria-hidden className="size-3" /> {change.kind === "up" ? "Up" : "Down"} from {formatMoney(change.previous, locale)}
     </span>
   );
 }
@@ -69,7 +69,7 @@ const CARD_MESSAGE: Record<string, { tone: "positive" | "negative" | "info"; tex
 export default async function InvoicePage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ card?: string }> }) {
   const { id } = await params;
   const { card } = await searchParams;
-  const { billing, db, organisation, actor, today, market } = await requireBilling();
+  const { billing, db, organisation, actor, today, market, locale } = await requireBilling();
   const invoice = await billing.getInvoice(id);
   if (!invoice) notFound();
 
@@ -115,7 +115,7 @@ export default async function InvoicePage({ params, searchParams }: { params: Pr
         ) : null}
         {waiting ? (
           <Alert tone="info" className="print:hidden">
-            You told us on {formatDay(waiting.createdAt, true)} that you paid {formatMoney(money(waiting.amountMinor, waiting.currency))} by bank transfer. We&apos;re checking our bank account and will email you when it&apos;s confirmed.
+            You told us on {formatDay(waiting.createdAt, true)} that you paid {formatMoney(money(waiting.amountMinor, waiting.currency), locale)} by bank transfer. We&apos;re checking our bank account and will email you when it&apos;s confirmed.
           </Alert>
         ) : null}
         {eftReports
@@ -123,7 +123,7 @@ export default async function InvoicePage({ params, searchParams }: { params: Pr
           .slice(0, 1)
           .map((r) => (
             <Alert key={r.id} tone="warning" className="print:hidden">
-              We couldn&apos;t find the {formatMoney(money(r.amountMinor, r.currency))} bank transfer you told us about on {formatDay(r.createdAt, true)}. Our team says: {r.staffNote}
+              We couldn&apos;t find the {formatMoney(money(r.amountMinor, r.currency), locale)} bank transfer you told us about on {formatDay(r.createdAt, true)}. Our team says: {r.staffNote}
             </Alert>
           ))}
         <Card>
@@ -169,7 +169,7 @@ export default async function InvoicePage({ params, searchParams }: { params: Pr
               comparison?.previous && comparison.difference
                 ? comparison.difference.amountMinor === 0n
                   ? `The same as last month's invoice ${comparison.previous.number}. Tap a line for details.`
-                  : `${formatMoney(comparison.difference, { signed: true })} compared with last month's invoice ${comparison.previous.number}. Tap a line for details.`
+                  : `${formatMoney(comparison.difference, locale, { signed: true })} compared with last month's invoice ${comparison.previous.number}. Tap a line for details.`
                 : "Tap a line for details."
             }
           />
@@ -183,16 +183,16 @@ export default async function InvoicePage({ params, searchParams }: { params: Pr
                     <summary className="flex cursor-pointer list-none items-start gap-3 px-5 py-4 hover:bg-surface-2 sm:px-6 [&::-webkit-details-marker]:hidden">
                       <span className="flex min-w-0 flex-1 flex-col gap-1">
                         <span className="text-ink">{line.description}</span>
-                        <ChangeChip change={change} />
+                        <ChangeChip change={change} locale={locale} />
                       </span>
-                      <Amount value={line.amount} className="text-ink" />
+                      <Amount locale={locale} value={line.amount} className="text-ink" />
                       <ChevronDown aria-hidden className="mt-1 size-4 shrink-0 text-ink-muted transition-transform group-open:rotate-180 print:hidden" />
                     </summary>
                     <div className="flex flex-col gap-3 bg-surface-2 px-5 py-4 text-callout sm:px-6">
                       <p className="text-ink-body">{KIND_TEXT[line.kind]}</p>
                       {change && change.kind !== "same" && change.kind !== "new" ? (
                         <p className="text-ink-body">
-                          Last month this was {formatMoney(change.previous)} ({change.previousDescription}).
+                          Last month this was {formatMoney(change.previous, locale)} ({change.previousDescription}).
                         </p>
                       ) : null}
                       {change?.kind === "new" ? <p className="text-ink-body">This wasn&apos;t on last month&apos;s invoice.</p> : null}
@@ -215,20 +215,20 @@ export default async function InvoicePage({ params, searchParams }: { params: Pr
             {comparison?.removed.map((r) => (
               <li key={r.description} className="flex items-start gap-3 px-5 py-3 text-callout text-ink-muted sm:px-6">
                 <span className="flex-1">No longer billed: {r.description}</span>
-                <span className="tabular-nums line-through">{formatMoney(r.amount)}</span>
+                <span className="tabular-nums line-through">{formatMoney(r.amount, locale)}</span>
               </li>
             ))}
           </ul>
           <CardBody className="border-t border-border">
             <DetailList
               items={[
-                ["Subtotal", <Amount key="s" value={invoice.subtotal} />],
+                ["Subtotal", <Amount locale={locale} key="s" value={invoice.subtotal} />],
                 ...(invoice.taxRateBps > 0 || invoice.tax.amountMinor !== 0n
-                  ? ([[`VAT at ${(invoice.taxRateBps / 100).toLocaleString("en-GB")}%`, <Amount key="t" value={invoice.tax} />]] as [string, React.ReactNode][])
+                  ? ([[`${market.taxLabel} at ${(invoice.taxRateBps / 100).toLocaleString(locale)}%`, <Amount locale={locale} key="t" value={invoice.tax} />]] as [string, React.ReactNode][])
                   : []),
-                [<span key="tl" className="font-semibold text-ink">Total</span>, <Amount key="tt" value={invoice.total} size="headline" className="text-ink" />],
-                ...(paid.amountMinor > 0n ? ([["Paid", <Amount key="p" value={paid} />]] as [string, React.ReactNode][]) : []),
-                ...(invoice.status !== "cancelled" ? ([[<span key="bl" className="font-semibold text-ink">Still to pay</span>, <Amount key="b" value={invoice.balance} size="headline" className="text-ink" />]] as [React.ReactNode, React.ReactNode][]) : []),
+                [<span key="tl" className="font-semibold text-ink">Total</span>, <Amount locale={locale} key="tt" value={invoice.total} size="headline" className="text-ink" />],
+                ...(paid.amountMinor > 0n ? ([["Paid", <Amount locale={locale} key="p" value={paid} />]] as [string, React.ReactNode][]) : []),
+                ...(invoice.status !== "cancelled" ? ([[<span key="bl" className="font-semibold text-ink">Still to pay</span>, <Amount locale={locale} key="b" value={invoice.balance} size="headline" className="text-ink" />]] as [React.ReactNode, React.ReactNode][]) : []),
               ]}
             />
           </CardBody>
@@ -244,7 +244,7 @@ export default async function InvoicePage({ params, searchParams }: { params: Pr
                   <span className="flex-1 text-callout text-ink-muted">
                     {p.gateway === "banktransfer" ? "Bank transfer" : "Card"}, reference {p.reference}
                   </span>
-                  <Amount value={money(p.amountIn.amountMinor - p.amountOut.amountMinor, p.amountIn.currency)} className="text-ink" />
+                  <Amount locale={locale} value={money(p.amountIn.amountMinor - p.amountOut.amountMinor, p.amountIn.currency)} className="text-ink" />
                 </li>
               ))}
             </ul>
@@ -253,12 +253,12 @@ export default async function InvoicePage({ params, searchParams }: { params: Pr
 
         {canPay ? (
           <Card aria-labelledby="pay-title" className="print:hidden">
-            <CardHeader id="pay-title" title={`Pay ${formatMoney(invoice.balance)}`} description="By card now, or by bank transfer from your bank." />
+            <CardHeader id="pay-title" title={`Pay ${formatMoney(invoice.balance, locale)}`} description="By card now, or by bank transfer from your bank." />
             <CardBody className="flex flex-col gap-6">
               <form action={payByCardAction}>
                 <input type="hidden" name="invoiceId" value={invoice.invoiceId} />
                 <Button type="submit" size="lg" className="w-full sm:w-auto">
-                  <CreditCard aria-hidden /> Pay {formatMoney(invoice.balance)} by card
+                  <CreditCard aria-hidden /> Pay {formatMoney(invoice.balance, locale)} by card
                 </Button>
               </form>
               <div className="flex flex-col gap-4 border-t border-border pt-6">
@@ -274,7 +274,7 @@ export default async function InvoicePage({ params, searchParams }: { params: Pr
                       <EftReportForm
                         invoiceId={invoice.invoiceId}
                         amount={toPlainAmount(invoice.balance)}
-                        currencySymbol={currencyInfo(invoice.balance.currency).prefix}
+                        currencySymbol={currencySymbol(invoice.balance.currency, locale)}
                         reference={invoice.number}
                         today={toDateOnly(today)}
                       />

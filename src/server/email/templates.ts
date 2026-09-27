@@ -15,13 +15,16 @@ export interface TemplateContext {
   appUrl: string;
   consoleName: string;
   now: Date;
+  /** The recipient's market's way of writing amounts, e.g. "en-ZA". */
+  locale: string;
+  /** The recipient's organisation's time zone. */
+  timeZone: string;
 }
 
 export type Rendered = { subject: string; body: EmailBody } | null;
 
 type Template = (payload: Record<string, unknown>, ctx: TemplateContext) => Promise<Rendered>;
 
-const TZ = "Africa/Gaborone";
 const str = (v: unknown) => (typeof v === "string" ? v : "");
 
 /** A device description short enough for an email, from the user agent. */
@@ -74,7 +77,7 @@ export const TEMPLATES: Record<string, Template> = {
     };
   },
 
-  async "security.two_step_on"(p) {
+  async "security.two_step_on"(p, ctx) {
     return {
       subject: "Two-step login is on for your account",
       body: {
@@ -84,7 +87,7 @@ export const TEMPLATES: Record<string, Template> = {
           "Keep your backup codes somewhere safe. Each one lets you sign in once if you lose your phone.",
         ],
         footnote: "If this wasn't you, reply to this email straight away.",
-        facts: [["When", formatMoment(new Date(str(p.at)), TZ)]],
+        facts: [["When", formatMoment(new Date(str(p.at)), ctx.timeZone)]],
       },
     };
   },
@@ -96,7 +99,7 @@ export const TEMPLATES: Record<string, Template> = {
         heading: "A new device signed in",
         paragraphs: ["Someone signed in to your account from a device we haven't seen before. If it was you, there's nothing to do."],
         facts: [
-          ["When", formatMoment(new Date(str(p.at)), TZ)],
+          ["When", formatMoment(new Date(str(p.at)), ctx.timeZone)],
           ["Device", describeDevice(str(p.userAgent))],
           ["Address", str(p.ipAddress) || "Unknown"],
         ],
@@ -116,13 +119,13 @@ export const TEMPLATES: Record<string, Template> = {
           `Someone signed in to your account with one of your backup codes. You have ${left} left.`,
           left <= 2 ? "You're running low. Make new ones from the Security page." : "Each code works once.",
         ],
-        facts: [["When", formatMoment(new Date(str(p.at)), TZ)]],
+        facts: [["When", formatMoment(new Date(str(p.at)), ctx.timeZone)]],
         button: { label: "Open Security", url: `${ctx.appUrl}/app/security` },
       },
     };
   },
 
-  async "security.locked"(p) {
+  async "security.locked"(p, ctx) {
     return {
       subject: "Sign-in paused after too many attempts",
       body: {
@@ -131,7 +134,7 @@ export const TEMPLATES: Record<string, Template> = {
           "There were several wrong attempts to sign in to your account, so we've paused sign-in for a short while.",
           "If this wasn't you, your password may be known to someone else. Your account is still protected by your authenticator code.",
         ],
-        facts: [["Paused until", formatMoment(new Date(str(p.until)), TZ)]],
+        facts: [["Paused until", formatMoment(new Date(str(p.until)), ctx.timeZone)]],
       },
     };
   },
@@ -153,7 +156,7 @@ export const TEMPLATES: Record<string, Template> = {
         facts: [
           ["Order", order.reference],
           ...(order.quantity > 1 ? ([["Quantity", String(order.quantity)]] as [string, string][]) : []),
-          [isDomain ? "Price" : "Price a month", formatMoney({ amountMinor: isDomain ? order.unitPriceMinor : order.monthlyTotalMinor, currency: order.currency })],
+          [isDomain ? "Price" : "Price a month", formatMoney({ amountMinor: isDomain ? order.unitPriceMinor : order.monthlyTotalMinor, currency: order.currency }, order.organisation.locale)],
           ["Expected by", formatMoment(order.expectedBy, order.organisation.timeZone)],
         ],
         button: { label: "Follow your order", url: `${ctx.appUrl}/app/orders/${encodeURIComponent(order.reference)}` },
@@ -183,7 +186,7 @@ export const TEMPLATES: Record<string, Template> = {
         heading: "Thank you, your payment is in",
         paragraphs: [`We've received your payment and applied it to invoice ${str(p.invoiceNumber)}.`],
         facts: [
-          ["Amount", formatMoney(amount)],
+          ["Amount", formatMoney(amount, ctx.locale)],
           ["Paid by", str(p.method)],
           ["Invoice", str(p.invoiceNumber)],
         ],
@@ -198,13 +201,13 @@ export const TEMPLATES: Record<string, Template> = {
       body: {
         heading: "We couldn't match your bank transfer",
         paragraphs: [
-          `You told us you paid ${formatMoney(amount)} for invoice ${str(p.invoiceNumber)}, but we can't see it in our bank account yet.`,
+          `You told us you paid ${formatMoney(amount, ctx.locale)} for invoice ${str(p.invoiceNumber)}, but we can't see it in our bank account yet.`,
           `Our team says: ${str(p.note)}`,
           "If you've checked and it went through, reply to this email with proof of payment and we'll look again.",
         ],
         facts: [
           ["Invoice", str(p.invoiceNumber)],
-          ["Amount", formatMoney(amount)],
+          ["Amount", formatMoney(amount, ctx.locale)],
         ],
         button: { label: "View the invoice", url: `${ctx.appUrl}/app/billing/invoices/${encodeURIComponent(str(p.invoiceId))}` },
       },

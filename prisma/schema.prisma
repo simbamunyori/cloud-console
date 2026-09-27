@@ -130,6 +130,8 @@ model Organisation {
   /// ISO 4217, from the market at sign-up. Invoices always use it.
   currency           String    @default("BWP")
   timeZone           String    @default("Africa/Gaborone")
+  /// BCP 47, from the market: how amounts and dates are written for them.
+  locale             String    @default("en-BW")
   registrationNumber String?
   vatNumber          String?
   billingEmail       String?

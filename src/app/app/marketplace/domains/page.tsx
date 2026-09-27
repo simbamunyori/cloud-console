@@ -17,7 +17,7 @@ export const metadata: Metadata = { title: "Find a domain" };
 
 export default async function DomainsPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const q = ((await searchParams).q ?? "").slice(0, 100);
-  const { billing, actor, currency, market } = await requireBilling();
+  const { billing, actor, currency, market, locale } = await requireBilling();
   let results: DomainResult[] = [];
   let error: string | null = null;
   if (q.trim()) {
@@ -68,7 +68,7 @@ export default async function DomainsPage({ searchParams }: { searchParams: Prom
                     <span className="text-headline text-ink break-all">{r.name}</span>
                     {r.supported && r.price ? (
                       <span className="text-callout text-ink-muted">
-                        <Amount value={r.price} className="text-callout" /> a year
+                        <Amount locale={locale} value={r.price} className="text-callout" /> a year
                       </span>
                     ) : null}
                   </span>
@@ -77,7 +77,7 @@ export default async function DomainsPage({ searchParams }: { searchParams: Prom
                   ) : !r.available ? (
                     <Badge tone="negative" className="self-start">Taken</Badge>
                   ) : canOrder && r.price ? (
-                    <RegisterDomainForm domain={r.name} price={toJson(r.price)} />
+                    <RegisterDomainForm domain={r.name} price={toJson(r.price)} locale={locale} />
                   ) : (
                     <Badge tone="positive">Available</Badge>
                   )}

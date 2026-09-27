@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
 import { DEFAULT_TIME_ZONE } from "@/config/app";
 import { formatMoment } from "@/lib/dates";
+import { company } from "@/config/app";
 import { formatMoney, money } from "@/lib/domain/money";
 import { requireStaffCan } from "@/server/admin/context";
 import { recentOrders } from "@/server/admin/customers";
@@ -34,7 +35,7 @@ export default async function OrdersPage() {
                   , <span className="tabular-nums">{o.reference}</span>, {formatMoment(o.createdAt, DEFAULT_TIME_ZONE)}
                 </span>
               </span>
-              <span className="hidden text-callout text-ink tabular-nums sm:inline">{formatMoney(money(o.monthlyTotalMinor, o.currency))} a month</span>
+              <span className="hidden text-callout text-ink tabular-nums sm:inline">{formatMoney(money(o.monthlyTotalMinor, o.currency), company.staffLocale)} a month</span>
               <OrderStatusBadge status={o.status} />
             </li>
           ))}

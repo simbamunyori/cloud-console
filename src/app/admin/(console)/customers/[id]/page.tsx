@@ -46,11 +46,11 @@ export default async function CustomerPage({ params }: { params: Promise<{ id: s
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <Card className="flex flex-col gap-1 p-5">
             <span className="text-callout text-ink-muted">Each month</span>
-            <span className="text-title-2 text-ink tabular-nums">{formatMoney(monthlyTotal(services, org.currency))}</span>
+            <span className="text-title-2 text-ink tabular-nums">{formatMoney(monthlyTotal(services, org.currency), org.locale)}</span>
           </Card>
           <Card className="flex flex-col gap-1 p-5">
             <span className="text-callout text-ink-muted">Owed now</span>
-            <span className="text-title-2 text-ink tabular-nums">{formatMoney(amountOwed(invoices, org.currency))}</span>
+            <span className="text-title-2 text-ink tabular-nums">{formatMoney(amountOwed(invoices, org.currency), org.locale)}</span>
           </Card>
           <Card className="flex flex-col gap-1 p-5">
             <span className="text-callout text-ink-muted">EFT waiting for us</span>
@@ -115,7 +115,7 @@ export default async function CustomerPage({ params }: { params: Promise<{ id: s
                       {o.quantity > 1 ? ` x ${o.quantity}` : ""}
                     </span>
                     <span className="truncate text-callout text-ink-muted tabular-nums">
-                      {o.reference}, {formatDay(o.createdAt, true)}, {formatMoney(money(o.monthlyTotalMinor, o.currency))} a month
+                      {o.reference}, {formatDay(o.createdAt, true)}, {formatMoney(money(o.monthlyTotalMinor, o.currency), org.locale)} a month
                     </span>
                   </span>
                   <OrderStatusBadge status={o.status} />
@@ -139,7 +139,7 @@ export default async function CustomerPage({ params }: { params: Promise<{ id: s
                     <span className="text-ink tabular-nums">{i.number}</span>
                     <span className="text-callout text-ink-muted">{formatDay(i.issuedOn, true)}</span>
                   </span>
-                  <span className="text-callout text-ink tabular-nums">{formatMoney(i.total)}</span>
+                  <span className="text-callout text-ink tabular-nums">{formatMoney(i.total, org.locale)}</span>
                   <InvoiceStatusBadge status={i.status} overdue={isOverdue(i, today)} />
                 </li>
               ))}

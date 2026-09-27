@@ -9,18 +9,24 @@ const SIZES = {
   display: "text-display",
 } as const;
 
-/** Every money figure on screen. Tabular numerals so columns line up. */
+/**
+ * Every money figure on screen, written the way the customer's market
+ * writes it. Tabular numerals so columns line up.
+ */
 export function Amount({
   value,
+  locale,
   signed = false,
   size = "body",
   className,
 }: {
   value: Money | MoneyJson;
+  /** The organisation's (or market's) locale, e.g. "en-ZA". */
+  locale: string;
   signed?: boolean;
   size?: keyof typeof SIZES;
   className?: string;
 }) {
   const m = typeof value.amountMinor === "string" ? fromJson(value as MoneyJson) : (value as Money);
-  return <span className={cn("whitespace-nowrap tabular-nums", SIZES[size], className)}>{formatMoney(m, { signed })}</span>;
+  return <span className={cn("whitespace-nowrap tabular-nums", SIZES[size], className)}>{formatMoney(m, locale, { signed })}</span>;
 }

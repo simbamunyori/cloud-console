@@ -24,6 +24,22 @@ describe.skipIf(!hasDb)("email outbox", () => {
     expect(row.status).toBe("SENT");
   });
 
+  it("writes amounts and times the way the customer's market does", async () => {
+    const org = await makeOrganisation("Durban Diesel");
+    await db.organisation.update({ where: { id: org.organisationId }, data: { locale: "en-ZA", timeZone: "Africa/Johannesburg" } });
+    const to = uniqueEmail("za-billing");
+    await queueEmail(db, {
+      organisationId: org.organisationId,
+      to,
+      kind: "payment.confirmed",
+      payload: { invoiceId: "1", invoiceNumber: "INV-9", amount: { amountMinor: "123456", currency: "ZAR" }, method: "Card" },
+    });
+    const adapter = new MemoryEmailAdapter();
+    await deliverDue(db, adapter, new Date(), 50, { toAddress: to });
+    const [message] = adapter.sent.filter((m) => m.to === to);
+    expect(message.text.replace(/[\u00a0\u202f]/gu, " ")).toContain("R 1 234,56");
+  });
+
   it("drops an invitation withdrawn before it went out", async () => {
     const org = await makeOrganisation();
     const email = uniqueEmail("gone");

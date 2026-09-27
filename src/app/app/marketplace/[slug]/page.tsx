@@ -26,7 +26,7 @@ function setupTime(hours: number) {
 
 export default async function ProductPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const { actor, today, currency } = await requireBilling();
+  const { actor, today, currency, locale } = await requireBilling();
   const product = await productBySlug(prisma, slug);
   if (!product || product.slug === DOMAIN_PRODUCT_SLUG) notFound();
   const price = await monthlyPrice(prisma, product, currency, monthOf(today)).catch((e) => {
@@ -85,7 +85,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
           <CardBody className="flex flex-col gap-5">
             {price ? (
               <p className="text-callout text-ink-muted">
-                <Amount value={price} size="title-1" className="text-ink" /> {product.unitLabel} a month
+                <Amount locale={locale} value={price} size="title-1" className="text-ink" /> {product.unitLabel} a month
               </p>
             ) : null}
             {!price ? (
@@ -94,6 +94,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
               <OrderForm
                 slug={product.slug}
                 unitPrice={toJson(price)}
+                locale={locale}
                 unitLabel={product.unitLabel}
                 quantityAllowed={product.quantityAllowed}
                 minQuantity={product.minQuantity}

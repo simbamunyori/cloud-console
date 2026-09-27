@@ -1,5 +1,6 @@
 import type { EftPayment, PrismaClient } from "@prisma/client";
 import { addDays, formatDay, parseDateOnly, todayIn } from "@/lib/dates";
+import { company } from "@/config/app";
 import { formatMoney, money, MoneyParseError, parseMoney, toJson } from "@/lib/domain/money";
 import { BillingError, PAYMENT_METHODS, type BillingAdapter } from "@/server/billing/adapter";
 import { scopedBilling } from "@/server/billing/scoped";
@@ -33,9 +34,9 @@ export async function reportEftPayment(deps: Omit<PaymentDeps, "payments" | "app
 
   let amountMinor = 0n;
   try {
-    amountMinor = parseMoney(input.amount, currency);
+    amountMinor = parseMoney(input.amount, currency, deps.organisation.locale);
     if (amountMinor <= 0n) fieldErrors.amount = "Enter the amount you paid.";
-    else if (amountMinor > invoice.balance.amountMinor) fieldErrors.amount = `That's more than the ${formatMoney(invoice.balance)} left to pay.`;
+    else if (amountMinor > invoice.balance.amountMinor) fieldErrors.amount = `That's more than the ${formatMoney(invoice.balance, deps.organisation.locale)} left to pay.`;
   } catch (e) {
     if (!(e instanceof MoneyParseError)) throw e;
     fieldErrors.amount = "Enter an amount, like 1,250.00.";
@@ -61,7 +62,7 @@ export async function reportEftPayment(deps: Omit<PaymentDeps, "payments" | "app
       tx,
       customerAudit(deps.actor, deps.organisation.id, {
         action: "payment.eft_reported",
-        summary: `Told us ${formatMoney(amount)} was paid by bank transfer for invoice ${invoice.number}`,
+        summary: `Told us ${formatMoney(amount, deps.organisation.locale)} was paid by bank transfer for invoice ${invoice.number}`,
         targetType: "Invoice",
         targetId: invoice.invoiceId,
         data: { eftPaymentId: eft.id, reference },
@@ -98,7 +99,7 @@ export async function confirmEftPayment(deps: StaffPaymentDeps, eftPaymentId: st
   let amountMinor = eft.amountMinor;
   if (input.amountReceived?.trim()) {
     try {
-      amountMinor = parseMoney(input.amountReceived, eft.currency);
+      amountMinor = parseMoney(input.amountReceived, eft.currency, company.staffLocale);
     } catch (e) {
       if (!(e instanceof MoneyParseError)) throw e;
       throw new DomainError("invalid", "Enter an amount, like 1,250.00.", "amountReceived");
@@ -109,7 +110,7 @@ export async function confirmEftPayment(deps: StaffPaymentDeps, eftPaymentId: st
   const billing = await scopedBilling(deps.db, deps.adapter, eft.organisationId);
   const invoice = await billing.getInvoice(eft.invoiceId);
   if (!invoice) throw new DomainError("not-found", "The invoice is no longer there.");
-  if (amountMinor > invoice.balance.amountMinor) throw new DomainError("invalid", `That's more than the ${formatMoney(invoice.balance)} left on invoice ${invoice.number}.`, "amountReceived");
+  if (amountMinor > invoice.balance.amountMinor) throw new DomainError("invalid", `That's more than the ${formatMoney(invoice.balance, eft.organisation.locale)} left on invoice ${invoice.number}.`, "amountReceived");
 
   const now = deps.now ?? new Date();
   const claimed = await deps.db.eftPayment.updateMany({
@@ -129,7 +130,7 @@ export async function confirmEftPayment(deps: StaffPaymentDeps, eftPaymentId: st
   await deps.db.$transaction(async (tx) => {
     await audit(tx, staffAudit(deps.staff, eft.organisationId, {
       action: "payment.eft_confirmed",
-      summary: `Confirmed ${formatMoney(amount)} received by bank transfer for invoice ${invoice.number}`,
+      summary: `Confirmed ${formatMoney(amount, eft.organisation.locale)} received by bank transfer for invoice ${invoice.number}`,
       targetType: "Invoice",
       targetId: eft.invoiceId,
       data: { eftPaymentId: eft.id, reported: { ...toJson(money(eft.amountMinor, eft.currency)) } },
@@ -166,7 +167,7 @@ export async function rejectEftPayment(deps: StaffPaymentDeps, eftPaymentId: str
     if (!claimed.count) throw new DomainError("conflict", "Someone has already dealt with this payment.");
     await audit(tx, staffAudit(deps.staff, eft.organisationId, {
       action: "payment.eft_not_found",
-      summary: `Couldn't find the ${formatMoney(amount)} bank transfer for invoice ${number}: ${reason}`,
+      summary: `Couldn't find the ${formatMoney(amount, eft.organisation.locale)} bank transfer for invoice ${number}: ${reason}`,
       targetType: "Invoice",
       targetId: eft.invoiceId,
       data: { eftPaymentId: eft.id },

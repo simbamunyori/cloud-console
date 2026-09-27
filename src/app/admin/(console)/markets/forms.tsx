@@ -77,7 +77,7 @@ export function MarketSettingsForm({ market, catchAll }: { market: MarketFormVal
           error={fe.countries}
           hint={catchAll ? "Leave empty: this market serves every country no other market lists." : "Two-letter codes, separated by commas, e.g. ZA."}
         />
-        <TextField id="currency" label="Currency" defaultValue={v.currency} error={fe.currency} hint="ISO code, e.g. ZAR. Fixed once customers are billed in it." />
+        <TextField id="currency" label="Currency" defaultValue={v.currency} error={fe.currency} hint="The three-letter ISO 4217 code. Fixed once customers are billed in it." />
         <TextField id="locale" label="Locale" defaultValue={v.locale} error={fe.locale} hint="How amounts and dates are written, e.g. en-ZA." />
         <TextField id="timeZone" label="Time zone" defaultValue={v.timeZone} error={fe.timeZone} hint="e.g. Africa/Johannesburg." />
       </Section>

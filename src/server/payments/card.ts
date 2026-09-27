@@ -18,7 +18,7 @@ import type { PaymentAdapter } from "./adapter";
 export interface PaymentDeps {
   db: TenantDb;
   billing: ScopedBilling;
-  organisation: { id: string; billingEmail?: string | null };
+  organisation: { id: string; billingEmail?: string | null; locale: string };
   actor: Actor;
   payments: PaymentAdapter;
   appUrl: string;
@@ -84,7 +84,7 @@ export async function finishCardPayment(deps: Omit<PaymentDeps, "appUrl">, payme
     return deps.db.$transaction(async (tx) => {
       const claimed = await tx.cardPayment.updateMany({ where: { id: payment.id, status: "STARTED" }, data: { status: "FAILED", failureReason: outcome.reason } });
       if (claimed.count) {
-        await audit(tx, customerAudit(deps.actor, deps.organisation.id, { action: "payment.card_failed", summary: `A card payment of ${formatMoney(amount)} didn't go through`, targetType: "Invoice", targetId: payment.invoiceId, data: { reason: outcome.reason } }));
+        await audit(tx, customerAudit(deps.actor, deps.organisation.id, { action: "payment.card_failed", summary: `A card payment of ${formatMoney(amount, deps.organisation.locale)} didn't go through`, targetType: "Invoice", targetId: payment.invoiceId, data: { reason: outcome.reason } }));
       }
       return tx.cardPayment.findUniqueOrThrow({ where: { id: payment.id } });
     });
@@ -99,7 +99,7 @@ export async function finishCardPayment(deps: Omit<PaymentDeps, "appUrl">, payme
     // paid another way meanwhile. Leave it for staff to settle or refund.
     const reason = e instanceof BillingError ? `The card was charged but the invoice couldn't take the payment: ${e.message}` : "The card was charged but recording it failed.";
     await deps.db.cardPayment.update({ where: { id: payment.id }, data: { status: "FAILED", failureReason: reason } });
-    await audit(deps.db, customerAudit(deps.actor, deps.organisation.id, { action: "payment.card_unapplied", summary: `A card payment of ${formatMoney(amount)} needs our team to apply it`, targetType: "Invoice", targetId: payment.invoiceId, data: { paymentRef } }));
+    await audit(deps.db, customerAudit(deps.actor, deps.organisation.id, { action: "payment.card_unapplied", summary: `A card payment of ${formatMoney(amount, deps.organisation.locale)} needs our team to apply it`, targetType: "Invoice", targetId: payment.invoiceId, data: { paymentRef } }));
     throw new DomainError("conflict", "Your card was charged, but we couldn't apply it to the invoice. Our team has been told and will sort it out or refund you.");
   }
 
@@ -111,7 +111,7 @@ export async function finishCardPayment(deps: Omit<PaymentDeps, "appUrl">, payme
       tx,
       customerAudit(deps.actor, deps.organisation.id, {
         action: "payment.card_paid",
-        summary: `Paid ${formatMoney(amount)} by card for invoice ${number}${outcome.lastFour ? ` (card ending ${outcome.lastFour})` : ""}`,
+        summary: `Paid ${formatMoney(amount, deps.organisation.locale)} by card for invoice ${number}${outcome.lastFour ? ` (card ending ${outcome.lastFour})` : ""}`,
         targetType: "Invoice",
         targetId: payment.invoiceId,
         data: { paymentRef },

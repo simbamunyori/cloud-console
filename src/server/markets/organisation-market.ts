@@ -37,7 +37,7 @@ export async function changeOrganisationMarket(deps: { db: PrismaClient; adapter
   return deps.db.$transaction(async (tx) => {
     const updated = await tx.organisation.update({
       where: { id: organisationId },
-      data: { billingMarket: market.code, currency: market.currency, timeZone: market.timeZone },
+      data: { billingMarket: market.code, currency: market.currency, timeZone: market.timeZone, locale: market.locale },
     });
     await audit(
       tx,

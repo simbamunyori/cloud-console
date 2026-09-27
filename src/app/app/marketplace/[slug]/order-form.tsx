@@ -19,6 +19,7 @@ export function OrderForm({
   minQuantity,
   maxQuantity,
   options,
+  locale,
 }: {
   slug: string;
   unitPrice: MoneyJson;
@@ -27,6 +28,7 @@ export function OrderForm({
   minQuantity: number;
   maxQuantity: number;
   options: OptionSpec[];
+  locale: string;
 }) {
   const [state, action, pending] = useActionState<ActionState, FormData>(placeOrderAction, {});
   const [quantity, setQuantity] = useState(Math.max(minQuantity, Number(state.values?.quantity) || (quantityAllowed ? 5 : 1)));
@@ -101,14 +103,14 @@ export function OrderForm({
 
       <div className="flex flex-col gap-1 rounded-md bg-surface-2 p-4">
         <span className="text-callout text-ink-muted">
-          {quantityAllowed ? `${quantity} x ${formatMoney(fromJson(unitPrice))}` : "Price"}
+          {quantityAllowed ? `${quantity} x ${formatMoney(fromJson(unitPrice), locale)}` : "Price"}
         </span>
-        <span className="text-title-2 text-ink tabular-nums">{formatMoney(total)} a month</span>
+        <span className="text-title-2 text-ink tabular-nums">{formatMoney(total, locale)} a month</span>
         <span className="text-callout text-ink-muted">The first month is invoiced now. You can pay it by card or bank transfer.</span>
       </div>
 
       <Button type="submit" size="lg" disabled={pending}>
-        {pending ? "Placing your order…" : `Order for ${formatMoney(total)} a month`}
+        {pending ? "Placing your order…" : `Order for ${formatMoney(total, locale)} a month`}
       </Button>
     </form>
   );

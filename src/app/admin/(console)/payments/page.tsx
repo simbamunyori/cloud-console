@@ -5,6 +5,7 @@ import { Card, CardBody, DetailList } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
 import { formatDay } from "@/lib/dates";
+import { company } from "@/config/app";
 import { formatMoney, money } from "@/lib/domain/money";
 import { requireStaffCan } from "@/server/admin/context";
 import { awaitingEft } from "@/server/admin/customers";
@@ -45,7 +46,7 @@ export default async function PaymentsPage() {
                       {r.organisation.name}
                     </Link>
                     <h2 className="text-headline text-ink">
-                      {formatMoney(amount)} for invoice {invoice?.number ?? r.invoiceId}
+                      {formatMoney(amount, company.staffLocale)} for invoice {invoice?.number ?? r.invoiceId}
                     </h2>
                   </div>
                   <DetailList
@@ -53,10 +54,10 @@ export default async function PaymentsPage() {
                       ["Reference they used", <span key="r" className="font-semibold">{r.reference}</span>],
                       ["Paid on", formatDay(r.paidOn, true)],
                       ["Told us", formatDay(r.createdAt, true)],
-                      ["Left on the invoice", invoice ? formatMoney(invoice.balance) : "Unknown"],
+                      ["Left on the invoice", invoice ? formatMoney(invoice.balance, company.staffLocale) : "Unknown"],
                     ]}
                   />
-                  <EftDecision eftPaymentId={r.id} reported={formatMoney(amount)} />
+                  <EftDecision eftPaymentId={r.id} reported={formatMoney(amount, company.staffLocale)} />
                 </CardBody>
               </Card>
             );

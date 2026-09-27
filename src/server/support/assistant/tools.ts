@@ -23,7 +23,7 @@ import type { ToolSpec } from "./model";
 export interface ToolContext {
   db: TenantDb;
   billing: ScopedBilling;
-  organisation: { id: string; name: string; currency: string; timeZone: string };
+  organisation: { id: string; name: string; currency: string; timeZone: string; locale: string };
   actor: Actor;
   now?: Date;
 }
@@ -66,13 +66,13 @@ async function invoiceDetail(ctx: ToolContext, invoice: Invoice) {
     if (cmp.previous) {
       changes = {
         compared_with: cmp.previous.number,
-        difference: cmp.difference ? formatMoney(cmp.difference, { signed: true }) : undefined,
+        difference: cmp.difference ? formatMoney(cmp.difference, ctx.organisation.locale, { signed: true }) : undefined,
         changed_lines: invoice.lines.flatMap((l) => {
           const c = cmp.lines.get(l.lineId);
           if (!c || c.kind === "same") return [];
-          return [{ line: l.description, change: c.kind === "new" ? "new this month" : `${c.kind} from ${formatMoney(c.previous)}` }];
+          return [{ line: l.description, change: c.kind === "new" ? "new this month" : `${c.kind} from ${formatMoney(c.previous, ctx.organisation.locale)}` }];
         }),
-        no_longer_billed: cmp.removed.map((r) => ({ line: r.description, was: formatMoney(r.amount) })),
+        no_longer_billed: cmp.removed.map((r) => ({ line: r.description, was: formatMoney(r.amount, ctx.organisation.locale) })),
       };
     }
   }
@@ -83,12 +83,12 @@ async function invoiceDetail(ctx: ToolContext, invoice: Invoice) {
     issued: day(invoice.issuedOn),
     due: day(invoice.dueOn),
     paid: day(invoice.paidOn),
-    lines: invoice.lines.map((l) => ({ description: l.description, amount: formatMoney(l.amount), kind: l.kind })),
-    subtotal: formatMoney(invoice.subtotal),
-    vat: formatMoney(invoice.tax),
-    total: formatMoney(invoice.total),
-    still_to_pay: formatMoney(invoice.balance),
-    payments: invoice.payments.map((p) => ({ date: day(p.date), method: p.gateway === "banktransfer" ? "bank transfer" : "card", amount: formatMoney(p.amountIn) })),
+    lines: invoice.lines.map((l) => ({ description: l.description, amount: formatMoney(l.amount, ctx.organisation.locale), kind: l.kind })),
+    subtotal: formatMoney(invoice.subtotal, ctx.organisation.locale),
+    vat: formatMoney(invoice.tax, ctx.organisation.locale),
+    total: formatMoney(invoice.total, ctx.organisation.locale),
+    still_to_pay: formatMoney(invoice.balance, ctx.organisation.locale),
+    payments: invoice.payments.map((p) => ({ date: day(p.date), method: p.gateway === "banktransfer" ? "bank transfer" : "card", amount: formatMoney(p.amountIn, ctx.organisation.locale) })),
     changes_from_last_month: changes,
     how_to_pay: "The invoice page in the console has a Pay by card button and our bank details for EFT.",
   };
@@ -109,7 +109,7 @@ export const TOOLS: Tool[] = [
           status: s.status,
           users: s.quantity,
           domain: s.domain,
-          price_a_month: formatMoney(monthlyPrice(s)),
+          price_a_month: formatMoney(monthlyPrice(s), ctx.organisation.locale),
           renews: day(s.nextDueOn),
           paused_because: s.suspendReason,
         })),
@@ -132,8 +132,8 @@ export const TOOLS: Tool[] = [
           users: s.quantity,
           domain: s.domain,
           billing: s.billingCycle,
-          price_per_cycle: formatMoney(s.recurring),
-          price_a_month: formatMoney(monthlyPrice(s)),
+          price_per_cycle: formatMoney(s.recurring, ctx.organisation.locale),
+          price_a_month: formatMoney(monthlyPrice(s), ctx.organisation.locale),
           started: day(s.registeredOn),
           renews: day(s.nextDueOn),
           paused_because: s.suspendReason,
@@ -153,7 +153,7 @@ export const TOOLS: Tool[] = [
       const invoices = (await ctx.billing.listInvoices()).filter((i) => !input.only_unpaid || i.status === "unpaid").slice(0, 12);
       return {
         auditSummary: "Assistant looked up your invoices",
-        result: invoices.map((i) => ({ invoice_id: i.invoiceId, number: i.number, issued: day(i.issuedOn), due: day(i.dueOn), total: formatMoney(i.total), status: isOverdue(i, today) ? "overdue" : i.status })),
+        result: invoices.map((i) => ({ invoice_id: i.invoiceId, number: i.number, issued: day(i.issuedOn), due: day(i.dueOn), total: formatMoney(i.total, ctx.organisation.locale), status: isOverdue(i, today) ? "overdue" : i.status })),
       };
     },
   },
@@ -180,7 +180,7 @@ export const TOOLS: Tool[] = [
       const domains = await ctx.billing.listDomains();
       return {
         auditSummary: "Assistant looked up your domains",
-        result: domains.map((d) => ({ name: d.name, status: d.status, expires: day(d.expiresOn), renews_automatically: d.autoRenew, renewal_price: formatMoney(d.renewal) })),
+        result: domains.map((d) => ({ name: d.name, status: d.status, expires: day(d.expiresOn), renews_automatically: d.autoRenew, renewal_price: formatMoney(d.renewal, ctx.organisation.locale) })),
       };
     },
   },
@@ -204,7 +204,7 @@ export const TOOLS: Tool[] = [
       const categories = await marketplace(ctx.db as unknown as PrismaClient, ctx.organisation.currency, monthOf(todayIn(ctx.organisation.timeZone, ctx.now)));
       return {
         auditSummary: "Assistant looked up our prices",
-        result: categories.flatMap((c) => c.products.map((p) => ({ product: p.product.name, category: c.category.name, price: p.price ? `${formatMoney(p.price)} ${p.product.unitLabel} a month` : "ask us" }))),
+        result: categories.flatMap((c) => c.products.map((p) => ({ product: p.product.name, category: c.category.name, price: p.price ? `${formatMoney(p.price, ctx.organisation.locale)} ${p.product.unitLabel} a month` : "ask us" }))),
       };
     },
   },
@@ -243,8 +243,8 @@ export const TOOLS: Tool[] = [
       }
       try {
         const c = await previewQuantityChange({ ...ctx }, str(input.service_id), Number(input.users));
-        const dueNow = c.preview.dueNow.amountMinor > 0n ? `${formatMoney(c.preview.dueNow)} now for the rest of this period, then ` : "";
-        const summary = `Change ${c.serviceName} from ${c.from} to ${c.to} users: ${dueNow}${formatMoney(c.preview.newRecurring)} a month.`;
+        const dueNow = c.preview.dueNow.amountMinor > 0n ? `${formatMoney(c.preview.dueNow, ctx.organisation.locale)} now for the rest of this period, then ` : "";
+        const summary = `Change ${c.serviceName} from ${c.from} to ${c.to} users: ${dueNow}${formatMoney(c.preview.newRecurring, ctx.organisation.locale)} a month.`;
         return {
           auditSummary: `Assistant suggested changing ${c.serviceName} to ${c.to} users`,
           result: { proposed: summary, waiting_for: "The customer to press Confirm under your message." },

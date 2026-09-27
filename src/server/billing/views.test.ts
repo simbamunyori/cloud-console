@@ -40,6 +40,7 @@ describe("billing views", () => {
       [service({ serviceId: "7", name: "Managed VPS", status: "pending" }), service({ serviceId: "8", name: "Backup", status: "suspended", suspendReason: "Overdue on payment" })],
       [domain({ expiresOn: d("2026-10-10"), autoRenew: false }), domain({ domainId: "6", name: "old.bw", status: "expired" })],
       d("2026-09-27"),
+      "en-BW",
     );
     expect(items.map((i) => [i.tone, i.title])).toEqual([
       ["negative", "Invoice INV-1 is overdue"],
@@ -49,7 +50,7 @@ describe("billing views", () => {
       ["warning", "acme.co.bw expires in 13 days"],
       ["info", "Managed VPS is being set up"],
     ]);
-    expect(items[0].detail).toBe("P 10.00 was due 7 days ago.");
+    expect(items[0].detail.replace(/\u00a0/gu, " ")).toBe("P 10.00 was due 7 days ago.");
   });
 
   it("compares an invoice with the previous month's", () => {

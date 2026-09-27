@@ -7,7 +7,10 @@ import {
   applyBps,
   divCeil,
   divRound,
+  currencyName,
+  currencySymbol,
   formatMoney,
+  isSupportedCurrency,
   fromJson,
   money,
   parseMoney,
@@ -30,15 +33,21 @@ describe("parseMoney", () => {
     ["-5", -500n],
     ["7.", 700n],
   ])("reads %s", (input, expected) => {
-    expect(parseMoney(input)).toBe(expected);
+    expect(parseMoney(input, "BWP")).toBe(expected);
   });
 
   it.each(["", "abc", "1.234", "12..0", "1e5", "--1"])("rejects %s", (input) => {
-    expect(() => parseMoney(input)).toThrow(MoneyParseError);
+    expect(() => parseMoney(input, "BWP")).toThrow(MoneyParseError);
   });
 
   it("handles amounts beyond float precision", () => {
-    expect(parseMoney("90071992547409.93")).toBe(9007199254740993n);
+    expect(parseMoney("90071992547409.93", "BWP")).toBe(9007199254740993n);
+  });
+
+  it("reads a decimal comma in locales that use one", () => {
+    expect(parseMoney("R 1 234,50", "ZAR", "en-ZA")).toBe(123450n);
+    expect(parseMoney("1234.5", "ZAR", "en-ZA")).toBe(123450n);
+    expect(parseMoney("US$ 19.99", "USD", "en-ZW")).toBe(1999n);
   });
 
   it("refuses a currency it doesn't know", () => {
@@ -46,20 +55,54 @@ describe("parseMoney", () => {
   });
 });
 
+/** Intl puts no-break spaces around symbols and between groups; compare with plain ones. */
+const plain = (s: string) => s.replace(/[\u00a0\u202f]/gu, " ");
+const fmt = (m: Parameters<typeof formatMoney>[0], locale: string, opts?: Parameters<typeof formatMoney>[2]) => plain(formatMoney(m, locale, opts));
+
 describe("formatMoney", () => {
-  it("groups thousands and keeps two decimals", () => {
-    expect(formatMoney(P(20909813n))).toBe("P 209,098.13");
-    expect(formatMoney(P(5n))).toBe("P 0.05");
-    expect(formatMoney(P(0n))).toBe("P 0.00");
-    expect(formatMoney(money(1999n, "USD"))).toBe("US$ 19.99");
+  it.each([
+    ["en-BW", money(20909813n, "BWP"), "P 209,098.13"],
+    ["en-BW", money(5n, "BWP"), "P 0.05"],
+    ["en-BW", money(0n, "BWP"), "P 0.00"],
+    ["en-ZA", money(123456789n, "ZAR"), "R 1 234 567,89"],
+    ["en-ZW", money(1999n, "USD"), "US$19.99"],
+    ["en-US", money(1999n, "USD"), "$19.99"],
+    ["en-ZA", money(1999n, "USD"), "US$19,99"],
+    ["en-BW", money(1999n, "USD"), "US$19.99"],
+    ["en-US", money(1999n, "BWP"), "BWP 19.99"],
+  ])("writes amounts the way %s does", (locale, m, expected) => {
+    expect(fmt(m, locale)).toBe(expected);
+  });
+
+  it("keeps a currency's own number of decimals", () => {
+    expect(fmt(money(1500n, "JPY"), "en-US")).toBe("¥1,500");
+  });
+
+  it("formats exact amounts beyond float precision", () => {
+    expect(fmt(money(9007199254740993n, "BWP"), "en-BW")).toBe("P 90,071,992,547,409.93");
   });
 
   it("uses a true minus sign", () => {
-    expect(formatMoney(P(-1240000n))).toBe("−P 12,400.00");
+    expect(fmt(P(-1240000n), "en-BW")).toBe("−P 12,400.00");
+    expect(fmt(money(-1240000n, "ZAR"), "en-ZA")).toBe("−R 12 400,00");
   });
 
-  it("can show a plus sign for credits", () => {
-    expect(formatMoney(P(100n), { signed: true })).toBe("+P 1.00");
+  it("can show a plus sign for credits, and none for zero", () => {
+    expect(fmt(P(100n), "en-BW", { signed: true })).toBe("+P 1.00");
+    expect(fmt(P(0n), "en-BW", { signed: true })).toBe("P 0.00");
+  });
+
+  it("can leave the currency out for dense columns", () => {
+    expect(fmt(P(1240000n), "en-BW", { bare: true })).toBe("12,400.00");
+    expect(fmt(money(-1999n, "USD"), "en-ZW", { bare: true })).toBe("−19.99");
+  });
+
+  it("names and marks currencies from Intl, not a table", () => {
+    expect(currencySymbol("ZAR", "en-ZA")).toBe("R");
+    expect(currencySymbol("USD", "en-ZW")).toBe("US$");
+    expect(currencyName("BWP", "en-BW")).toMatch(/Pula/);
+    expect(isSupportedCurrency("ZWG")).toBe(true);
+    expect(isSupportedCurrency("XYZ")).toBe(false);
   });
 });
 
@@ -101,7 +144,7 @@ describe("arithmetic", () => {
 describe("toPlainAmount", () => {
   it("writes an amount the way it is typed, and parses back", () => {
     for (const minor of [0n, 5n, 190000n, 123456789n, -250n]) {
-      expect(parseMoney(toPlainAmount(P(minor)))).toBe(minor);
+      expect(parseMoney(toPlainAmount(P(minor)), "BWP")).toBe(minor);
     }
     expect(toPlainAmount(P(190000n))).toBe("1900.00");
     expect(toPlainAmount(P(5n))).toBe("0.05");

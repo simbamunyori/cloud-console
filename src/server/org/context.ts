@@ -42,6 +42,8 @@ export const requireMember = cache(async () => {
     organisation,
     /** The account's market: its currency, locale, contacts and bank details, wherever the member is browsing from. */
     market,
+    /** How amounts and dates are written for this account. */
+    locale: organisation.locale,
     db: tenantDb(membership.organisation.id),
   };
 });

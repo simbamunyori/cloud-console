@@ -12,7 +12,7 @@ import { prisma } from "@/server/db";
 export const metadata: Metadata = { title: "Marketplace" };
 
 export default async function MarketplacePage() {
-  const { today, currency } = await requireBilling();
+  const { today, currency, locale } = await requireBilling();
   const categories = await marketplace(prisma, currency, monthOf(today));
 
   return (
@@ -52,7 +52,7 @@ export default async function MarketplacePage() {
                     <span className="text-callout text-ink-muted">
                       {price ? (
                         <>
-                          <Amount value={price} size="headline" className="text-ink" /> {product.unitLabel} a month
+                          <Amount locale={locale} value={price} size="headline" className="text-ink" /> {product.unitLabel} a month
                         </>
                       ) : (
                         "Ask us for a price"

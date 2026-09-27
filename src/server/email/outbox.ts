@@ -4,6 +4,26 @@ import type { EmailAdapter } from "./adapter";
 import { renderEmail } from "./layout";
 import { TEMPLATES } from "./templates";
 
+/**
+ * How dates and amounts are written in an email: the organisation's
+ * market, or for account emails the recipient's first organisation, or
+ * the default market for someone with none yet.
+ */
+async function emailRegion(db: PrismaClient, row: { organisationId: string | null; toAddress: string }) {
+  const org = row.organisationId
+    ? await db.organisation.findUnique({ where: { id: row.organisationId }, select: { locale: true, timeZone: true } })
+    : (
+        await db.membership.findFirst({
+          where: { active: true, user: { email: row.toAddress.toLowerCase() } },
+          orderBy: { createdAt: "asc" },
+          select: { organisation: { select: { locale: true, timeZone: true } } },
+        })
+      )?.organisation;
+  if (org) return org;
+  const market = await db.market.findFirst({ where: { isDefault: true }, select: { locale: true, timeZone: true } });
+  return market ?? { locale: "en-BW", timeZone: "Africa/Gaborone" };
+}
+
 type OutboxClient = { outboundEmail: { create: (args: { data: Prisma.OutboundEmailUncheckedCreateInput }) => Promise<unknown> } };
 
 /**
@@ -55,6 +75,7 @@ export async function deliverDue(
         appUrl: e.APP_URL,
         consoleName: e.CONSOLE_NAME,
         now,
+        ...(await emailRegion(db, row)),
       });
       if (!rendered) {
         // Nothing to send any more, e.g. the invitation was withdrawn.

@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { formatMoney, fromJson } from "@/lib/domain/money";
 import { changeQuantityAction, type QuantityState } from "./actions";
 
-export function QuantityForm({ serviceId, current, min, max, unitLabel }: { serviceId: string; current: number; min: number; max: number; unitLabel: string }) {
+export function QuantityForm({ serviceId, current, min, max, unitLabel, locale }: { serviceId: string; current: number; min: number; max: number; unitLabel: string; locale: string }) {
   const [state, action, pending] = useActionState<QuantityState, FormData>(changeQuantityAction, {});
   const [quantity, setQuantity] = useState(String(current));
   const noun = unitLabel.replace(/^per /, "");
@@ -52,12 +52,12 @@ export function QuantityForm({ serviceId, current, min, max, unitLabel }: { serv
       {preview ? (
         <div className="flex flex-col gap-1 rounded-md bg-surface-2 p-4">
           <span className="text-callout text-ink-muted">
-            {preview.to} x {formatMoney(fromJson(preview.unitPrice))}
+            {preview.to} x {formatMoney(fromJson(preview.unitPrice), locale)}
           </span>
-          <span className="text-title-2 text-ink tabular-nums">{formatMoney(fromJson(preview.newRecurring))} a month from now on</span>
+          <span className="text-title-2 text-ink tabular-nums">{formatMoney(fromJson(preview.newRecurring), locale)} a month from now on</span>
           <span className="text-callout text-ink-muted">
             {fromJson(preview.dueNow).amountMinor > 0n
-              ? `We'll invoice ${formatMoney(fromJson(preview.dueNow))} now for the ${preview.daysLeft} days left in this period.`
+              ? `We'll invoice ${formatMoney(fromJson(preview.dueNow), locale)} now for the ${preview.daysLeft} days left in this period.`
               : "There's nothing extra to pay now. The lower price starts on your next invoice."}
           </span>
         </div>
