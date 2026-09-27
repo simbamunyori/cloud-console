@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { parseDateOnly } from "@/lib/dates";
 import { money } from "@/lib/domain/money";
 import type { Domain, Invoice, InvoiceSummary, Service, Transaction } from "./adapter";
-import { amountOwed, attentionItems, buildStatement, compareInvoices, invoicesBefore, monthlyTotal, nextInvoice } from "./views";
+import { amountOwed, attentionItems, buildStatement, compareInvoices, compareWithPreviousMonthly, invoicesBefore, isMonthly, monthlyTotal, nextInvoice } from "./views";
 
 const P = (n: bigint) => money(n, "BWP");
 const d = (s: string) => parseDateOnly(s)!;
@@ -65,6 +65,34 @@ describe("billing views", () => {
     expect(c.removed).toEqual([{ description: "Line 3", amount: P(100n) }]);
     expect(c.difference).toEqual(P(120n));
     expect(compareInvoices(current, null).difference).toBeNull();
+  });
+
+  it("compares only monthly invoices, and only with the monthly invoice before", async () => {
+    const line = (lineId: string, relatedId: string, amount: bigint, kind: Invoice["lines"][number]["kind"] = "service") => ({ lineId, kind, relatedId, description: `Line ${relatedId}`, amount: P(amount), taxed: true });
+    const july = invoice({ invoiceId: "1", issuedOn: d("2026-07-01"), total: P(100n), lines: [line("a", "1", 100n), line("b", "2", 50n)] });
+    const order = invoice({ invoiceId: "2", issuedOn: d("2026-07-15"), total: P(300n), lines: [line("c", "3", 200n), line("d", "3", 100n, "setup")] });
+    const upgrade = invoice({ invoiceId: "3", issuedOn: d("2026-07-20"), lines: [line("e", "1", 40n, "upgrade")] });
+    const prorata = invoice({ invoiceId: "4", issuedOn: d("2026-07-25"), lines: [line("f", "4", 30n, "prorata")] });
+    const august = invoice({ invoiceId: "5", issuedOn: d("2026-08-01"), total: P(420n), lines: [line("g", "1", 120n), line("h", "3", 200n), line("i", "7", 100n, "domain")] });
+    const byId = new Map([july, order, upgrade, prorata, august].map((i) => [i.invoiceId, i]));
+    const all = [...byId.values()];
+    const load = async (id: string) => byId.get(id) ?? null;
+    // Invoice 2 was raised by an order: it bills a service but is not a monthly invoice.
+    const fromOrders = new Set(["2"]);
+
+    expect(all.map((i) => isMonthly(i, fromOrders))).toEqual([true, false, false, false, true]);
+    expect(isMonthly(invoice({ invoiceId: "2", lines: [line("x", "3", 200n)] }), fromOrders)).toBe(false);
+
+    const c = await compareWithPreviousMonthly(august, all, load, fromOrders);
+    expect(c?.previous?.invoiceId).toBe("1");
+    expect(c?.lines.get("g")).toEqual({ kind: "up", previous: P(100n), previousDescription: "Line 1" });
+    expect(c?.lines.get("h")).toEqual({ kind: "new" });
+    expect(c?.removed).toEqual([{ description: "Line 2", amount: P(50n) }]);
+    expect(c?.difference).toEqual(P(320n));
+
+    // One-off, order and part-period invoices get no comparison and no "no longer billed" lines.
+    for (const i of [order, upgrade, prorata]) expect(await compareWithPreviousMonthly(i, all, load, fromOrders)).toBeNull();
+    expect((await compareWithPreviousMonthly(july, all, load, fromOrders))?.previous).toBeNull();
   });
 
   it("orders earlier invoices newest first", () => {

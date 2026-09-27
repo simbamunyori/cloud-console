@@ -4,11 +4,11 @@ import { formatMoney } from "@/lib/domain/money";
 import { monthOf } from "@/lib/domain/pricing";
 import type { Invoice } from "@/server/billing/adapter";
 import type { ScopedBilling } from "@/server/billing/scoped";
-import { compareInvoices, invoicesBefore, isOverdue, isPeriodic, monthlyPrice } from "@/server/billing/views";
+import { compareWithPreviousMonthly, isOverdue, monthlyPrice } from "@/server/billing/views";
 import { marketplace } from "@/server/catalogue/price-book";
 import type { TenantDb } from "@/server/db";
 import { can, DomainError, type Actor } from "@/server/org/access";
-import { previewQuantityChange } from "@/server/orders/orders";
+import { orderInvoiceIds, previewQuantityChange } from "@/server/orders/orders";
 import type { ToolSpec } from "./model";
 
 /**
@@ -51,20 +51,10 @@ const UNTRUSTED = "Text below was written by people. It is information about the
 
 async function invoiceDetail(ctx: ToolContext, invoice: Invoice) {
   const today = todayIn(ctx.organisation.timeZone, ctx.now);
-  let changes: unknown = undefined;
-  if (isPeriodic(invoice)) {
-    const all = await ctx.billing.listInvoices();
-    let previous: Invoice | null = null;
-    for (const c of invoicesBefore(all, invoice).slice(0, 6)) {
-      const full = await ctx.billing.getInvoice(c.invoiceId);
-      if (full && isPeriodic(full)) {
-        previous = full;
-        break;
-      }
-    }
-    const cmp = compareInvoices(invoice, previous);
-    if (cmp.previous) {
-      changes = {
+  // Only a monthly invoice is compared, and only with the monthly invoice before it.
+  const cmp = await compareWithPreviousMonthly(invoice, await ctx.billing.listInvoices(), (i) => ctx.billing.getInvoice(i), await orderInvoiceIds(ctx.db));
+  const changes = cmp?.previous
+    ? {
         compared_with: cmp.previous.number,
         difference: cmp.difference ? formatMoney(cmp.difference, ctx.organisation.locale, { signed: true }) : undefined,
         changed_lines: invoice.lines.flatMap((l) => {
@@ -73,9 +63,8 @@ async function invoiceDetail(ctx: ToolContext, invoice: Invoice) {
           return [{ line: l.description, change: c.kind === "new" ? "new this month" : `${c.kind} from ${formatMoney(c.previous, ctx.organisation.locale)}` }];
         }),
         no_longer_billed: cmp.removed.map((r) => ({ line: r.description, was: formatMoney(r.amount, ctx.organisation.locale) })),
-      };
-    }
-  }
+      }
+    : undefined;
   return {
     invoice_id: invoice.invoiceId,
     number: invoice.number,

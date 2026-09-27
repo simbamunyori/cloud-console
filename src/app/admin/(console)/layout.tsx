@@ -36,17 +36,20 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:rounded-md focus:bg-surface-1 focus:px-4 focus:py-2">
         Skip to content
       </a>
-      <aside className="sticky top-0 hidden h-dvh w-sidebar shrink-0 flex-col gap-6 overflow-y-auto border-r border-border bg-surface-1 px-4 py-6 lg:flex">
-        <Link href="/admin" className="flex flex-col items-start gap-2 self-start rounded-sm px-2">
-          <Logo />
-          <Badge tone="warning">Staff console</Badge>
-        </Link>
-        <SidebarNav items={nav} />
-        <div className="mt-auto flex flex-col gap-4">
-          {themeSwitch}
-          {user}
-        </div>
-      </aside>
+      {/* The column runs the page's full height with the sidebar colour; the sidebar itself stays in view. */}
+      <div className="hidden w-sidebar shrink-0 border-r border-border bg-surface-1 lg:block">
+        <aside className="sticky top-0 flex h-dvh flex-col gap-6 overflow-y-auto px-4 py-6">
+          <Link href="/admin" className="flex flex-col items-start gap-2 self-start rounded-sm px-2">
+            <Logo />
+            <Badge tone="warning">Staff console</Badge>
+          </Link>
+          <SidebarNav items={nav} />
+          <div className="mt-auto flex flex-col gap-4">
+            {themeSwitch}
+            {user}
+          </div>
+        </aside>
+      </div>
       <header className="sticky top-0 z-10 flex h-14 items-center justify-between border-b border-border bg-surface-1 px-4 lg:hidden">
         <Link href="/admin" className="flex items-center gap-2 rounded-sm">
           <LogoMark size={32} />

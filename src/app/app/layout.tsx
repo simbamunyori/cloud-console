@@ -45,17 +45,20 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       >
         Skip to content
       </a>
-      <aside className="sticky top-0 hidden h-dvh w-sidebar shrink-0 flex-col gap-6 overflow-y-auto border-r border-border bg-surface-1 px-4 py-6 lg:flex">
-        <Link href="/app" className="self-start rounded-sm px-2">
-          <Logo />
-        </Link>
-        {org()}
-        <SidebarNav items={NAV} />
-        <div className="mt-auto flex flex-col gap-4">
-          {themeSwitch}
-          {user}
-        </div>
-      </aside>
+      {/* The column runs the page's full height with the sidebar colour; the sidebar itself stays in view. */}
+      <div className="hidden w-sidebar shrink-0 border-r border-border bg-surface-1 lg:block">
+        <aside className="sticky top-0 flex h-dvh flex-col gap-6 overflow-y-auto px-4 py-6">
+          <Link href="/app" className="self-start rounded-sm px-2">
+            <Logo />
+          </Link>
+          {org()}
+          <SidebarNav items={NAV} />
+          <div className="mt-auto flex flex-col gap-4">
+            {themeSwitch}
+            {user}
+          </div>
+        </aside>
+      </div>
       <header className="sticky top-0 z-10 flex h-14 items-center justify-between border-b border-border bg-surface-1 px-4 lg:hidden">
         <Link href="/app" className="rounded-sm">
           <LogoMark size={32} />

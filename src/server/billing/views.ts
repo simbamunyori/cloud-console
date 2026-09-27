@@ -114,8 +114,32 @@ export function invoicesBefore(all: InvoiceSummary[], current: InvoiceSummary): 
     .sort((a, b) => b.issuedOn.getTime() - a.issuedOn.getTime() || Number(b.invoiceId) - Number(a.invoiceId));
 }
 
-/** Whether an invoice bills recurring services, as monthly invoices do. */
-export const isPeriodic = (i: Invoice) => i.lines.some((l) => l.kind === "service");
+/**
+ * Whether an invoice is a recurring monthly invoice: it bills at least one
+ * service for a period, and nothing but services and domain renewals. An
+ * order's first invoice also bills services, so invoices raised by an order
+ * (their ids in `orderInvoiceIds`) never count; nor do invoices with set-up,
+ * part-period, upgrade or one-off lines.
+ */
+export function isMonthly(i: Invoice, orderInvoiceIds: ReadonlySet<string>): boolean {
+  if (orderInvoiceIds.has(i.invoiceId)) return false;
+  return i.lines.some((l) => l.kind === "service") && i.lines.every((l) => l.kind === "service" || l.kind === "domain");
+}
+
+/**
+ * Compares a monthly invoice with the monthly invoice before it, looking
+ * back a few invoices at most. Returns null for any other invoice, so
+ * one-off, order and part-period invoices show no comparison at all.
+ */
+export async function compareWithPreviousMonthly(current: Invoice, all: InvoiceSummary[], load: (invoiceId: string) => Promise<Invoice | null>, orderInvoiceIds: ReadonlySet<string>): Promise<InvoiceComparison | null> {
+  if (!isMonthly(current, orderInvoiceIds)) return null;
+  for (const candidate of invoicesBefore(all, current).slice(0, 6)) {
+    if (orderInvoiceIds.has(candidate.invoiceId)) continue;
+    const full = await load(candidate.invoiceId);
+    if (full && isMonthly(full, orderInvoiceIds)) return compareInvoices(current, full);
+  }
+  return compareInvoices(current, null);
+}
 
 export function compareInvoices(current: Invoice, previous: Invoice | null): InvoiceComparison {
   const lines = new Map<string, LineChange>();

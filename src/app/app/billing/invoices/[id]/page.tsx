@@ -11,11 +11,11 @@ import { Card, CardBody, CardHeader, DetailList } from "@/components/ui/card";
 import { company } from "@/config/app";
 import { formatDay, formatLongDate, toDateOnly } from "@/lib/dates";
 import { currencySymbol, formatMoney, money, toPlainAmount } from "@/lib/domain/money";
-import type { Invoice, InvoiceLine, InvoiceSummary, Service } from "@/server/billing/adapter";
-import type { ScopedBilling } from "@/server/billing/scoped";
+import type { InvoiceLine, Service } from "@/server/billing/adapter";
 import { requireBilling } from "@/server/billing/context";
 import { poNumbers } from "@/server/billing/po";
-import { compareInvoices, invoicesBefore, isOverdue, isPeriodic, type LineChange } from "@/server/billing/views";
+import { compareWithPreviousMonthly, isOverdue, type LineChange } from "@/server/billing/views";
+import { orderInvoiceIds } from "@/server/orders/orders";
 import { can } from "@/server/org/access";
 import { eftDetails } from "@/server/markets/markets";
 import { isPayable } from "@/server/payments/card";
@@ -50,15 +50,6 @@ function ChangeChip({ change, locale }: { change?: LineChange; locale: string })
   );
 }
 
-/** Finds the previous monthly invoice, looking back a few invoices at most. */
-async function previousMonthly(billing: ScopedBilling, all: InvoiceSummary[], current: Invoice) {
-  for (const candidate of invoicesBefore(all, current).slice(0, 6)) {
-    const full = await billing.getInvoice(candidate.invoiceId);
-    if (full && isPeriodic(full)) return full;
-  }
-  return null;
-}
-
 const CARD_MESSAGE: Record<string, { tone: "positive" | "negative" | "info"; text: string }> = {
   paid: { tone: "positive", text: "Thank you, your card payment went through. We've emailed you a receipt." },
   pending: { tone: "info", text: "The card company hasn't confirmed your payment yet. This page will show it once they do." },
@@ -73,14 +64,15 @@ export default async function InvoicePage({ params, searchParams }: { params: Pr
   const invoice = await billing.getInvoice(id);
   if (!invoice) notFound();
 
-  const [all, services, pos, eftReports, lastCard] = await Promise.all([
+  const [all, services, pos, eftReports, lastCard, fromOrders] = await Promise.all([
     billing.listInvoices(),
     billing.listServices(),
     poNumbers(db, [invoice.invoiceId]),
     db.eftPayment.findMany({ where: { invoiceId: invoice.invoiceId }, orderBy: { createdAt: "desc" }, take: 5 }),
     card === "failed" ? db.cardPayment.findFirst({ where: { invoiceId: invoice.invoiceId, status: "FAILED" }, orderBy: { updatedAt: "desc" } }) : null,
+    orderInvoiceIds(db),
   ]);
-  const comparison = isPeriodic(invoice) ? compareInvoices(invoice, await previousMonthly(billing, all, invoice)) : null;
+  const comparison = await compareWithPreviousMonthly(invoice, all, (i) => billing.getInvoice(i), fromOrders);
   const serviceById = new Map<string, Service>(services.map((s) => [s.serviceId, s]));
   const po = pos.get(invoice.invoiceId) ?? "";
   const overdue = isOverdue(invoice, today);

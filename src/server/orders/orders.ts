@@ -354,3 +354,9 @@ export async function registerDomain(deps: OrderDeps, rawName: string, rawYears:
     return updated;
   });
 }
+
+/** Invoices raised by an order (new services, changes, domains): never compared as monthly invoices. */
+export async function orderInvoiceIds(db: TenantDb): Promise<Set<string>> {
+  const rows = await db.order.findMany({ where: { billingInvoiceId: { not: null } }, select: { billingInvoiceId: true } });
+  return new Set(rows.map((r) => r.billingInvoiceId!));
+}
