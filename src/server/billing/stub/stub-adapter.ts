@@ -679,7 +679,9 @@ export class StubBillingAdapter implements BillingAdapter {
     const today = this.today();
     const horizon = addDaysUtc(today, this.leadDays);
     const made: string[] = [];
-    const clients = await this.db.stubClient.findMany({ where: { status: "Active" }, select: { id: true, currency: true } });
+    // Only clients with something due: a transaction per client with nothing to bill is wasted work.
+    const due = { OR: [{ services: { some: { status: { in: ["Active", "Suspended"] }, nextDueDate: { lte: horizon } } } }, { domains: { some: { status: "Active", autoRenew: true, nextDueDate: { lte: horizon } } } }] };
+    const clients = await this.db.stubClient.findMany({ where: { status: "Active", ...due }, select: { id: true, currency: true } });
     for (const client of clients) {
       const invoiceId = await this.db.$transaction(async (tx) => {
         const services = await tx.stubService.findMany({ where: { clientId: client.id, status: { in: ["Active", "Suspended"] }, nextDueDate: { lte: horizon } }, orderBy: { id: "asc" } });
