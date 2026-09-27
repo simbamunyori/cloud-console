@@ -34,6 +34,18 @@ export function addDays(d: Date, days: number): Date {
   return new Date(d.getTime() + days * 86_400_000);
 }
 
+/** Same day of the month `months` later, or the month's last day when it is shorter (31 Jan + 1 = 28 Feb). */
+export function addMonths(d: Date, months: number): Date {
+  const target = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + months, 1));
+  const last = endOfMonth(target).getUTCDate();
+  return new Date(Date.UTC(target.getUTCFullYear(), target.getUTCMonth(), Math.min(d.getUTCDate(), last)));
+}
+
+/** Whole calendar days from `from` to `to` (negative when `to` is earlier). */
+export function daysBetween(from: Date, to: Date): number {
+  return Math.round((to.getTime() - from.getTime()) / 86_400_000);
+}
+
 // Fixed names: ICU versions disagree on "Sep" versus "Sept".
 const MONTHS_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const MONTHS_LONG = [

@@ -4,6 +4,8 @@ import { prisma } from "@/server/db";
 import { env } from "@/server/env";
 import { emailAdapter } from "@/server/email/adapter";
 import { deliverDue } from "@/server/email/outbox";
+import { billingAdapter } from "@/server/billing";
+import { StubBillingAdapter } from "@/server/billing/stub/stub-adapter";
 
 /**
  * Background jobs, on pg-boss in the same PostgreSQL database. Each job
@@ -14,6 +16,15 @@ type Job = { name: string; cron?: string; run: () => Promise<unknown> };
 
 const JOBS: Job[] = [
   { name: "email-deliver", cron: "* * * * *", run: () => deliverDue(prisma, emailAdapter()) },
+  {
+    // WHMCS raises its own invoices from its daily cron; the stub needs this.
+    name: "stub-billing-run",
+    cron: "15 2 * * *",
+    run: async () => {
+      const adapter = billingAdapter();
+      if (adapter instanceof StubBillingAdapter) await adapter.runBillingCycle();
+    },
+  },
 ];
 
 /** Later milestones add their jobs here (billing sync, purges). */

@@ -13,6 +13,8 @@ import {
   signUp,
   startSignIn,
 } from "@/server/auth/service";
+import { billingAdapter } from "@/server/billing";
+import { ensureBillingAccount } from "@/server/billing/accounts";
 import { prisma } from "@/server/db";
 import { runSoon } from "@/server/jobs/boss";
 import { enforce, LIMITS, RateLimitedError } from "@/server/security/rate-limit";
@@ -70,6 +72,9 @@ export async function signUpAction(_prev: FormState, form: FormData): Promise<Fo
       await requestContext(),
     );
     await setSessionCookie(result.token);
+    // Opens the organisation's billing account now. If the billing engine
+    // is down, it is opened the first time billing is used instead.
+    await ensureBillingAccount(prisma, billingAdapter(), result.organisationId).catch((err) => console.error("Billing account not opened at sign-up:", err));
   } catch (e) {
     if (e instanceof RateLimitedError) return { error: rateLimitedMessage(e.retryAt), values };
     if (e instanceof AuthError) {

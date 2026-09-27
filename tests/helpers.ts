@@ -23,7 +23,7 @@ export function uniqueEmail(label: string) {
 }
 
 /** A signed-up organisation with its owner fully signed in. */
-export async function makeOrganisation(name = "Kgale Hill Logistics") {
+export async function makeOrganisation(name = "Mogoditshane Movers") {
   const deps = testDeps();
   const email = uniqueEmail("owner");
   const { token, organisationId, userId } = await signUp(deps, { organisationName: name, name: "Neo Kgosi", email, password: PASSWORD });

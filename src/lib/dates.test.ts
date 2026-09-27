@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { endOfMonth, formatDay, formatLongDate, formatMoment, formatRange, parseDateOnly, startOfMonth, todayIn, toDateOnly } from "./dates";
+import { addMonths, daysBetween, endOfMonth, formatDay, formatLongDate, formatMoment, formatRange, parseDateOnly, startOfMonth, todayIn, toDateOnly } from "./dates";
 
 describe("dates", () => {
   it("parses only real calendar dates", () => {
@@ -34,5 +34,22 @@ describe("formatMoment", () => {
   it("shows the time where the organisation is", () => {
     expect(formatMoment(new Date("2026-09-24T14:40:00Z"), "Africa/Gaborone")).toBe("24 Sep 2026 at 16:40");
     expect(formatMoment(new Date("2026-09-30T22:05:00Z"), "Africa/Gaborone")).toBe("1 Oct 2026 at 00:05");
+  });
+});
+
+describe("addMonths", () => {
+  const d = (s: string) => parseDateOnly(s)!;
+  it("keeps the day, or clamps to the month's end", () => {
+    expect(toDateOnly(addMonths(d("2026-01-15"), 1))).toBe("2026-02-15");
+    expect(toDateOnly(addMonths(d("2026-01-31"), 1))).toBe("2026-02-28");
+    expect(toDateOnly(addMonths(d("2028-01-31"), 1))).toBe("2028-02-29");
+    expect(toDateOnly(addMonths(d("2026-11-30"), 3))).toBe("2027-02-28");
+    expect(toDateOnly(addMonths(d("2026-03-31"), -1))).toBe("2026-02-28");
+    expect(toDateOnly(addMonths(d("2026-09-27"), 12))).toBe("2027-09-27");
+  });
+
+  it("counts days between dates", () => {
+    expect(daysBetween(d("2026-09-01"), d("2026-10-01"))).toBe(30);
+    expect(daysBetween(d("2026-10-01"), d("2026-09-01"))).toBe(-30);
   });
 });

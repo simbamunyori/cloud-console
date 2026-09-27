@@ -12,6 +12,10 @@ const compat = new FlatCompat({
 const eslintConfig = [
   ...compat.extends("next/core-web-vitals", "next/typescript"),
   {
+    // A leading underscore marks a parameter an interface requires but this implementation doesn't use.
+    rules: { "@typescript-eslint/no-unused-vars": ["warn", { argsIgnorePattern: "^_" }] },
+  },
+  {
     ignores: [
       "node_modules/**",
       ".next/**",
