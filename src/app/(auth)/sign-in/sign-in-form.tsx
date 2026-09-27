@@ -13,12 +13,17 @@ export function SignInForm({
   consoleName,
   next,
   notice,
+  action: serverAction = signInAction,
+  signUp = true,
 }: {
   consoleName: string;
   next: string;
   notice?: { tone: "info" | "negative" | "positive"; text: string };
+  action?: typeof signInAction;
+  /** Offer "Open an account"; off for staff. */
+  signUp?: boolean;
 }) {
-  const [state, action, pending] = useActionState<FormState, FormData>(signInAction, {});
+  const [state, action, pending] = useActionState<FormState, FormData>(serverAction, {});
   const message = state.error ? { tone: "negative" as const, text: state.error } : notice;
   return (
     <form action={action} className="flex flex-col gap-6">
@@ -39,12 +44,14 @@ export function SignInForm({
       <Button type="submit" size="lg" disabled={pending} className="w-full">
         {pending ? "Checking…" : "Continue"}
       </Button>
-      <p className="border-t border-border pt-4 text-[14px] leading-5 text-ink-muted">
-        New here?{" "}
-        <Link href="/sign-up" className="font-medium text-link hover:underline">
-          Open an account
-        </Link>
-      </p>
+      {signUp ? (
+        <p className="border-t border-border pt-4 text-[14px] leading-5 text-ink-muted">
+          New here?{" "}
+          <Link href="/sign-up" className="font-medium text-link hover:underline">
+            Open an account
+          </Link>
+        </p>
+      ) : null}
     </form>
   );
 }

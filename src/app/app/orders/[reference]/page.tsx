@@ -4,7 +4,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Alert } from "@/components/ui/alert";
 import { Amount } from "@/components/ui/amount";
-import { Badge } from "@/components/ui/badge";
+import { OrderStatusBadge } from "@/components/app/status";
 import { Button } from "@/components/ui/button";
 import { Card, CardBody, CardHeader, DetailList } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
@@ -15,13 +15,6 @@ import { requireMember } from "@/server/org/context";
 
 export const metadata: Metadata = { title: "Order" };
 
-const STATUS = {
-  SETTING_UP: { label: "Being set up", tone: "info" },
-  ACTIVE: { label: "Ready", tone: "positive" },
-  CANCELLED: { label: "Cancelled", tone: "neutral" },
-  FAILED: { label: "Couldn't be set up", tone: "negative" },
-} as const;
-
 export default async function OrderPage({ params, searchParams }: { params: Promise<{ reference: string }>; searchParams: Promise<Record<string, string | undefined>> }) {
   const [{ reference }, { new: isNew }] = await Promise.all([params, searchParams]);
   const { db, organisation } = await requireMember();
@@ -30,7 +23,6 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
   const options = (order.options ?? {}) as Record<string, string>;
   const isDomain = order.product.slug === DOMAIN_PRODUCT_SLUG;
   const title = isDomain ? options.Domain : order.product.name;
-  const status = STATUS[order.status];
   const tz = organisation.timeZone;
 
   return (
@@ -38,7 +30,7 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
       <Link href="/app/services" className="mb-4 inline-flex items-center gap-1 text-callout text-link hover:underline">
         <ArrowLeft aria-hidden className="size-4" /> Services
       </Link>
-      <PageHeader eyebrow={`Order ${order.reference}`} title={title} actions={<Badge tone={status.tone}>{status.label}</Badge>} />
+      <PageHeader eyebrow={`Order ${order.reference}`} title={title} actions={<OrderStatusBadge status={order.status} />} />
       <div className="flex flex-col gap-6">
         {isNew ? <Alert tone="positive">Thanks, your order is in. We&apos;ve emailed you a copy.</Alert> : null}
         <Card>
@@ -46,7 +38,7 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
             {order.status === "ACTIVE" ? <CircleCheck aria-hidden className="mt-1 size-6 shrink-0 text-positive" /> : <Clock aria-hidden className="mt-1 size-6 shrink-0 text-link" />}
             <div className="flex flex-col gap-1">
               <p className="text-headline text-ink">
-                {order.status === "SETTING_UP" ? `Expected by ${formatMoment(order.expectedBy, tz)}` : order.status === "ACTIVE" ? "Ready to use" : status.label}
+                {order.status === "SETTING_UP" ? `Expected by ${formatMoment(order.expectedBy, tz)}` : order.status === "ACTIVE" ? "Ready to use" : order.status === "CANCELLED" ? "Cancelled" : "Couldn't be set up"}
               </p>
               <p className="text-ink-muted">
                 {order.status === "SETTING_UP"

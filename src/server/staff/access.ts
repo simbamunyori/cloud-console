@@ -1,5 +1,4 @@
 import type { StaffRole } from "@prisma/client";
-import { company } from "@/config/app";
 import { DomainError } from "@/server/org/access";
 
 /**
@@ -48,5 +47,5 @@ export const STAFF_ROLE_LABEL: Record<StaffRole, string> = {
   ADMIN: "Admin",
 };
 
-/** How staff appear in a customer's audit log. */
-export const staffLabel = (actor: Pick<StaffActor, "name">) => `${actor.name} (${company.name} staff)`;
+/** How staff appear in a customer's audit log. The page adds that they are our staff, from the actor kind. */
+export const staffLabel = (actor: Pick<StaffActor, "name">) => actor.name;

@@ -9,7 +9,8 @@ import { describeDevice } from "@/server/email/templates";
 import { prisma } from "@/server/db";
 import { can } from "@/server/org/access";
 import { requireMember } from "@/server/org/context";
-import { auditLog, recoveryCodesLeft, signInHistory, twoStepCoverage } from "@/server/org/security";
+import { auditLog, signInHistory } from "@/server/org/security";
+import { securityCards } from "@/server/security/cards";
 import { BackupCodesForm, SignOutOthersForm } from "./security-forms";
 
 export const metadata: Metadata = { title: "Security" };
@@ -27,41 +28,25 @@ export default async function SecurityPage({ searchParams }: { searchParams: Pro
   const params = await searchParams;
   const { db, actor, organisation, session } = await requireMember();
   const everyoneAllowed = can(actor, "viewSecurity");
-  const [history, coverage, codesLeft, events] = await Promise.all([
+  const tz = organisation.timeZone;
+  const [history, cards, events] = await Promise.all([
     signInHistory(prisma, db, actor, { everyone: params.who === "team" }),
-    twoStepCoverage(db),
-    recoveryCodesLeft(prisma, actor.userId),
+    securityCards({ prisma, db, actor, user: session.user, timeZone: tz }),
     auditLog(db, { take: 50 }),
   ]);
-  const tz = organisation.timeZone;
 
   return (
     <>
       <PageHeader title="Security" description="How your account is protected, who signed in, and everything done on your account, including by our staff." />
       <div className="flex flex-col gap-6">
-        {/* Overview cards. Later phases add security score, devices, alerts, Botswana Copy and documents here. */}
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <Card className="p-5">
-            <span className="text-callout text-ink-muted">Two-step login</span>
-            <p className="mt-1 text-title-2 text-ink tabular-nums">
-              {coverage.on} of {coverage.total}
-            </p>
-            <p className="text-callout text-ink-muted">
-              {coverage.on === coverage.total ? "Everyone in your team uses it." : "Some people are still setting it up."}
-            </p>
-          </Card>
-          <Card className="p-5">
-            <span className="text-callout text-ink-muted">Your backup codes</span>
-            <p className="mt-1 text-title-2 text-ink tabular-nums">{codesLeft} left</p>
-            <p className="text-callout text-ink-muted">{codesLeft <= 2 ? "Running low. Make new ones below." : "Each works once if you lose your phone."}</p>
-          </Card>
-          <Card className="p-5">
-            <span className="text-callout text-ink-muted">Two-step login for you</span>
-            <p className="mt-1 text-title-2 text-ink">On</p>
-            <p className="text-callout text-ink-muted">
-              {session.user.totpEnabledAt ? `Since ${formatMoment(session.user.totpEnabledAt, tz)}` : "Required for every account."}
-            </p>
-          </Card>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {cards.map((c) => (
+            <Card key={c.key} className="p-5">
+              <span className="text-callout text-ink-muted">{c.label}</span>
+              <p className={`mt-1 text-title-2 tabular-nums ${c.tone === "warning" ? "text-warning" : c.tone === "negative" ? "text-negative" : "text-ink"}`}>{c.value}</p>
+              <p className="text-callout text-ink-muted">{c.detail}</p>
+            </Card>
+          ))}
         </div>
 
         <Card aria-labelledby="signins-title">

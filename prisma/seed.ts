@@ -17,6 +17,9 @@ import { ensureBillingAccount } from "../src/server/billing/accounts";
 import { seedStubCatalogue } from "../src/server/billing/stub/catalogue";
 import { seedCatalogue } from "../src/server/catalogue/seed-data";
 import { StubBillingAdapter } from "../src/server/billing/stub/stub-adapter";
+import { scopedBilling } from "../src/server/billing/scoped";
+import { tenantDb } from "../src/server/db";
+import { placeOrder } from "../src/server/orders/orders";
 
 const db = new PrismaClient();
 const DEMO_PASSWORD = "demo-password-2026";
@@ -51,11 +54,16 @@ async function main() {
   console.log("Marketplace catalogue loaded, with placeholder margins, buffer and exchange rate.");
 
   const passwordHash = await hashPassword(DEMO_PASSWORD);
-  await db.user.upsert({
-    where: { email: "staff@example.co.bw" },
-    update: {},
-    create: { email: "staff@example.co.bw", name: "Duduetsang Staff", kind: "STAFF", staffRole: "ADMIN", passwordHash },
-  });
+  // One staff account per role, so each part of /admin can be tried.
+  const staffAccounts = [
+    { email: "staff@example.co.bw", name: "Duduetsang Staff", staffRole: "ADMIN" as const },
+    { email: "finance@example.co.bw", name: "Kagiso Finance", staffRole: "FINANCE" as const },
+    { email: "setup@example.co.bw", name: "Onalenna Setup", staffRole: "PROVISIONING" as const },
+    { email: "support@example.co.bw", name: "Boitumelo Support", staffRole: "SUPPORT" as const },
+  ];
+  for (const s of staffAccounts) {
+    await db.user.upsert({ where: { email: s.email }, update: {}, create: { ...s, kind: "STAFF", passwordHash } });
+  }
 
   if (await db.membership.findFirst({ where: { user: { email: "demo@kgalehill.co.bw" } } })) {
     console.log("The demo organisation is already there; leaving it as it is.");
@@ -166,9 +174,27 @@ async function main() {
     await stub.setPurchaseOrder(latestInvoice.invoiceId, "KHL-2026-IT");
   }
 
+  // Something for staff to do: a server being set up, and a bank transfer to check.
+  const owner = await db.membership.findFirstOrThrow({ where: { organisationId: org.id, role: "OWNER" }, include: { user: true } });
+  const tenant = tenantDb(org.id);
+  const orgRow = await db.organisation.findUniqueOrThrow({ where: { id: org.id } });
+  clock = today;
+  await placeOrder(
+    { db: tenant, billing: await scopedBilling(db, stub, org.id), organisation: orgRow, actor: { membershipId: owner.id, userId: owner.userId, name: owner.user.name, role: "OWNER" } },
+    { slug: "managed-vps-small", quantity: 1, options: { os: "Ubuntu 24.04 LTS" } },
+  );
+  if (latestInvoice) {
+    const invoice = await stub.getInvoice(clientId, latestInvoice.invoiceId);
+    if (invoice && invoice.balance.amountMinor > 0n) {
+      await db.eftPayment.create({
+        data: { organisationId: org.id, invoiceId: invoice.invoiceId, amountMinor: invoice.balance.amountMinor, currency: invoice.balance.currency, reference: invoice.number, paidOn: today, reportedById: owner.userId },
+      });
+    }
+  }
+
   const invoices = await stub.listInvoices(clientId);
   console.log(`Demo organisation: Kgale Hill Logistics, ${invoices.length} invoices from ${start.toISOString().slice(0, 10)}.`);
-  console.log(`Sign in as demo@kgalehill.co.bw (owner) or staff@example.co.bw at /admin, password ${DEMO_PASSWORD}.`);
+  console.log(`Sign in as demo@kgalehill.co.bw (owner), or at /admin as staff@, finance@, setup@ or support@example.co.bw, password ${DEMO_PASSWORD}.`);
   console.log("You'll set up an authenticator app at first sign-in.");
 }
 

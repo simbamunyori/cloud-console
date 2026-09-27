@@ -4,6 +4,9 @@ import {
   Building2,
   ClipboardList,
   House,
+  LayoutDashboard,
+  Package,
+  Percent,
   LifeBuoy,
   ReceiptText,
   Server,
@@ -30,6 +33,9 @@ const ICONS = {
   customers: Building2,
   tasks: ClipboardList,
   payments: Wallet,
+  overview: LayoutDashboard,
+  orders: Package,
+  pricing: Percent,
 };
 
 export interface NavItem {

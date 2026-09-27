@@ -66,3 +66,15 @@ export function UsageBar({ label, used, limit, unit }: { label: string; used: nu
     </div>
   );
 }
+
+const ORDER: Record<"SETTING_UP" | "ACTIVE" | "CANCELLED" | "FAILED", [string, BadgeTone]> = {
+  SETTING_UP: ["Being set up", "info"],
+  ACTIVE: ["Ready", "positive"],
+  CANCELLED: ["Cancelled", "neutral"],
+  FAILED: ["Couldn't be set up", "negative"],
+};
+
+export function OrderStatusBadge({ status }: { status: keyof typeof ORDER }) {
+  const [label, tone] = ORDER[status];
+  return <Badge tone={tone}>{label}</Badge>;
+}
