@@ -20,7 +20,7 @@ Change Request 01, section 5 sets the bar for every screen. This is the audit of
 | WCAG 2.2 AA contrast | axe found three colour pairs below 4.5:1 across the consoles and site (below). | Fixed, below. |
 | Full keyboard use, visible focus | Skip links, visible focus rings and native controls throughout. | The theme switch is a real radio group, so arrow keys move between options and the focus ring shows on the option. |
 | Links distinguishable without colour | axe found links inside grey text (customer name in staff orders, tasks and tickets; "contact support" on a service; statement invoice links) marked only by colour. | Inline links are underlined. Standalone links (card actions such as "See all") keep underline on hover. |
-| Performance at Google's good thresholds | Not measured. | Lighthouse runs in CI on the public pages with budgets (milestone 7). |
+| Performance at Google's good thresholds | Not measured. | Lighthouse runs in CI on the public pages with budgets. The home page's largest paint was 2.7 s on a simulated phone; the hero now loads one image, in the visitor's theme, at a phone-sized width, and measures 2.2 s. |
 | Real product imagery | The site hero uses real console screenshots with demo data. | None. |
 
 ## Contrast fixes
@@ -62,5 +62,5 @@ Every screen below passes axe (WCAG 2.0, 2.1 and 2.2 A and AA rules) in light an
 ## Kept true by
 
 - `tests/design-tokens.test.ts`: no hex or rgb colours, arbitrary values or numeric durations outside `src/config/theme/`.
-- `e2e/a11y.spec.ts`: axe on every page in both themes (milestone 7 runs it in CI).
-- Lighthouse budgets on the public pages (milestone 7).
+- `e2e/a11y.spec.ts`: axe on every page in both themes, in CI.
+- `lighthouserc.cjs`: Lighthouse budgets on the public pages, in CI.
