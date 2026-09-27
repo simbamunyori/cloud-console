@@ -136,6 +136,45 @@ export const TEMPLATES: Record<string, Template> = {
     };
   },
 
+  async "order.received"(p, ctx) {
+    const order = await ctx.db.order.findUnique({ where: { id: str(p.orderId) }, include: { product: true, organisation: true } });
+    if (!order) return null;
+    const isDomain = order.monthlyTotalMinor === 0n && order.product.slug === "domain-name";
+    const opts = (order.options ?? {}) as Record<string, string>;
+    const what = isDomain ? opts.Domain : order.product.name;
+    return {
+      subject: `We're setting up ${what} (${order.reference})`,
+      body: {
+        heading: `Thanks, we're setting up ${what}`,
+        paragraphs: [
+          `Your order for ${order.organisation.name} is in. We'll email you again when it's ready, and you can follow it in ${ctx.consoleName} at any time.`,
+          "The invoice for it is in Billing. Pay it by card or bank transfer whenever suits you before it's due.",
+        ],
+        facts: [
+          ["Order", order.reference],
+          ...(order.quantity > 1 ? ([["Quantity", String(order.quantity)]] as [string, string][]) : []),
+          [isDomain ? "Price" : "Price a month", formatMoney({ amountMinor: isDomain ? order.unitPriceMinor : order.monthlyTotalMinor, currency: order.currency })],
+          ["Expected by", formatMoment(order.expectedBy, order.organisation.timeZone)],
+        ],
+        button: { label: "Follow your order", url: `${ctx.appUrl}/app/orders/${encodeURIComponent(order.reference)}` },
+      },
+    };
+  },
+  async "order.ready"(p, ctx) {
+    const order = await ctx.db.order.findUnique({ where: { id: str(p.orderId) }, include: { product: true, organisation: true } });
+    if (!order) return null;
+    const opts = (order.options ?? {}) as Record<string, string>;
+    const what = order.product.slug === "domain-name" ? opts.Domain : order.product.name;
+    return {
+      subject: `${what} is ready (${order.reference})`,
+      body: {
+        heading: `${what} is ready`,
+        paragraphs: [`We've finished setting up ${what} for ${order.organisation.name}.`, ...(str(p.note) ? [str(p.note)] : [])],
+        facts: [["Order", order.reference]],
+        button: { label: "Open your services", url: `${ctx.appUrl}/app/services` },
+      },
+    };
+  },
   async "payment.confirmed"(p, ctx) {
     const amount = fromJson(p.amount as MoneyJson);
     return {

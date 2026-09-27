@@ -10,14 +10,18 @@ import { PageHeader } from "@/components/ui/page-header";
 import { formatDay } from "@/lib/dates";
 import { requireBilling } from "@/server/billing/context";
 import { monthlyPrice } from "@/server/billing/views";
+import { can } from "@/server/org/access";
+import { quantityLimits } from "@/server/orders/orders";
+import { QuantityForm } from "./quantity-form";
 
 export const metadata: Metadata = { title: "Service" };
 
 export default async function ServicePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const { billing } = await requireBilling();
+  const { billing, db, actor } = await requireBilling();
   const service = await billing.getService(id);
   if (!service) notFound();
+  const limits = service.status === "active" && can(actor, "order") ? await quantityLimits(db, service.productId) : null;
   const { users, resources, usage } = service.details;
   const perMonth = monthlyPrice(service);
 
@@ -67,6 +71,15 @@ export default async function ServicePage({ params }: { params: Promise<{ id: st
             </Card>
           ) : null}
         </div>
+
+        {limits ? (
+          <Card aria-labelledby="quantity-title">
+            <CardHeader id="quantity-title" title={`Change the number of ${limits.unitLabel.replace(/^per /, "")}s`} description="Adding is charged for the rest of this period. Removing lowers your next invoice." />
+            <CardBody>
+              <QuantityForm serviceId={service.serviceId} current={service.quantity} min={limits.min} max={limits.max} unitLabel={limits.unitLabel} />
+            </CardBody>
+          </Card>
+        ) : null}
 
         {usage?.length ? (
           <Card aria-labelledby="usage-title">

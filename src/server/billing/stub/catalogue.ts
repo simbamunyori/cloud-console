@@ -30,6 +30,7 @@ export const STUB_PRODUCTS = [
   { key: "thebe", gid: 6, groupName: "Our software", name: "Thebe", type: "other", monthly: 65000n },
   { key: "migration-pack", gid: 7, groupName: "Services", name: "Setup and migration pack", type: "other", monthly: 0n, setup: 250000n },
   { key: "managed-support", gid: 7, groupName: "Services", name: "Managed support plan", type: "other", monthly: 150000n },
+  { key: "domain-registration", gid: 4, groupName: "Web", name: "Domain registration", type: "other", monthly: 0n },
 ] as const;
 
 export type StubProductKey = (typeof STUB_PRODUCTS)[number]["key"];

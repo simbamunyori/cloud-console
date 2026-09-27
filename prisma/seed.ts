@@ -15,6 +15,7 @@ import { hashPassword } from "../src/server/auth/password";
 import { PAYMENT_METHODS } from "../src/server/billing/adapter";
 import { ensureBillingAccount } from "../src/server/billing/accounts";
 import { seedStubCatalogue } from "../src/server/billing/stub/catalogue";
+import { seedCatalogue } from "../src/server/catalogue/seed-data";
 import { StubBillingAdapter } from "../src/server/billing/stub/stub-adapter";
 
 const db = new PrismaClient();
@@ -45,6 +46,9 @@ async function main() {
 
   const products = await seedStubCatalogue(db);
   console.log(`Stub catalogue: ${Object.keys(products).length} products and domain prices loaded.`);
+  const thisMonth = startOfMonth(todayIn(DEFAULT_TIME_ZONE));
+  await seedCatalogue(db, products, [-1, 0, 1].map((m) => addMonths(thisMonth, m).toISOString().slice(0, 7)));
+  console.log("Marketplace catalogue loaded, with placeholder margins, buffer and exchange rate.");
 
   const passwordHash = await hashPassword(DEMO_PASSWORD);
   await db.user.upsert({
