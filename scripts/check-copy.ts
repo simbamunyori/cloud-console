@@ -29,13 +29,15 @@ function* files(path: string): Generator<string> {
 const problems: string[] = [];
 for (const root of ROOTS) {
   for (const file of files(root)) {
-    // The brief is the customer's own document, quoted as delivered.
+    // The brief and change requests are the customer's own documents, kept
+    // as delivered. A change request may quote the old name to ban it.
     const brief = file === join("docs", "CONSOLE_BRIEF.md");
+    const request = /^docs[\\/]CHANGE_REQUEST_\d+\.md$/.test(file);
     readFileSync(file, "utf8")
       .split("\n")
       .forEach((line, i) => {
         if (!brief && line.includes(EM_DASH)) problems.push(`${file}:${i + 1} has an em dash`);
-        if (OLD_NAME.test(line)) problems.push(`${file}:${i + 1} uses the old company name`);
+        if (!request && OLD_NAME.test(line)) problems.push(`${file}:${i + 1} uses the old company name`);
       });
   }
 }

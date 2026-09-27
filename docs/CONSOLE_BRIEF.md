@@ -25,7 +25,7 @@ Before writing code, give me a short plan: folder structure, data model, the bil
 10. **Staff admin console:** separate from the customer console. All customers, the provisioning task queue, orders, tickets, and settings for margins per product category and the currency buffer. Margins and buffer are settings, never hard-coded.
 11. **Audit log:** every staff action on a customer's account is logged and visible to that customer.
 
-12. **Security area (foundation):** sign-in history, two-step login status and the audit log now. Design the page so the security score, protected devices, SOC alerts, Botswana Copy status and compliance documents from the Cybersecurity strategy section can be added later without restructuring.
+12. **Security area (foundation):** sign-in history, two-step login status and the audit log now. Design the page so the security score, protected devices, SOC alerts, local data copy status and compliance documents from the Cybersecurity strategy section can be added later without restructuring.
 
 ## What Phase 1 does NOT include
 
@@ -127,7 +127,7 @@ Customers: small and mid-size businesses (5 to 250 staff), schools, colleges and
 | Public cloud | Azure subscriptions under management | AWS (once Select tier is reached) |
 | Servers | Managed VPS in Botswana (small, medium, large), dedicated resources on request | GPU servers for private AI |
 | Web | Web hosting, WordPress hosting, business email, domains (.bw, .co.bw, .com and others), SSL certificates | Website builder |
-| Protection | Backup for Microsoft 365 and Google Workspace, server backup, disaster recovery, Botswana Copy, managed detection and response (see Cybersecurity strategy) | Wider SOC services for larger clients |
+| Protection | Backup for Microsoft 365 and Google Workspace, server backup, disaster recovery, local data copy, managed detection and response (see Cybersecurity strategy) | Wider SOC services for larger clients |
 | Our software | Thebe | ILT library platforms, private AI knowledge assistant |
 | Services | Setup and migration packs, monthly managed support plans, one-off projects | Cloud cost reviews |
 
@@ -259,12 +259,14 @@ One invoice per customer per month, in their currency, covering every product. V
 
 ### Cybersecurity strategy
 
-Security is a core revenue line for Fourth Generation Technologies, not a later add-on. The company already sells managed security agents and SOC services; the console turns that into a product every customer sees, and the Botswana data law gives customers a reason to buy it now.
+Security is a core revenue line for Fourth Generation Technologies, not a later add-on. The company already sells managed security agents and SOC services; the console turns that into a product every customer sees, and data protection duties give regulated customers a reason to buy now.
+
+Positioning (decided 27 September 2026): lead with outcomes every customer wants: one team instead of several suppliers, one invoice in pula, support that answers, and security done for you. Local hosting and the local data copy are supporting points for regulated buyers (schools, clinics, law firms, finance, public bodies), never the headline. In the console UI and all copy, the product is called "Local data copy".
 
 Why now:
 
 - Botswana's Data Protection Act 18 of 2024 is in force. Controllers must report a personal data breach to the Information and Data Protection Commission within 72 hours, and fines reach BWP 50 million or 4% of global turnover.
-- When personal data is transferred outside Botswana, a copy must stay in Botswana for the period of processing. Every business on Microsoft 365 or Google Workspace sends staff and client data abroad, so an in-country copy is a real compliance need. To confirm with a Botswana data protection lawyer before we market it.
+- The Act is not a blanket data localisation law: personal data may go to countries the Commission deems adequate or under approved safeguards. But the proviso to section 74 says a copy of transferred personal data must remain in Botswana for the period of processing. How strictly this is applied to everyday cloud services such as Microsoft 365 is untested, so we offer a local data copy as an option for organisations that want certainty, and confirm the position with a Botswana data protection lawyer before marketing it.
 - The Act expects encryption, tested restoration after incidents and regular testing of security measures.
 - Competition is moving: Liquid Intelligent Technologies Botswana launched its Secure360 portfolio in 2026. Our edge is SMB pricing, one console and one invoice in pula.
 
@@ -274,16 +276,16 @@ Why now:
 | --- | --- | --- |
 | Included for everyone | Two-step login enforced, a security score for their account and Microsoft or Google tenant, backup status, plain-language fixes | Nothing directly; it cuts incidents and drives upgrades |
 | Secure productivity | Microsoft 365 Business Premium set up to our standard: Defender for Business, Defender for Office 365 Plan 1, Intune and Entra ID P1 | Licence margin plus a monthly management fee per user |
-| Botswana Copy | Daily backup of Microsoft 365 or Google Workspace data kept on our servers in Botswana, with restore on request | Monthly per user |
+| Local data copy | Daily backup of Microsoft 365 or Google Workspace data kept on our servers in Botswana, with restore on request | Monthly per user |
 | Managed detection and response | Our managed security agents on every device and server, monitored by the SOC, with response when something is found | Monthly per device or server |
 | Data protection readiness | Record of processing, breach response plan, security measures report and a data protection impact assessment template, with a law firm partner for legal sign-off | One-off fee, then an annual review |
 | Incident response retainer | A named team and a 72-hour notification pack when a breach happens | Monthly retainer plus hourly rate on call-out |
 
-Sell it as a ladder: every Microsoft 365 order offers Business Premium by default, every productivity customer is offered Botswana Copy, and every server order includes the security agent option.
+Sell it as a ladder: every Microsoft 365 order offers Business Premium by default, every server order includes the security agent option, and customers with data protection duties are offered the readiness pack and the local data copy.
 
 #### In the console
 
-- The Security area shows the security score, devices protected, open alerts, backup and Botswana Copy status, and the customer's compliance documents.
+- The Security area shows the security score, devices protected, open alerts, backup and local data copy status, and the customer's compliance documents.
 - Alerts from the SOC and the security agents appear as incidents with a clear status and who is handling them.
 - A breach checklist starts the 72-hour clock and prepares the Commission notification details for the customer to review.
 
@@ -379,5 +381,5 @@ Ask every distributor the same questions so the answers can be compared side by 
 - [ ] Fourth Generation Technologies brand refresh: keep the current identity or rebuild it to the Thebe standard
 - [ ] Who on the team gets Microsoft and later AWS certified
 - [ ] Which security agent and SOC platform we use today, and whether its API can feed alerts into the console
-- [ ] Law firm partner to confirm the Botswana Copy position and sign off data protection readiness packs
+- [ ] Law firm partner to confirm the local data copy position and sign off data protection readiness packs
 - [ ] Security pricing per tier
