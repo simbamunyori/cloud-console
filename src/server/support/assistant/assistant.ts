@@ -24,7 +24,7 @@ export interface AssistantDeps {
   prisma: PrismaClient;
   db: TenantDb;
   billing: ScopedBilling;
-  organisation: { id: string; name: string; currency: string; timeZone: string; locale: string };
+  organisation: { id: string; name: string; currency: string; timeZone: string; locale: string; billingMarket: string };
   actor: Actor;
   model: AssistantModel | null;
   consoleName: string;

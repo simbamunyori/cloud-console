@@ -21,7 +21,15 @@ describe("customer prices", () => {
     const { price, breakdown } = customerPrice({ cost: money(0n, "BWP"), fixedPrice: money(65000n, "BWP"), marginBps: 2500, bufferBps: 300 }, "BWP");
     expect(price).toEqual(money(65000n, "BWP"));
     expect(breakdown.fixed).toBe(true);
+    // In another market's currency it needs that month's rate.
     expect(() => customerPrice({ cost: money(0n, "BWP"), fixedPrice: money(1n, "USD"), marginBps: 0, bufferBps: 0 }, "BWP")).toThrow(PricingError);
+  });
+
+  it("converts a fixed price for another market at the rate plus buffer, without margin", () => {
+    // P 650.00 x 1.36 = R 884.00, +3% = R 910.52, rounded up to R 911.00.
+    const { price, breakdown } = customerPrice({ cost: money(0n, "BWP"), fixedPrice: money(65000n, "BWP"), marginBps: 2500, bufferBps: 300, rateMicros: 1_360_000n }, "ZAR");
+    expect(price).toEqual(money(91100n, "ZAR"));
+    expect(breakdown).toMatchObject({ fixed: true, marginBps: 0, bufferBps: 300, converted: "88400" });
   });
 
   it("refuses to price without a rate, or with a negative margin", () => {

@@ -9,13 +9,13 @@ import { applyBps, currencyInfo, divCeil, money, type Money } from "./money";
 
 export interface PriceInputs {
   cost: Money;
-  /** A set customer price instead of cost plus margin (our own services). */
+  /** A set customer price instead of cost plus margin (our own services). In another currency, `rateMicros` converts it. */
   fixedPrice?: Money | null;
   /** Category margin, basis points. */
   marginBps: number;
   /** Currency buffer, basis points. Only applied when converting. */
   bufferBps: number;
-  /** Units of the customer currency per unit of the cost currency, times 1,000,000. Needed when they differ. */
+  /** Units of the customer currency per unit of the cost (or fixed price) currency, times 1,000,000. Needed when they differ. */
   rateMicros?: bigint | null;
 }
 
@@ -45,24 +45,42 @@ export function roundUpToUnit(amountMinor: bigint, currency: string): bigint {
   return divCeil(amountMinor, unit) * unit;
 }
 
+/** An amount in another currency at a rate (times 1,000,000), rounded up to the minor unit. */
+function convert(amount: Money, currency: string, rateMicros: bigint | null | undefined): bigint {
+  if (!rateMicros || rateMicros <= 0n) throw new PricingError(`There's no ${amount.currency} to ${currency} rate for this month.`);
+  const shift = currencyInfo(currency).exponent - currencyInfo(amount.currency).exponent;
+  const scaled = amount.amountMinor * rateMicros * 10n ** BigInt(Math.max(0, shift));
+  return divCeil(scaled, 1_000_000n * 10n ** BigInt(Math.max(0, -shift)));
+}
+
 export function customerPrice(input: PriceInputs, currency: string): { price: Money; breakdown: PriceBreakdown } {
   if (input.marginBps < 0 || input.bufferBps < 0) throw new PricingError("Margin and buffer can't be negative.");
   if (input.fixedPrice) {
-    if (input.fixedPrice.currency !== currency) throw new PricingError(`The fixed price is in ${input.fixedPrice.currency}, not ${currency}.`);
-    const p = input.fixedPrice.amountMinor.toString();
+    // A set price in another market's currency is converted at the month's
+    // rate plus the buffer, with no margin, and rounded up like any price.
+    const fixed = input.fixedPrice;
+    const converted = fixed.currency === currency ? fixed.amountMinor : convert(fixed, currency, input.rateMicros);
+    const bufferBps = fixed.currency === currency ? 0 : input.bufferBps;
+    const afterBuffer = converted + applyBps(converted, bufferBps);
+    const price = fixed.currency === currency ? afterBuffer : roundUpToUnit(afterBuffer, currency);
     return {
-      price: input.fixedPrice,
-      breakdown: { cost: input.cost.amountMinor.toString(), costCurrency: input.cost.currency, rateMicros: null, converted: p, bufferBps: 0, afterBuffer: p, marginBps: 0, afterMargin: p, price: p, fixed: true },
+      price: money(price, currency),
+      breakdown: {
+        cost: fixed.amountMinor.toString(),
+        costCurrency: fixed.currency,
+        rateMicros: fixed.currency === currency ? null : input.rateMicros!.toString(),
+        converted: converted.toString(),
+        bufferBps,
+        afterBuffer: afterBuffer.toString(),
+        marginBps: 0,
+        afterMargin: afterBuffer.toString(),
+        price: price.toString(),
+        fixed: true,
+      },
     };
   }
   const converting = input.cost.currency !== currency;
-  let converted = input.cost.amountMinor;
-  if (converting) {
-    if (!input.rateMicros || input.rateMicros <= 0n) throw new PricingError(`There's no ${input.cost.currency} to ${currency} rate for this month.`);
-    const shift = currencyInfo(currency).exponent - currencyInfo(input.cost.currency).exponent;
-    const scaled = input.cost.amountMinor * input.rateMicros * 10n ** BigInt(Math.max(0, shift));
-    converted = divCeil(scaled, 1_000_000n * 10n ** BigInt(Math.max(0, -shift)));
-  }
+  const converted = converting ? convert(input.cost, currency, input.rateMicros) : input.cost.amountMinor;
   const bufferBps = converting ? input.bufferBps : 0;
   const afterBuffer = converted + applyBps(converted, bufferBps);
   const afterMargin = afterBuffer + applyBps(afterBuffer, input.marginBps);

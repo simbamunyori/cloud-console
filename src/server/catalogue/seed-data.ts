@@ -1,5 +1,6 @@
 import type { ConnectorFamily, PrismaClient } from "@prisma/client";
 import type { StubProductKey } from "@/server/billing/stub/catalogue";
+import { bookRows } from "./price-book";
 
 /**
  * The launch catalogue from the brief. Costs, margins, the buffer and the
@@ -44,6 +45,8 @@ interface ProductSeed {
   commitmentNote?: string;
   billing: StubProductKey;
   options?: OptionSpec[];
+  /** Markets it is offered in when first loaded. Every market if not set. */
+  markets?: string[];
 }
 
 /** The product behind domain orders. It isn't shown in the product grid; domains have their own search. */
@@ -247,6 +250,8 @@ export const PRODUCTS: ProductSeed[] = [
   },
   {
     slug: "local-data-copy",
+    // The copy is kept in Botswana.
+    markets: ["bw"],
     category: "protection",
     name: "Local data copy",
     summary: "A daily copy of your cloud data kept on our own servers, for organisations with data protection duties.",
@@ -328,16 +333,42 @@ export const PRODUCTS: ProductSeed[] = [
   },
 ];
 
+/**
+ * Domain endings we sell and what the registrar charges us, in US dollars.
+ * Country endings are offered in their own market; the rest everywhere.
+ * Placeholder costs until the registrar's price list is loaded.
+ */
+export const TLDS: { tld: string; register: bigint; renew: bigint; markets?: string[] }[] = [
+  { tld: ".co.bw", register: 1000n, renew: 1000n, markets: ["bw"] },
+  { tld: ".bw", register: 2000n, renew: 2000n, markets: ["bw"] },
+  { tld: ".co.za", register: 600n, renew: 600n, markets: ["za"] },
+  { tld: ".co.zw", register: 1100n, renew: 1100n, markets: ["zw"] },
+  { tld: ".com", register: 1100n, renew: 1250n },
+  { tld: ".africa", register: 1600n, renew: 1600n },
+  { tld: ".net", register: 1250n, renew: 1400n },
+  { tld: ".org", register: 1100n, renew: 1300n },
+  { tld: ".io", register: 3500n, renew: 3500n },
+];
+
 /** Placeholder pricing settings for development. */
 export const PLACEHOLDER_BUFFER_BPS = 300;
-export const PLACEHOLDER_USD_BWP_MICROS = 13_450_000n;
+/** Placeholder exchange rates, 1 base in quote times 1,000,000, until staff enter the month's rates. */
+export const PLACEHOLDER_RATES: { base: string; quote: string; rateMicros: bigint }[] = [
+  { base: "USD", quote: "BWP", rateMicros: 13_450_000n },
+  { base: "USD", quote: "ZAR", rateMicros: 18_200_000n },
+  { base: "BWP", quote: "ZAR", rateMicros: 1_350_000n },
+  { base: "BWP", quote: "USD", rateMicros: 74_400n },
+];
 
 /**
- * Loads the catalogue. Leaves existing categories' margins and products'
- * prices alone (staff may have changed them); adds what is missing.
- * `billingIds` maps the stub's product keys to billing product ids.
+ * Loads the catalogue. Leaves existing categories' margins, products'
+ * prices and where they're offered alone (staff may have changed them);
+ * adds what is missing. `billingIds` maps the stub's product keys to
+ * billing product ids. Then fills any empty price book with the
+ * suggestions for the first month given, as if approved.
  */
 export async function seedCatalogue(db: PrismaClient, billingIds: Partial<Record<StubProductKey, string>>, months: string[]) {
+  const allMarkets = (await db.market.findMany({ orderBy: { sortOrder: "asc" }, select: { code: true } })).map((m) => m.code);
   for (const c of CATEGORIES) {
     await db.productCategory.upsert({ where: { key: c.key }, update: { name: c.name, description: c.description, family: c.family, sortOrder: c.sortOrder }, create: c });
   }
@@ -369,11 +400,45 @@ export async function seedCatalogue(db: PrismaClient, billingIds: Partial<Record
         fixedPriceMinor: p.fixedPrice?.[0] ?? null,
         fixedPriceCurrency: p.fixedPrice?.[1] ?? null,
         billingProductId,
+        markets: p.markets ?? allMarkets,
       },
+    });
+  }
+  for (const [i, t] of TLDS.entries()) {
+    await db.tld.upsert({
+      where: { tld: t.tld },
+      update: { sortOrder: i },
+      create: { tld: t.tld, costRegisterMinor: t.register, costRenewMinor: t.renew, costCurrency: "USD", markets: t.markets ?? allMarkets, sortOrder: i },
     });
   }
   await db.pricingSettings.upsert({ where: { id: "global" }, update: {}, create: { id: "global", currencyBufferBps: PLACEHOLDER_BUFFER_BPS } });
   for (const month of months) {
-    await db.fxRate.upsert({ where: { month_base_quote: { month, base: "USD", quote: "BWP" } }, update: {}, create: { month, base: "USD", quote: "BWP", rateMicros: PLACEHOLDER_USD_BWP_MICROS } });
+    for (const r of PLACEHOLDER_RATES) {
+      await db.fxRate.upsert({ where: { month_base_quote: { month, base: r.base, quote: r.quote } }, update: {}, create: { month, ...r } });
+    }
+  }
+  const first = [...months].sort()[0];
+  if (first) for (const code of allMarkets) await seedPriceBook(db, code, first);
+}
+
+/** Prices everything without a price in a market from the month's suggestions, marked as seeded (no approver). */
+async function seedPriceBook(db: PrismaClient, marketCode: string, month: string) {
+  const { rows, market } = await bookRows(db, marketCode, month);
+  for (const r of rows) {
+    if (r.current || !r.suggestion) continue;
+    await db.priceBookEntry.upsert({
+      where: { marketCode_item_month: { marketCode, item: r.item, month } },
+      update: {},
+      create: {
+        marketCode,
+        item: r.item,
+        month,
+        currency: market.currency,
+        amountMinor: r.suggestion.price.amountMinor,
+        renewMinor: r.suggestion.renew?.amountMinor ?? null,
+        suggestedMinor: r.suggestion.price.amountMinor,
+        breakdown: r.suggestion.breakdown as unknown as object,
+      },
+    });
   }
 }

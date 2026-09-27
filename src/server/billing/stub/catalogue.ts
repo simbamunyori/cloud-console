@@ -35,13 +35,22 @@ export const STUB_PRODUCTS = [
 
 export type StubProductKey = (typeof STUB_PRODUCTS)[number]["key"];
 
-/** Domain endings we sell, priced in BWP. `taken` are names the stub treats as registered elsewhere. */
+/**
+ * Domain endings the stub billing engine can register. The console charges
+ * the price in the customer's market's price book; these BWP prices stand
+ * in for WHMCS's own TLD pricing. `taken` are names the stub treats as
+ * registered elsewhere.
+ */
 export const STUB_TLDS = [
   { tld: ".bw", register: 35000n, renew: 35000n, transfer: 35000n, taken: ["bocra", "debswana", "gov", "mascom", "btc", "orange"] },
   { tld: ".co.bw", register: 18000n, renew: 18000n, transfer: 18000n, taken: ["debswana", "mascom", "orange", "fnb", "choppies", "example"] },
   { tld: ".com", register: 22000n, renew: 24000n, transfer: 22000n, taken: ["google", "example", "microsoft", "debswana", "fourthgen"] },
   { tld: ".africa", register: 30000n, renew: 30000n, transfer: 30000n, taken: ["safari", "example"] },
   { tld: ".co.za", register: 12000n, renew: 12000n, transfer: 12000n, taken: ["takealot", "example"] },
+  { tld: ".co.zw", register: 20000n, renew: 20000n, transfer: 20000n, taken: ["econet", "example"] },
+  { tld: ".net", register: 22000n, renew: 24000n, transfer: 22000n, taken: ["example"] },
+  { tld: ".org", register: 22000n, renew: 24000n, transfer: 22000n, taken: ["example", "wikipedia"] },
+  { tld: ".io", register: 60000n, renew: 60000n, transfer: 60000n, taken: ["example", "github"] },
 ];
 
 /** Loads the catalogue and domain prices into the stub. Safe to run again. Returns product ids by key. */

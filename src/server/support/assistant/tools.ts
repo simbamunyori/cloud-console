@@ -5,7 +5,7 @@ import { monthOf } from "@/lib/domain/pricing";
 import type { Invoice } from "@/server/billing/adapter";
 import type { ScopedBilling } from "@/server/billing/scoped";
 import { compareInvoices, invoicesBefore, isOverdue, isPeriodic, monthlyPrice } from "@/server/billing/views";
-import { marketplace } from "@/server/catalogue/catalogue";
+import { marketplace } from "@/server/catalogue/price-book";
 import type { TenantDb } from "@/server/db";
 import { can, DomainError, type Actor } from "@/server/org/access";
 import { previewQuantityChange } from "@/server/orders/orders";
@@ -23,7 +23,7 @@ import type { ToolSpec } from "./model";
 export interface ToolContext {
   db: TenantDb;
   billing: ScopedBilling;
-  organisation: { id: string; name: string; currency: string; timeZone: string; locale: string };
+  organisation: { id: string; name: string; currency: string; timeZone: string; locale: string; billingMarket: string };
   actor: Actor;
   now?: Date;
 }
@@ -201,10 +201,10 @@ export const TOOLS: Tool[] = [
     description: "What each product costs per unit per month this month.",
     input_schema: { type: "object", properties: {} },
     async run(ctx) {
-      const categories = await marketplace(ctx.db as unknown as PrismaClient, ctx.organisation.currency, monthOf(todayIn(ctx.organisation.timeZone, ctx.now)));
+      const categories = await marketplace(ctx.db as unknown as PrismaClient, { code: ctx.organisation.billingMarket, currency: ctx.organisation.currency }, monthOf(todayIn(ctx.organisation.timeZone, ctx.now)));
       return {
         auditSummary: "Assistant looked up our prices",
-        result: categories.flatMap((c) => c.products.map((p) => ({ product: p.product.name, category: c.category.name, price: p.price ? `${formatMoney(p.price, ctx.organisation.locale)} ${p.product.unitLabel} a month` : "ask us" }))),
+        result: categories.flatMap((c) => c.products.map((p) => ({ product: p.product.name, category: c.category.name, price: `${formatMoney(p.price, ctx.organisation.locale)} ${p.product.unitLabel} a month` }))),
       };
     },
   },

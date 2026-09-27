@@ -6,14 +6,14 @@ import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/ui/page-header";
 import { monthOf } from "@/lib/domain/pricing";
 import { requireBilling } from "@/server/billing/context";
-import { marketplace } from "@/server/catalogue/catalogue";
+import { marketplace } from "@/server/catalogue/price-book";
 import { prisma } from "@/server/db";
 
 export const metadata: Metadata = { title: "Marketplace" };
 
 export default async function MarketplacePage() {
-  const { today, currency, locale } = await requireBilling();
-  const categories = await marketplace(prisma, currency, monthOf(today));
+  const { today, market, locale } = await requireBilling();
+  const categories = await marketplace(prisma, market, monthOf(today));
 
   return (
     <>
@@ -24,7 +24,7 @@ export default async function MarketplacePage() {
             <span className="text-headline">Find a domain name</span>
             <input
               name="q"
-              placeholder="yourcompany.co.bw"
+              placeholder={`yourcompany${market.highlightedTlds[0] ?? ".com"}`}
               autoCapitalize="none"
               spellCheck={false}
               className="h-12 rounded-md border border-transparent bg-surface-1 px-4 text-body text-ink placeholder:text-ink-muted"

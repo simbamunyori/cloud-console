@@ -60,7 +60,7 @@ async function main() {
   console.log(`Stub catalogue: ${Object.keys(products).length} products and domain prices loaded.`);
   const thisMonth = startOfMonth(todayIn(DEFAULT_TIME_ZONE));
   await seedCatalogue(db, products, [-1, 0, 1].map((m) => addMonths(thisMonth, m).toISOString().slice(0, 7)));
-  console.log("Marketplace catalogue loaded, with placeholder margins, buffer and exchange rate.");
+  console.log("Marketplace catalogue loaded, with placeholder margins, buffer, exchange rates and price books.");
 
   const passwordHash = await hashPassword(DEMO_PASSWORD);
   // One staff account per role, so each part of /admin can be tried.

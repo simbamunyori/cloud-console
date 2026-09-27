@@ -5,7 +5,8 @@ import { money, times, type Money } from "@/lib/domain/money";
 import { monthOf } from "@/lib/domain/pricing";
 import { BillingError, PAYMENT_METHODS, type DomainAvailability, type UpgradePreview } from "@/server/billing/adapter";
 import type { ScopedBilling } from "@/server/billing/scoped";
-import { monthlyPrice, productBySlug, productOptions, validateOptions, type ProductWithCategory } from "@/server/catalogue/catalogue";
+import { approvedPrice, productItem, productPrice, tldOffers } from "@/server/catalogue/price-book";
+import { productBySlug, productOptions, validateOptions, type ProductWithCategory } from "@/server/catalogue/catalogue";
 import { DOMAIN_PRODUCT_SLUG } from "@/server/catalogue/seed-data";
 import { connectorFor } from "@/server/connectors/registry";
 import type { TenantDb } from "@/server/db";
@@ -24,7 +25,7 @@ import { audit, customerAudit } from "@/server/org/audit";
 export interface OrderDeps {
   db: TenantDb;
   billing: ScopedBilling;
-  organisation: { id: string; name: string; currency: string; timeZone: string };
+  organisation: { id: string; name: string; currency: string; timeZone: string; billingMarket: string };
   actor: Actor;
   now?: Date;
 }
@@ -38,6 +39,7 @@ export function newReference(prefix = "ORD"): string {
 }
 
 const catalogueDb = (db: TenantDb) => db as unknown as PrismaClient;
+const marketOf = (deps: Pick<OrderDeps, "organisation">) => ({ code: deps.organisation.billingMarket, currency: deps.organisation.currency });
 
 function billingFailure(e: unknown): never {
   if (e instanceof BillingError) {
@@ -81,7 +83,8 @@ export async function quoteOrder(deps: OrderDeps, input: { slug: string; quantit
   const quantity = parseQuantity(product, input.quantity);
   const options = validateOptions(productOptions(product), input.options);
   const month = monthOf(todayIn(deps.organisation.timeZone, deps.now));
-  const unitPrice = await monthlyPrice(catalogueDb(deps.db), product, deps.organisation.currency, month);
+  const unitPrice = await productPrice(catalogueDb(deps.db), product, marketOf(deps), month);
+  if (!unitPrice) throw new DomainError("not-found", "That product isn't on sale.");
   return { product, quantity, unitPrice, monthlyTotal: times(unitPrice, quantity), options };
 }
 
@@ -172,7 +175,9 @@ async function quantityChange(deps: OrderDeps, serviceId: string, rawQuantity: s
   const to = parseQuantity(product, rawQuantity);
   if (to === service.quantity) throw new DomainError("invalid", `It already has ${to}.`, "quantity");
   const month = monthOf(todayIn(deps.organisation.timeZone, deps.now));
-  const unitPrice = await monthlyPrice(catalogueDb(deps.db), product, deps.organisation.currency, month);
+  // Existing customers keep adding users at the book price, even if the product is no longer offered to new ones.
+  const unitPrice = await approvedPrice(catalogueDb(deps.db), marketOf(deps), productItem(product.slug), month);
+  if (!unitPrice) throw new DomainError("unavailable", "We can't price this change right now. Contact support to change it.");
   const preview = await deps.billing.previewUpgrade(serviceId, { quantity: to, recurringPrice: times(unitPrice, to) }).catch(billingFailure);
   return { serviceId, serviceName: service.name, from: service.quantity, to, unitPrice, preview, product };
 }
@@ -250,29 +255,43 @@ export async function changeQuantity(deps: OrderDeps, serviceId: string, quantit
 
 // ─── Domains ─────────────────────────────────────────────────────────
 
-/** Endings suggested when someone searches for a bare name. */
-export const SUGGESTED_TLDS = [".co.bw", ".bw", ".com", ".africa", ".co.za"];
-
 export interface DomainResult extends DomainAvailability {
+  /** A year's registration, from the market's price book. */
   price: Money | null;
 }
 
-/** "kgalehill" checks each suggested ending; "kgalehill.com" checks that name (and suggests the rest). */
-export async function searchDomains(billing: ScopedBilling, currency: string, query: string): Promise<DomainResult[]> {
+/** How many endings a bare name is checked against: the market's own first. */
+const SUGGESTIONS = 5;
+
+/**
+ * "kgalehill" checks the market's endings on sale; "kgalehill.com" checks
+ * that name (and suggests the rest). Prices come from the account's
+ * market's price book, so an ending without an approved price there isn't
+ * on sale.
+ */
+export async function searchDomains(
+  db: TenantDb,
+  billing: ScopedBilling,
+  market: { code: string; currency: string; highlightedTlds: string[] },
+  query: string,
+  month: string,
+): Promise<DomainResult[]> {
   const q = query.trim().toLowerCase().replace(/^https?:\/\//, "").replace(/^www\./, "").replace(/\/.*$/, "");
   if (!q) return [];
-  const label = SUGGESTED_TLDS.reduce((l, tld) => (l.endsWith(tld) ? l.slice(0, -tld.length) : l), q);
-  if (!/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(label)) throw new DomainError("invalid", "Use letters, numbers and hyphens only, like kgalehill or kgalehill.co.bw.", "domain");
-  const names = [...new Set([q.includes(".") ? q : null, ...SUGGESTED_TLDS.map((t) => label + t)].filter((n): n is string => Boolean(n)))];
-  const pricing = await billing.getTldPricing(currency);
+  const offers = await tldOffers(catalogueDb(db), market, month);
+  const byLength = [...offers].sort((a, b) => b.tld.length - a.tld.length);
+  const ending = byLength.find((o) => q.endsWith(o.tld));
+  const label = ending ? q.slice(0, -ending.tld.length) : q.includes(".") ? q.slice(0, q.indexOf(".")) : q;
+  if (!/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(label)) throw new DomainError("invalid", "Use letters, numbers and hyphens only, like kgalehill or kgalehill.com.", "domain");
+  const names = [...new Set([q.includes(".") ? q : null, ...offers.slice(0, SUGGESTIONS).map((o) => label + o.tld)].filter((n): n is string => Boolean(n)))];
   const results: DomainResult[] = [];
   for (const name of names) {
     const check = await billing.checkDomain(name).catch((e) => {
       if (e instanceof BillingError && e.code === "invalid") return { name, supported: false, available: false };
       throw e;
     });
-    const tld = pricing.filter((t) => check.name.endsWith(t.tld)).sort((a, b) => b.tld.length - a.tld.length)[0];
-    results.push({ ...check, price: tld?.register ?? null });
+    const offer = byLength.find((o) => check.name.endsWith(o.tld));
+    results.push({ ...check, supported: check.supported && Boolean(offer), price: offer?.register ?? null });
   }
   return results;
 }
@@ -281,7 +300,9 @@ export async function registerDomain(deps: OrderDeps, rawName: string, rawYears:
   assertCan(deps.actor, "order");
   const years = Number(rawYears);
   if (!Number.isInteger(years) || years < 1 || years > 5) throw new DomainError("invalid", "Choose between 1 and 5 years.", "years");
-  const [result] = (await searchDomains(deps.billing, deps.organisation.currency, rawName)).filter((r) => r.name === rawName.trim().toLowerCase());
+  const market = await catalogueDb(deps.db).market.findUniqueOrThrow({ where: { code: deps.organisation.billingMarket } });
+  const month = monthOf(todayIn(deps.organisation.timeZone, deps.now));
+  const [result] = (await searchDomains(deps.db, deps.billing, market, rawName, month)).filter((r) => r.name === rawName.trim().toLowerCase());
   if (!result || !result.supported || !result.price) throw new DomainError("invalid", "We don't sell that ending yet.", "domain");
   if (!result.available) throw new DomainError("conflict", `${result.name} is taken. Try another name or ending.`, "domain");
   const product = await productBySlug(catalogueDb(deps.db), DOMAIN_PRODUCT_SLUG);

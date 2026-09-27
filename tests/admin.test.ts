@@ -1,12 +1,13 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import { monthOf } from "../src/lib/domain/pricing";
 import { money } from "../src/lib/domain/money";
-import { nextMonth, parsePercent, parseRate, pricingOverview, setCategoryMargin, setCurrencyBuffer, setNextMonthRate } from "../src/server/admin/pricing";
+import { nextMonth, parsePercent, parseRate, setCategoryMargin, setCurrencyBuffer, setNextMonthRate } from "../src/server/admin/pricing";
 import { completeTask, startTask } from "../src/server/admin/tasks";
 import { scopedBilling } from "../src/server/billing/scoped";
 import { seedStubCatalogue } from "../src/server/billing/stub/catalogue";
 import { StubBillingAdapter } from "../src/server/billing/stub/stub-adapter";
-import { monthlyPrice, productBySlug } from "../src/server/catalogue/catalogue";
+import { productBySlug } from "../src/server/catalogue/catalogue";
+import { approveAllSuggestions, approvePrice, bookRows, productItem, productPrice, setOffered } from "../src/server/catalogue/price-book";
 import { seedCatalogue } from "../src/server/catalogue/seed-data";
 import { changeQuantity, placeOrder, type OrderDeps } from "../src/server/orders/orders";
 import type { StaffActor } from "../src/server/staff/access";
@@ -93,9 +94,12 @@ describe.skipIf(!hasDb)("staff console", () => {
     expect((await o.billing.getService(m365.billingServiceIds[0]))?.quantity).toBe(5);
   });
 
-  it("changes margins, buffer and next month's rate, logged, without touching this month's prices", async () => {
+  it("changes margins, buffer and next month's rate, which only change suggestions until approved", async () => {
+    const bw = { code: "bw", currency: "BWP" };
     const product = (await productBySlug(db, "microsoft-365-business-standard"))!;
-    const before = await monthlyPrice(db, product, "BWP", month);
+    const item = productItem(product.slug);
+    const before = await productPrice(db, product, bw, month);
+    const beforeNext = await productPrice(db, product, bw, nextMonth(month));
     const finance = await staff("FINANCE");
     const admin = await staff("ADMIN");
     const deps = { db, staff: admin, month };
@@ -109,23 +113,59 @@ describe.skipIf(!hasDb)("staff console", () => {
       await setCurrencyBuffer(deps, "5");
       await setNextMonthRate(deps, "USD", "BWP", "14.00");
 
-      // This month's price stands.
-      expect(await monthlyPrice(db, product, "BWP", month)).toEqual(before);
-      // Next month: US$ 12.50 x 14.00 = 175.00, +5% = 183.75, +25% = 229.6875, rounded up to P 230.00.
-      const overview = await pricingOverview(db, month);
-      expect(overview.rows.find((r) => r.productId === product.id)?.nextMonth).toEqual(money(23000n, "BWP"));
-      const fresh = (await productBySlug(db, "microsoft-365-business-standard"))!;
-      expect(await monthlyPrice(db, fresh, "BWP", nextMonth(month))).toEqual(money(23000n, "BWP"));
+      // Nothing customers pay changes until a price is approved.
+      expect(await productPrice(db, product, bw, month)).toEqual(before);
+      expect(await productPrice(db, product, bw, nextMonth(month))).toEqual(beforeNext);
+
+      // Next month's suggestion: US$ 12.50 x 14.00 = 175.00, +5% = 183.75, +25% = 229.6875, rounded up to P 230.00.
+      const row = (await bookRows(db, "bw", month)).rows.find((r) => r.item === item)!;
+      expect(row).toMatchObject({ targetMonth: nextMonth(month), suggestion: { price: money(23000n, "BWP") } });
+
+      await expect(approvePrice({ ...deps, staff: finance }, "bw", item)).rejects.toMatchObject({ code: "forbidden" });
+      await expect(approvePrice(deps, "bw", item, { amount: "abc" })).rejects.toMatchObject({ field: "amount" });
+      const entry = await approvePrice(deps, "bw", item);
+      expect(entry).toMatchObject({ month: nextMonth(month), amountMinor: 23000n, suggestedMinor: 23000n, approvedById: admin.userId });
+      expect(await productPrice(db, product, bw, month)).toEqual(before);
+      expect(await productPrice(db, product, bw, nextMonth(month))).toEqual(money(23000n, "BWP"));
+
+      // Staff can set a different price from the suggestion.
+      await approvePrice(deps, "bw", item, { amount: "225" });
+      expect(await productPrice(db, product, bw, nextMonth(month))).toEqual(money(22500n, "BWP"));
 
       const log = await db.pricingChange.findMany({ where: { userId: admin.userId }, orderBy: { createdAt: "asc" } });
-      expect(log.map((c) => c.field)).toEqual(["margin:productivity", "buffer", `rate:USD/BWP:${nextMonth(month)}`]);
+      expect(log.map((c) => c.field)).toEqual(["margin:productivity", "buffer", `rate:USD/BWP:${nextMonth(month)}`, `price:bw:${item}:${nextMonth(month)}`, `price:bw:${item}:${nextMonth(month)}`]);
       expect(log[0]).toMatchObject({ fromValue: String(original), toValue: "2500" });
+      expect(log[4]).toMatchObject({ fromValue: "23000", toValue: "22500" });
     } finally {
       await db.productCategory.update({ where: { key: "productivity" }, data: { marginBps: original } });
       await db.pricingSettings.update({ where: { id: "global" }, data: { currencyBufferBps: originalBuffer } });
       if (originalRate) await db.fxRate.update({ where: { id: originalRate.id }, data: { rateMicros: originalRate.rateMicros, setById: originalRate.setById } });
       else await db.fxRate.deleteMany({ where: { month: nextMonth(month), base: "USD", quote: "BWP" } });
-      await db.monthlyPrice.deleteMany({ where: { month: { gt: month } } });
+      await db.priceBookEntry.deleteMany({ where: { approvedById: admin.userId } });
+    }
+  });
+
+  it("approves every changed suggestion at once, and withdraws a product from a market", async () => {
+    const admin = await staff("ADMIN");
+    const deps = { db, staff: admin, month };
+    const zw = { code: "zw", currency: "USD" };
+    const original = (await db.productCategory.findUniqueOrThrow({ where: { key: "servers" } })).marginBps;
+    const vps = (await productBySlug(db, "managed-vps-small"))!;
+    try {
+      await setCategoryMargin(deps, "servers", "55");
+      const count = await approveAllSuggestions(deps, "zw");
+      expect(count).toBeGreaterThan(0);
+      expect(await approveAllSuggestions(deps, "zw")).toBe(0);
+      expect(await db.priceBookEntry.count({ where: { approvedById: admin.userId, marketCode: "zw", month: nextMonth(month) } })).toBe(count);
+
+      await setOffered(deps, "zw", productItem(vps.slug), false);
+      expect(await productPrice(db, (await productBySlug(db, vps.slug))!, zw, month)).toBeNull();
+      await setOffered(deps, "zw", productItem(vps.slug), true);
+      expect(await productPrice(db, (await productBySlug(db, vps.slug))!, zw, month)).not.toBeNull();
+      expect(await db.pricingChange.count({ where: { userId: admin.userId, field: { startsWith: "offered:zw:" } } })).toBe(2);
+    } finally {
+      await db.productCategory.update({ where: { key: "servers" }, data: { marginBps: original } });
+      await db.priceBookEntry.deleteMany({ where: { approvedById: admin.userId } });
     }
   });
 });

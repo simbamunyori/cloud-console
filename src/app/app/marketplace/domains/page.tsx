@@ -9,6 +9,7 @@ import { Card } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
 import { toJson } from "@/lib/domain/money";
 import { requireBilling } from "@/server/billing/context";
+import { monthOf } from "@/lib/domain/pricing";
 import { can, DomainError } from "@/server/org/access";
 import { searchDomains, type DomainResult } from "@/server/orders/orders";
 import { RegisterDomainForm } from "./register-form";
@@ -17,12 +18,12 @@ export const metadata: Metadata = { title: "Find a domain" };
 
 export default async function DomainsPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const q = ((await searchParams).q ?? "").slice(0, 100);
-  const { billing, actor, currency, market, locale } = await requireBilling();
+  const { billing, db, actor, market, locale, today } = await requireBilling();
   let results: DomainResult[] = [];
   let error: string | null = null;
   if (q.trim()) {
     try {
-      results = await searchDomains(billing, currency, q);
+      results = await searchDomains(db, billing, market, q, monthOf(today));
     } catch (e) {
       if (e instanceof DomainError) error = e.message;
       else throw e;

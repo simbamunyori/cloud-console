@@ -9,10 +9,11 @@ import { PageHeader } from "@/components/ui/page-header";
 import { toJson } from "@/lib/domain/money";
 import { monthOf } from "@/lib/domain/pricing";
 import { requireBilling } from "@/server/billing/context";
-import { monthlyPrice, productBySlug, productOptions } from "@/server/catalogue/catalogue";
+import { productBySlug, productOptions } from "@/server/catalogue/catalogue";
+import { productPrice } from "@/server/catalogue/price-book";
 import { DOMAIN_PRODUCT_SLUG } from "@/server/catalogue/seed-data";
 import { prisma } from "@/server/db";
-import { can, DomainError } from "@/server/org/access";
+import { can } from "@/server/org/access";
 import { MAX_QUANTITY } from "@/server/orders/orders";
 import { OrderForm } from "./order-form";
 
@@ -26,13 +27,12 @@ function setupTime(hours: number) {
 
 export default async function ProductPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const { actor, today, currency, locale } = await requireBilling();
+  const { actor, today, market, locale } = await requireBilling();
   const product = await productBySlug(prisma, slug);
   if (!product || product.slug === DOMAIN_PRODUCT_SLUG) notFound();
-  const price = await monthlyPrice(prisma, product, currency, monthOf(today)).catch((e) => {
-    if (e instanceof DomainError) return null;
-    throw e;
-  });
+  const price = await productPrice(prisma, product, market, monthOf(today));
+  // Not offered in this account's market.
+  if (!price) notFound();
 
   return (
     <>

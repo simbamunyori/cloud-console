@@ -1,14 +1,13 @@
 import type { PrismaClient } from "@prisma/client";
-import { money, type Money } from "@/lib/domain/money";
-import { customerPrice, PricingError } from "@/lib/domain/pricing";
+import { nextMonth } from "@/server/catalogue/price-book";
+export { nextMonth };
 import { DomainError } from "@/server/org/access";
 import { assertStaffCan, type StaffActor } from "@/server/staff/access";
 
 /**
- * Margin, currency buffer and exchange rate settings. A month's prices are
- * fixed once used, so a change here applies from the next month; any
- * prices already worked out for later months are cleared to be worked out
- * again. Every change is logged with who made it.
+ * Margin, currency buffer and exchange rate settings. They only change the
+ * suggestions in each market's price book; customers see a new price once
+ * staff approve it (price-book.ts). Every change is logged with who made it.
  */
 
 interface PricingDeps {
@@ -41,15 +40,6 @@ export function parseRate(input: string, field: string): bigint {
 export const bpsToPercent = (bps: number) => (bps / 100).toLocaleString("en-GB", { maximumFractionDigits: 2 });
 export const microsToRate = (m: bigint) => (Number(m) / 1_000_000).toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 6 });
 
-export function nextMonth(month: string): string {
-  const [y, m] = month.split("-").map(Number);
-  return m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, "0")}`;
-}
-
-async function clearLaterPrices(db: Pick<PrismaClient, "monthlyPrice">, month: string) {
-  await db.monthlyPrice.deleteMany({ where: { month: { gt: month } } });
-}
-
 export async function setCategoryMargin(deps: PricingDeps, categoryKey: string, input: string) {
   assertStaffCan(deps.staff, "managePricing");
   const marginBps = parsePercent(input, "margin");
@@ -59,7 +49,6 @@ export async function setCategoryMargin(deps: PricingDeps, categoryKey: string, 
   return deps.db.$transaction(async (tx) => {
     const updated = await tx.productCategory.update({ where: { key: categoryKey }, data: { marginBps } });
     await tx.pricingChange.create({ data: { userId: deps.staff.userId, field: `margin:${categoryKey}`, fromValue: String(category.marginBps), toValue: String(marginBps) } });
-    await clearLaterPrices(tx, deps.month);
     return updated;
   });
 }
@@ -73,7 +62,6 @@ export async function setCurrencyBuffer(deps: PricingDeps, input: string) {
   return deps.db.$transaction(async (tx) => {
     const updated = await tx.pricingSettings.upsert({ where: { id: "global" }, update: { currencyBufferBps: bufferBps }, create: { id: "global", currencyBufferBps: bufferBps } });
     await tx.pricingChange.create({ data: { userId: deps.staff.userId, field: "buffer", fromValue: current ? String(current.currencyBufferBps) : null, toValue: String(bufferBps) } });
-    await clearLaterPrices(tx, deps.month);
     return updated;
   });
 }
@@ -91,7 +79,6 @@ export async function setNextMonthRate(deps: PricingDeps, base: string, quote: s
       create: { month, base, quote, rateMicros, setById: deps.staff.userId },
     });
     await tx.pricingChange.create({ data: { userId: deps.staff.userId, field: `rate:${base}/${quote}:${month}`, fromValue: current ? String(current.rateMicros) : null, toValue: String(rateMicros) } });
-    await clearLaterPrices(tx, deps.month);
     return rate;
   });
 }
@@ -100,50 +87,20 @@ async function latestRate(db: PrismaClient, month: string, base: string, quote: 
   return db.fxRate.findFirst({ where: { base, quote, month: { lte: month } }, orderBy: { month: "desc" } });
 }
 
-export interface PriceRow {
-  productId: string;
-  name: string;
-  categoryName: string;
-  cost: Money;
-  thisMonth: Money | null;
-  nextMonth: Money | null;
-}
-
-/** Everything the pricing page shows, including next month's prices worked out from today's settings. */
-export async function pricingOverview(db: PrismaClient, month: string, currency = "BWP") {
+/** Settings shared by every market, the rates a market's currency needs, and the change log. */
+export async function pricingOverview(db: PrismaClient, month: string, currency: string) {
   const next = nextMonth(month);
-  const [categories, settings, stored, changes] = await Promise.all([
-    db.productCategory.findMany({ orderBy: { sortOrder: "asc" }, include: { products: { where: { active: true }, orderBy: { sortOrder: "asc" } } } }),
+  const [categories, settings, products, tlds, changes] = await Promise.all([
+    db.productCategory.findMany({ orderBy: { sortOrder: "asc" } }),
     db.pricingSettings.findUnique({ where: { id: "global" } }),
-    db.monthlyPrice.findMany({ where: { month, currency } }),
-    db.pricingChange.findMany({ orderBy: { createdAt: "desc" }, take: 20, include: { user: { select: { name: true } } } }),
+    db.product.findMany({ where: { active: true }, select: { costCurrency: true, fixedPriceCurrency: true, fixedPriceMinor: true } }),
+    db.tld.findMany({ select: { costCurrency: true } }),
+    db.pricingChange.findMany({ orderBy: { createdAt: "desc" }, take: 30, include: { user: { select: { name: true } } } }),
   ]);
-  const bufferBps = settings?.currencyBufferBps ?? 0;
-  const pairs = [...new Set(categories.flatMap((c) => c.products.map((p) => p.costCurrency)).filter((c) => c !== currency))];
+  const bases = new Set([...products.map((p) => (p.fixedPriceMinor !== null && p.fixedPriceCurrency ? p.fixedPriceCurrency : p.costCurrency)), ...tlds.map((t) => t.costCurrency)]);
+  bases.delete(currency);
   const rates = await Promise.all(
-    pairs.map(async (base) => ({ base, quote: currency, thisMonth: await latestRate(db, month, base, currency), nextMonth: await latestRate(db, next, base, currency) })),
+    [...bases].sort().map(async (base) => ({ base, quote: currency, thisMonth: await latestRate(db, month, base, currency), nextMonth: await latestRate(db, next, base, currency) })),
   );
-  const storedBy = new Map(stored.map((p) => [p.productId, money(p.amountMinor, currency)]));
-
-  const rows: PriceRow[] = categories.flatMap((c) =>
-    c.products.map((p) => {
-      let nextPrice: Money | null = null;
-      try {
-        nextPrice = customerPrice(
-          {
-            cost: money(p.costMinor, p.costCurrency),
-            fixedPrice: p.fixedPriceMinor !== null && p.fixedPriceCurrency ? money(p.fixedPriceMinor, p.fixedPriceCurrency) : null,
-            marginBps: c.marginBps,
-            bufferBps,
-            rateMicros: p.costCurrency === currency ? null : (rates.find((r) => r.base === p.costCurrency)?.nextMonth?.rateMicros ?? null),
-          },
-          currency,
-        ).price;
-      } catch (e) {
-        if (!(e instanceof PricingError)) throw e;
-      }
-      return { productId: p.id, name: p.name, categoryName: c.name, cost: money(p.costMinor, p.costCurrency), thisMonth: storedBy.get(p.id) ?? null, nextMonth: nextPrice };
-    }),
-  );
-  return { month, next, categories, bufferBps, rates, rows, changes };
+  return { month, next, categories, bufferBps: settings?.currencyBufferBps ?? 0, rates, changes };
 }

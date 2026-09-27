@@ -80,6 +80,7 @@ model Market {
 
   organisations Organisation[]
   changes       MarketChange[]
+  prices        PriceBookEntry[]
 }
 
 /// Every change to a market's settings, for the staff audit.
@@ -206,6 +207,7 @@ model User {
   assignedTickets Ticket[]           @relation("ticketAssignee")
   settingsChanged PricingChange[]
   marketChanges   MarketChange[]
+  pricesApproved  PriceBookEntry[]
 }
 
 enum StaffRole {
@@ -507,13 +509,27 @@ model Product {
   /// Options the customer picks when ordering, e.g. operating system.
   options            Json?
   active             Boolean  @default(true)
+  /// Market codes it is offered in. Local data copy is "bw" only, because
+  /// the copy is kept in Botswana.
+  markets            String[]
   sortOrder          Int      @default(0)
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
   category ProductCategory @relation(fields: [categoryKey], references: [key], onDelete: Restrict)
-  prices   MonthlyPrice[]
   orders   Order[]
+}
+
+/// A domain ending we sell, with what the registrar charges us.
+model Tld {
+  /// ".co.za"
+  tld               String   @id
+  costRegisterMinor BigInt
+  costRenewMinor    BigInt
+  costCurrency      String
+  /// Market codes it is offered in.
+  markets           String[]
+  sortOrder         Int      @default(0)
 }
 
 /// Single row: settings that apply to every product.
@@ -538,20 +554,33 @@ model FxRate {
   @@unique([month, base, quote])
 }
 
-/// What customers pay for a product in one month, fixed for that month.
-model MonthlyPrice {
-  id          String   @id @default(cuid())
-  productId   String
-  month       String
-  currency    String
-  amountMinor BigInt
-  /// How it was worked out: cost, rate, buffer, margin. For staff.
-  breakdown   Json
-  createdAt   DateTime @default(now())
+/// A market's price book: the prices staff approved, each from a month
+/// until a later entry replaces it. Suggestions (from cost, rate, buffer
+/// and margin) are worked out live and are never shown to customers.
+model PriceBookEntry {
+  id             String   @id @default(cuid())
+  marketCode     String
+  /// "product:<slug>" or "tld:<ending>", e.g. "tld:.co.za".
+  item           String
+  /// The first month it applies, "2026-10".
+  month          String
+  currency       String
+  /// A product's price per unit per month, or a domain's yearly
+  /// registration price.
+  amountMinor    BigInt
+  /// A domain's yearly renewal price.
+  renewMinor     BigInt?
+  /// What the suggestion was when it was approved, and how it was worked out.
+  suggestedMinor BigInt?
+  breakdown      Json?
+  /// Null for prices carried over from Phase 1 or seeded for development.
+  approvedById   String?
+  approvedAt     DateTime @default(now())
 
-  product Product @relation(fields: [productId], references: [id], onDelete: Restrict)
+  market     Market @relation(fields: [marketCode], references: [code], onDelete: Restrict)
+  approvedBy User?  @relation(fields: [approvedById], references: [id], onDelete: Restrict)
 
-  @@unique([productId, month, currency])
+  @@unique([marketCode, item, month])
 }
 
 /// Every change to margins, the buffer or rates, for the staff audit.

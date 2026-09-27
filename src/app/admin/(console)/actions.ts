@@ -2,13 +2,14 @@
 
 import { revalidatePath } from "next/cache";
 import { DEFAULT_TIME_ZONE } from "@/config/app";
-import { todayIn } from "@/lib/dates";
+import { formatMonth, todayIn } from "@/lib/dates";
 import { monthOf } from "@/lib/domain/pricing";
 import { requireStaff } from "@/server/admin/context";
 import { setCategoryMargin, setCurrencyBuffer, setNextMonthRate } from "@/server/admin/pricing";
 import { completeTask, startTask } from "@/server/admin/tasks";
 import { field, run, type ActionState } from "@/server/action-state";
 import { billingAdapter } from "@/server/billing";
+import { approveAllSuggestions, approvePrice, setOffered } from "@/server/catalogue/price-book";
 import { prisma } from "@/server/db";
 import { runSoon } from "@/server/jobs/boss";
 import { confirmEftPayment, rejectEftPayment } from "@/server/payments/eft";
@@ -78,7 +79,7 @@ export async function setMarginAction(_prev: ActionState, form: FormData): Promi
   const values = { margin: field(form, "margin") };
   const result = await run(async () => {
     await setCategoryMargin(await pricingDeps(), field(form, "categoryKey"), values.margin);
-    return "Saved. New prices apply from next month.";
+    return "Saved. The suggestions are updated; approve them in each market to change prices.";
   }, values);
   revalidatePath("/admin/pricing");
   return result;
@@ -88,7 +89,7 @@ export async function setBufferAction(_prev: ActionState, form: FormData): Promi
   const values = { buffer: field(form, "buffer") };
   const result = await run(async () => {
     await setCurrencyBuffer(await pricingDeps(), values.buffer);
-    return "Saved. New prices apply from next month.";
+    return "Saved. The suggestions are updated; approve them in each market to change prices.";
   }, values);
   revalidatePath("/admin/pricing");
   return result;
@@ -98,8 +99,37 @@ export async function setRateAction(_prev: ActionState, form: FormData): Promise
   const values = { rate: field(form, "rate") };
   const result = await run(async () => {
     await setNextMonthRate(await pricingDeps(), field(form, "base"), field(form, "quote"), values.rate);
-    return "Saved for next month.";
+    return "Saved for next month. The suggestions are updated.";
   }, values);
+  revalidatePath("/admin/pricing");
+  return result;
+}
+
+export async function approvePriceAction(_prev: ActionState, form: FormData): Promise<ActionState> {
+  const values = { amount: field(form, "amount"), renew: field(form, "renew") };
+  const result = await run(async () => {
+    const entry = await approvePrice(await pricingDeps(), field(form, "market"), field(form, "item"), values);
+    return `Approved from ${formatMonth(new Date(`${entry.month}-01T00:00:00Z`))}.`;
+  }, values);
+  revalidatePath("/admin/pricing");
+  return result;
+}
+
+export async function approveAllAction(_prev: ActionState, form: FormData): Promise<ActionState> {
+  const result = await run(async () => {
+    const count = await approveAllSuggestions(await pricingDeps(), field(form, "market"));
+    return count ? `Approved ${count} ${count === 1 ? "price" : "prices"}.` : "Nothing to approve: every suggestion is already approved.";
+  }, {});
+  revalidatePath("/admin/pricing");
+  return result;
+}
+
+export async function setOfferedAction(_prev: ActionState, form: FormData): Promise<ActionState> {
+  const offered = field(form, "offered") === "true";
+  const result = await run(async () => {
+    await setOffered(await pricingDeps(), field(form, "market"), field(form, "item"), offered);
+    return offered ? "Offered" : "Withdrawn";
+  }, {});
   revalidatePath("/admin/pricing");
   return result;
 }

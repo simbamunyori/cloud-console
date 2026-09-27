@@ -4,7 +4,8 @@ import { monthOf } from "../src/lib/domain/pricing";
 import { scopedBilling } from "../src/server/billing/scoped";
 import { seedStubCatalogue } from "../src/server/billing/stub/catalogue";
 import { StubBillingAdapter } from "../src/server/billing/stub/stub-adapter";
-import { marketplace } from "../src/server/catalogue/catalogue";
+import { marketplace, productPrice, tldOffers } from "../src/server/catalogue/price-book";
+import { productBySlug } from "../src/server/catalogue/catalogue";
 import { seedCatalogue } from "../src/server/catalogue/seed-data";
 import { changeQuantity, placeOrder, previewQuantityChange, registerDomain, searchDomains, type OrderDeps } from "../src/server/orders/orders";
 import type { Actor } from "../src/server/org/access";
@@ -29,12 +30,35 @@ describe.skipIf(!hasDb)("ordering", () => {
     return { ...org, stub, billing, deps };
   }
 
-  it("prices the marketplace from cost, margin, buffer and rate", async () => {
-    const categories = await marketplace(db, "BWP", month);
+  const bw = { code: "bw", currency: "BWP" };
+
+  it("prices the marketplace from the market's approved book", async () => {
+    const categories = await marketplace(db, bw, month);
     const standard = categories.flatMap((c) => c.products).find((p) => p.product.slug === "microsoft-365-business-standard")!;
     // US$ 12.50 x 13.45, +3%, +20%, rounded up: P 208.00 (as in the pricing unit test).
     expect(standard.price).toEqual(money(20800n, "BWP"));
     expect(categories.flatMap((c) => c.products).some((p) => p.product.slug === "domain-name")).toBe(false);
+    expect(categories.flatMap((c) => c.products).some((p) => p.product.slug === "local-data-copy")).toBe(true);
+  });
+
+  it("offers each market its own currency and catalogue", async () => {
+    const za = await marketplace(db, { code: "za", currency: "ZAR" }, month);
+    const products = za.flatMap((c) => c.products);
+    expect(products.length).toBeGreaterThan(0);
+    expect(products.every((p) => p.price.currency === "ZAR")).toBe(true);
+    // Local data copy is kept in Botswana, so it's only offered there.
+    expect(products.some((p) => p.product.slug === "local-data-copy")).toBe(false);
+    const tlds = await tldOffers(db, { code: "za", currency: "ZAR", highlightedTlds: [".co.za"] }, month);
+    expect(tlds[0].tld).toBe(".co.za");
+    expect(tlds.some((t) => t.tld === ".co.bw")).toBe(false);
+  });
+
+  it("won't sell a product in a market where it isn't offered", async () => {
+    const o = await setUp("Sandton Solar");
+    await db.organisation.update({ where: { id: o.organisationId }, data: { billingMarket: "za", currency: "ZAR" } });
+    const organisation = await db.organisation.findUniqueOrThrow({ where: { id: o.organisationId } });
+    const deps: OrderDeps = { db: o.tenant, billing: o.billing, organisation, actor: o.owner };
+    await expect(placeOrder(deps, { slug: "local-data-copy", quantity: "1", options: {} })).rejects.toMatchObject({ code: "not-found" });
   });
 
   it("places an order: invoice, pending service, staff task, audit and email", async () => {
@@ -72,7 +96,7 @@ describe.skipIf(!hasDb)("ordering", () => {
   it("keeps this month's price when staff change the margin", async () => {
     const o = await setUp();
     await placeOrder(o.deps(), { slug: "managed-vps-small", quantity: "1", options: { os: "Debian 12" } });
-    const before = await db.monthlyPrice.findFirstOrThrow({ where: { product: { slug: "managed-vps-small" }, month, currency: "BWP" } });
+    const before = (await productPrice(db, (await productBySlug(db, "managed-vps-small"))!, bw, month))!;
     await db.productCategory.update({ where: { key: "servers" }, data: { marginBps: 9000 } });
     try {
       const order = await placeOrder(o.deps(), { slug: "managed-vps-small", quantity: "1", options: { os: "Debian 12" } });
@@ -113,13 +137,19 @@ describe.skipIf(!hasDb)("ordering", () => {
   it("searches and registers a domain", async () => {
     const o = await setUp();
     const label = `mills${Date.now().toString(36)}`;
-    const results = await searchDomains(o.billing, "BWP", label);
-    expect(results.map((r) => r.name)).toEqual([".co.bw", ".bw", ".com", ".africa", ".co.za"].map((t) => label + t));
-    expect(results[0]).toMatchObject({ available: true, supported: true, price: money(18000n, "BWP") });
-    expect((await searchDomains(o.billing, "BWP", "mascom.co.bw"))[0]).toMatchObject({ name: "mascom.co.bw", available: false });
+    const market = await db.market.findUniqueOrThrow({ where: { code: "bw" } });
+    const offers = await tldOffers(db, market, month);
+    const results = await searchDomains(o.tenant, o.billing, market, label, month);
+    // The market's own endings first, then the rest on sale there.
+    expect(results.map((r) => r.name)).toEqual(offers.slice(0, 5).map((t) => label + t.tld));
+    expect(results.map((r) => r.name).slice(0, 2)).toEqual(market.highlightedTlds.map((t) => label + t));
+    expect(results.some((r) => r.name.endsWith(".co.za"))).toBe(false);
+    const coBw = offers.find((t) => t.tld === ".co.bw")!;
+    expect(results.find((r) => r.name === `${label}.co.bw`)).toMatchObject({ available: true, supported: true, price: coBw.register });
+    expect((await searchDomains(o.tenant, o.billing, market, "mascom.co.bw", month))[0]).toMatchObject({ name: "mascom.co.bw", available: false });
 
     const order = await registerDomain(o.deps(), `${label}.co.bw`, "2");
-    expect(order).toMatchObject({ unitPriceMinor: 36000n, monthlyTotalMinor: 0n });
+    expect(order).toMatchObject({ unitPriceMinor: coBw.register.amountMinor * 2n, monthlyTotalMinor: 0n });
     expect((await o.billing.listDomains()).find((d) => d.name === `${label}.co.bw`)?.status).toBe("pending");
     await expect(registerDomain(o.deps(), `${label}.co.bw`, "1")).rejects.toMatchObject({ code: "conflict" });
     await expect(registerDomain(o.deps(), `${label}.xyz`, "1")).rejects.toMatchObject({ code: "invalid" });
