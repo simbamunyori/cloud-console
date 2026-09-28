@@ -1,0 +1,1074 @@
+// Cloud Console data model.
+//
+// Rules this schema encodes (see docs/architecture.md):
+// - Every customer row belongs to exactly one Organisation (the tenant)
+//   and is read through tenantDb(), which adds the organisation filter.
+// - Money is a BigInt in the currency's minor unit (thebe for BWP) with a
+//   currency code beside it. Never a float.
+// - Customer data is soft deleted: deletedAt marks it, purgeAfter is at
+//   least 30 days later, and only the purge job removes it.
+// - AuditEvent rows are never edited or deleted (enforced by a trigger).
+// - Billing records (invoices, services, domains) live in the billing
+//   engine, reached through the BillingAdapter. The Stub* models at the
+//   end are the stand-in engine's own storage, not the console's.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Markets ─────────────────────────────────────────────────────────
+
+enum TaxDisplay {
+  /// Prices are shown with tax included.
+  INCLUSIVE
+  /// Prices are shown before tax, which is added on the invoice.
+  EXCLUSIVE
+}
+
+/// A market decides currency, prices, catalogue, content and legal pages.
+/// Everything else is the same everywhere. Edited in /admin/markets.
+model Market {
+  /// "bw", "za", "zw", "global". Also the public site's path.
+  code                  String     @id
+  name                  String
+  /// ISO 3166-1 alpha-2 countries this market serves. Empty for the
+  /// market that serves every other country.
+  countries             String[]
+  /// ISO 4217. Data, not code: a new currency is a new row.
+  currency              String
+  /// BCP 47, for formatting money and dates, e.g. "en-ZA".
+  locale                String
+  timeZone              String
+  enabled               Boolean    @default(false)
+  /// Where visitors go when their market can't be told. Exactly one.
+  isDefault             Boolean    @default(false)
+  sortOrder             Int        @default(0)
+
+  taxEnabled            Boolean    @default(false)
+  /// Basis points: 1,400 is 14%.
+  taxRateBps            Int        @default(0)
+  taxDisplay            TaxDisplay @default(EXCLUSIVE)
+  taxLabel              String     @default("VAT")
+  /// Our tax registration number (e.g. VAT number), shown on invoices while tax is on.
+  taxRegistrationNumber String?
+
+  /// The company as invoices name it in this market: registration number
+  /// and registered office, shown in the invoice's "From" block.
+  companyRegistrationNumber String?
+  registeredAddress         String?
+  /// True once our own data centre (colocation) is live for this market.
+  /// Until then no page says "our own data centre".
+  ownDataCentre             Boolean @default(false)
+
+  /// "card", "eft".
+  paymentMethods        String[]
+  eftBankName           String?
+  eftAccountName        String?
+  eftAccountNumber      String?
+  eftBranchCode         String?
+  eftSwiftCode          String?
+
+  supportEmail          String
+  supportPhone          String?
+  /// Plain words, e.g. "Monday to Friday, 8:00 to 17:00".
+  supportHours          String
+  /// Domain endings shown first, e.g. [".bw", ".co.bw"].
+  highlightedTlds       String[]
+  /// The data protection law named on the security page, if any.
+  dataProtectionLaw     String?
+  /// Links to lawyer-approved legal pages by kind ("privacy", "terms",
+  /// "dataProtection"). Missing kinds show the placeholder page.
+  legalPages            Json       @default("{}")
+  updatedAt             DateTime   @updatedAt
+
+  organisations Organisation[]
+  changes       MarketChange[]
+  prices        PriceBookEntry[]
+}
+
+/// Every change to a market's settings, for the staff audit.
+model MarketChange {
+  id         String   @id @default(cuid())
+  marketCode String
+  userId     String
+  field      String
+  fromValue  String?
+  toValue    String?
+  createdAt  DateTime @default(now())
+
+  market Market @relation(fields: [marketCode], references: [code], onDelete: Restrict)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@index([marketCode, createdAt])
+}
+
+/// People who tried to sign up from a country we don't serve yet.
+model WaitlistEntry {
+  id          String    @id @default(cuid())
+  name        String
+  email       String
+  company     String?
+  /// ISO 3166-1 alpha-2.
+  country     String
+  phone       String?
+  message     String?
+  /// Set when a staff member has been in touch.
+  contactedAt DateTime?
+  contactedBy String?
+  createdAt   DateTime  @default(now())
+
+  @@index([country, createdAt])
+}
+
+// ─── People and organisations ────────────────────────────────────────
+
+model Organisation {
+  id                 String    @id @default(cuid())
+  name               String
+  slug               String    @unique
+  /// ISO 3166-1 alpha-2: the billing country given at sign-up.
+  country            String    @default("BW")
+  /// Decides prices, catalogue, content and legal pages. Set at sign-up
+  /// from the billing country; only staff change it, with an audit event.
+  billingMarket      String    @default("bw")
+  /// ISO 4217, from the market at sign-up. Invoices always use it.
+  currency           String    @default("BWP")
+  timeZone           String    @default("Africa/Gaborone")
+  /// BCP 47, from the market: how amounts and dates are written for them.
+  locale             String    @default("en-BW")
+  registrationNumber String?
+  vatNumber          String?
+  billingEmail       String?
+  phone              String?
+  addressLine1       String?
+  addressLine2       String?
+  city               String?
+  postcode           String?
+  /// Put on every new invoice, for customers whose finance team needs one.
+  defaultPoNumber    String?
+  deletedAt          DateTime?
+  purgeAfter         DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  market            Market       @relation(fields: [billingMarket], references: [code], onDelete: Restrict)
+  memberships       Membership[]
+  invitations       Invitation[]
+  billingAccount    BillingAccount?
+  orders            Order[]
+  tasks             ProvisioningTask[]
+  eftPayments       EftPayment[]
+  cardPayments      CardPayment[]
+  invoicePoNumbers  InvoicePoNumber[]
+  tickets           Ticket[]
+  ticketMessages    TicketMessage[]
+  conversations     AssistantConversation[]
+  assistantMessages AssistantMessage[]
+  assistantActions  AssistantAction[]
+  auditEvents       AuditEvent[]
+  outboundEmails    OutboundEmail[]
+}
+
+enum UserKind {
+  /// Someone at a customer organisation.
+  CUSTOMER
+  /// Fourth Generation Technologies staff. Signs in to /admin only.
+  STAFF
+}
+
+model User {
+  id              String     @id @default(cuid())
+  kind            UserKind   @default(CUSTOMER)
+  /// Stored lower-cased.
+  email           String     @unique
+  name            String
+  /// scrypt hash; see src/server/auth/password.ts.
+  passwordHash    String
+  emailVerifiedAt DateTime?
+  /// AES-256-GCM encrypted TOTP secret; null until the authenticator is set up.
+  totpSecret      String?
+  totpEnabled     Boolean    @default(false)
+  /// Last accepted TOTP time step, so a code can never be used twice.
+  totpLastStep    Int?
+  totpEnabledAt   DateTime?
+  failedAttempts  Int        @default(0)
+  lockedUntil     DateTime?
+  lastLoginAt     DateTime?
+  /// Staff only.
+  staffRole       StaffRole?
+  deactivatedAt   DateTime?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  memberships     Membership[]
+  sessions        Session[]
+  recoveryCodes   RecoveryCode[]
+  passwordResets  PasswordReset[]
+  signInEvents    SignInEvent[]
+  assignedTasks   ProvisioningTask[] @relation("taskAssignee")
+  completedTasks  ProvisioningTask[] @relation("taskCompletedBy")
+  confirmedEft    EftPayment[]       @relation("eftConfirmedBy")
+  assignedTickets Ticket[]           @relation("ticketAssignee")
+  settingsChanged PricingChange[]
+  marketChanges   MarketChange[]
+  pricesApproved  PriceBookEntry[]
+}
+
+enum StaffRole {
+  /// Answers tickets and reads customer accounts.
+  SUPPORT
+  /// Works the provisioning queue.
+  PROVISIONING
+  /// Confirms payments and sees billing.
+  FINANCE
+  /// Everything, including margins, the currency buffer and staff accounts.
+  ADMIN
+}
+
+enum SessionStage {
+  /// Password accepted; waiting for the authenticator code.
+  CODE_PENDING
+  /// Signed in without an authenticator; must set one up before anything else.
+  SETUP_PENDING
+  /// Fully signed in.
+  ACTIVE
+}
+
+/// A browser session. Only the SHA-256 hash of the cookie value is stored.
+model Session {
+  id                   String       @id @default(cuid())
+  tokenHash            String       @unique
+  userId               String
+  /// Mirrors the user's kind, so a customer cookie can never open /admin.
+  audience             UserKind
+  stage                SessionStage
+  activeOrganisationId String?
+  expiresAt            DateTime
+  lastSeenAt           DateTime     @default(now())
+  revokedAt            DateTime?
+  ipAddress            String?
+  userAgent            String?
+  createdAt            DateTime     @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+/// Single-use backup codes for when the phone is lost. Stored hashed.
+model RecoveryCode {
+  id        String    @id @default(cuid())
+  userId    String
+  codeHash  String    @unique
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+/// A "forgot password" request. The link's token is made when the email is
+/// sent and only its SHA-256 hash is kept; it works once, for 30 minutes.
+model PasswordReset {
+  id          String    @id @default(cuid())
+  userId      String
+  tokenHash   String?   @unique
+  expiresAt   DateTime
+  usedAt      DateTime?
+  ipAddress   String?
+  createdAt   DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+enum SignInOutcome {
+  SUCCEEDED
+  WRONG_PASSWORD
+  WRONG_CODE
+  LOCKED
+}
+
+/// One sign-in attempt for a known account. Shown on the Security page.
+model SignInEvent {
+  id        String        @id @default(cuid())
+  userId    String
+  outcome   SignInOutcome
+  /// "authenticator", "recovery code", or null when the password failed.
+  method    String?
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime      @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}
+
+enum Role {
+  /// Everything, including the team and closing the account.
+  OWNER
+  /// Orders, changes services and manages the team, but not owners.
+  ADMIN
+  /// Invoices, payments and statements. Nothing else changes.
+  BILLING
+  /// Sees everything, changes nothing.
+  READ_ONLY
+}
+
+model Membership {
+  id             String   @id @default(cuid())
+  organisationId String
+  userId         String
+  role           Role
+  active         Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organisation    Organisation @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  user            User         @relation(fields: [userId], references: [id], onDelete: Restrict)
+  sentInvitations Invitation[] @relation("invitedBy")
+
+  @@unique([organisationId, userId])
+  @@index([userId])
+}
+
+/// An emailed invitation. Only the hash of the link's token is stored.
+model Invitation {
+  id             String    @id @default(cuid())
+  organisationId String
+  email          String
+  role           Role
+  tokenHash      String?   @unique
+  invitedById    String
+  expiresAt      DateTime
+  acceptedAt     DateTime?
+  revokedAt      DateTime?
+  createdAt      DateTime  @default(now())
+
+  organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  invitedBy    Membership   @relation("invitedBy", fields: [invitedById], references: [id], onDelete: Restrict)
+
+  @@index([organisationId])
+}
+
+// ─── Audit ───────────────────────────────────────────────────────────
+
+enum ActorKind {
+  CUSTOMER
+  STAFF
+  SYSTEM
+  ASSISTANT
+}
+
+/// What happened to an organisation's account, by whom. Every staff
+/// action on a customer account is visible to that customer.
+model AuditEvent {
+  id                String    @id @default(cuid())
+  organisationId    String
+  actorKind         ActorKind
+  actorUserId       String?
+  /// The name at the time, so the log still reads well if the person leaves.
+  actorLabel        String
+  action            String
+  targetType        String?
+  targetId          String?
+  /// Plain-language line shown to the customer.
+  summary           String
+  data              Json?
+  visibleToCustomer Boolean   @default(true)
+  ipAddress         String?
+  createdAt         DateTime  @default(now())
+
+  organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+
+  @@index([organisationId, createdAt])
+}
+
+/// Staff actions that don't belong to one customer (settings, staff accounts).
+model StaffAuditEvent {
+  id          String   @id @default(cuid())
+  actorUserId String
+  actorLabel  String
+  action      String
+  summary     String
+  data        Json?
+  ipAddress   String?
+  createdAt   DateTime @default(now())
+
+  @@index([createdAt])
+}
+
+// ─── Email ───────────────────────────────────────────────────────────
+
+enum EmailStatus {
+  QUEUED
+  SENT
+  FAILED
+}
+
+/// Every email the console sends, queued in the same transaction as the
+/// change that caused it and sent by a background job. The message is
+/// written at send time from kind and payload, so links with secrets in
+/// them (invitations) are never stored.
+model OutboundEmail {
+  id             String      @id @default(cuid())
+  organisationId String?
+  kind           String
+  toAddress      String
+  payload        Json
+  /// Filled in once sent, for the record.
+  subject        String?
+  status         EmailStatus @default(QUEUED)
+  attempts       Int         @default(0)
+  nextAttemptAt  DateTime    @default(now())
+  lastError      String?
+  sentAt         DateTime?
+  createdAt      DateTime    @default(now())
+
+  organisation Organisation? @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+
+  @@index([status, nextAttemptAt])
+}
+
+// ─── Rate limiting ───────────────────────────────────────────────────
+
+/// Fixed-window counters, e.g. sign-in attempts per IP per minute.
+model RateLimitBucket {
+  key     String   @id
+  count   Int
+  resetAt DateTime
+}
+
+// ─── Billing link ────────────────────────────────────────────────────
+
+enum BillingProvider {
+  STUB
+  WHMCS
+}
+
+/// One console organisation is one client in the billing engine.
+model BillingAccount {
+  id               String          @id @default(cuid())
+  organisationId   String          @unique
+  provider         BillingProvider
+  externalClientId String
+  createdAt        DateTime        @default(now())
+
+  organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+
+  @@unique([provider, externalClientId])
+}
+
+/// A purchase order number the customer put on one invoice, kept in the
+/// console. See docs/whmcs-mapping.md for why it lives here.
+model InvoicePoNumber {
+  id             String   @id @default(cuid())
+  organisationId String
+  invoiceId      String
+  poNumber       String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+
+  @@unique([organisationId, invoiceId])
+}
+
+// ─── Catalogue and pricing ───────────────────────────────────────────
+
+enum ConnectorFamily {
+  PRODUCTIVITY
+  PUBLIC_CLOUD
+  SERVERS
+  WEB_AND_DOMAINS
+  PROTECTION
+  OUR_SOFTWARE
+  SERVICES
+}
+
+model ProductCategory {
+  key         String          @id
+  name        String
+  description String
+  family      ConnectorFamily
+  /// Margin on cost in basis points (10,000 = 100%). Set in the admin console.
+  marginBps   Int
+  sortOrder   Int             @default(0)
+
+  products Product[]
+}
+
+model Product {
+  id                 String   @id @default(cuid())
+  slug               String   @unique
+  categoryKey        String
+  name               String
+  summary            String
+  includes           String[]
+  excludes           String[]
+  /// "per user", "per server", "per site", "per domain".
+  unitLabel          String
+  /// Whether the customer chooses a quantity (seats) or buys one.
+  quantityAllowed    Boolean  @default(false)
+  minQuantity        Int      @default(1)
+  /// What it costs us each month, in costCurrency, in minor units.
+  costMinor          BigInt
+  costCurrency       String
+  /// Fixed customer price instead of cost plus margin (e.g. our own services).
+  fixedPriceMinor    BigInt?
+  fixedPriceCurrency String?
+  /// How long setup takes when done by hand. Shown as "expected by".
+  setupHours         Int
+  /// Plain words on commitment, shown before ordering, e.g. annual terms.
+  commitmentNote     String?
+  /// The product's id in the billing engine.
+  billingProductId   String
+  /// Options the customer picks when ordering, e.g. operating system.
+  options            Json?
+  active             Boolean  @default(true)
+  /// Market codes it is offered in. Local data copy is "bw" only, because
+  /// the copy is kept in Botswana.
+  markets            String[]
+  sortOrder          Int      @default(0)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  category ProductCategory @relation(fields: [categoryKey], references: [key], onDelete: Restrict)
+  orders   Order[]
+}
+
+/// A domain ending we sell, with what the registrar charges us.
+model Tld {
+  /// ".co.za"
+  tld               String   @id
+  costRegisterMinor BigInt
+  costRenewMinor    BigInt
+  costCurrency      String
+  /// Market codes it is offered in.
+  markets           String[]
+  sortOrder         Int      @default(0)
+}
+
+/// Single row: settings that apply to every product.
+model PricingSettings {
+  id                String   @id @default("global")
+  /// Added to the exchange rate for products we pay for in another currency.
+  currencyBufferBps Int
+  updatedAt         DateTime @updatedAt
+}
+
+/// The rate used to price one month. Rate is quote per base, times 1,000,000.
+model FxRate {
+  id         String   @id @default(cuid())
+  /// "2026-09".
+  month      String
+  base       String
+  quote      String
+  rateMicros BigInt
+  setById    String?
+  createdAt  DateTime @default(now())
+
+  @@unique([month, base, quote])
+}
+
+/// A market's price book: the prices staff approved, each from a month
+/// until a later entry replaces it. Suggestions (from cost, rate, buffer
+/// and margin) are worked out live and are never shown to customers.
+model PriceBookEntry {
+  id             String   @id @default(cuid())
+  marketCode     String
+  /// "product:<slug>" or "tld:<ending>", e.g. "tld:.co.za".
+  item           String
+  /// The first month it applies, "2026-10".
+  month          String
+  currency       String
+  /// A product's price per unit per month, or a domain's yearly
+  /// registration price.
+  amountMinor    BigInt
+  /// A domain's yearly renewal price.
+  renewMinor     BigInt?
+  /// What the suggestion was when it was approved, and how it was worked out.
+  suggestedMinor BigInt?
+  breakdown      Json?
+  /// Null for prices carried over from Phase 1 or seeded for development.
+  approvedById   String?
+  approvedAt     DateTime @default(now())
+
+  market     Market @relation(fields: [marketCode], references: [code], onDelete: Restrict)
+  approvedBy User?  @relation(fields: [approvedById], references: [id], onDelete: Restrict)
+
+  @@unique([marketCode, item, month])
+}
+
+/// Every change to margins, the buffer or rates, for the staff audit.
+model PricingChange {
+  id        String   @id @default(cuid())
+  userId    String
+  field     String
+  fromValue String?
+  toValue   String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+}
+
+// ─── Orders and provisioning ─────────────────────────────────────────
+
+enum OrderStatus {
+  /// Accepted; staff or a connector is setting it up.
+  SETTING_UP
+  ACTIVE
+  CANCELLED
+  FAILED
+}
+
+model Order {
+  id                String      @id @default(cuid())
+  /// Short reference customers and staff quote, e.g. "ORD-7K2M".
+  reference         String      @unique
+  organisationId    String
+  productId         String
+  quantity          Int
+  options           Json?
+  /// Price per unit per month when ordered.
+  unitPriceMinor    BigInt
+  currency          String
+  monthlyTotalMinor BigInt
+  status            OrderStatus @default(SETTING_UP)
+  expectedBy        DateTime
+  placedById        String
+  billingOrderId    String?
+  billingServiceIds String[]
+  billingInvoiceId  String?
+  /// When changing seats on an existing service.
+  changesServiceId  String?
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  organisation Organisation       @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  product      Product            @relation(fields: [productId], references: [id], onDelete: Restrict)
+  tasks        ProvisioningTask[]
+
+  @@index([organisationId, createdAt])
+}
+
+enum TaskStatus {
+  OPEN
+  IN_PROGRESS
+  DONE
+  CANCELLED
+}
+
+/// Work for staff, made by a connector that can't do the job itself yet.
+model ProvisioningTask {
+  id             String          @id @default(cuid())
+  organisationId String
+  orderId        String?
+  family         ConnectorFamily
+  /// "provision", "change_quantity", "cancel".
+  kind           String
+  title          String
+  /// What staff need to do, in steps.
+  instructions   String
+  status         TaskStatus      @default(OPEN)
+  expectedBy     DateTime
+  assigneeId     String?
+  notes          String?
+  completedById  String?
+  completedAt    DateTime?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  order        Order?       @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  assignee     User?        @relation("taskAssignee", fields: [assigneeId], references: [id], onDelete: Restrict)
+  completedBy  User?        @relation("taskCompletedBy", fields: [completedById], references: [id], onDelete: Restrict)
+
+  @@index([status, expectedBy])
+  @@index([organisationId])
+}
+
+// ─── Payments ────────────────────────────────────────────────────────
+
+enum EftStatus {
+  /// The customer says they paid; staff haven't seen it in the bank yet.
+  AWAITING_CONFIRMATION
+  CONFIRMED
+  REJECTED
+}
+
+model EftPayment {
+  id             String    @id @default(cuid())
+  organisationId String
+  invoiceId      String
+  amountMinor    BigInt
+  currency       String
+  /// The reference the customer used, which should be the invoice number.
+  reference      String
+  paidOn         DateTime  @db.Date
+  status         EftStatus @default(AWAITING_CONFIRMATION)
+  reportedById   String
+  confirmedById  String?
+  decidedAt      DateTime?
+  staffNote      String?
+  createdAt      DateTime  @default(now())
+
+  organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  confirmedBy  User?        @relation("eftConfirmedBy", fields: [confirmedById], references: [id], onDelete: Restrict)
+
+  @@index([status, createdAt])
+  @@index([organisationId])
+}
+
+enum CardPaymentStatus {
+  STARTED
+  SUCCEEDED
+  FAILED
+}
+
+/// A card payment through the payment adapter.
+model CardPayment {
+  id             String            @id @default(cuid())
+  organisationId String
+  invoiceId      String
+  amountMinor    BigInt
+  currency       String
+  gateway        String
+  gatewayRef     String            @unique
+  status         CardPaymentStatus @default(STARTED)
+  startedById    String
+  failureReason  String?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+
+  @@index([organisationId])
+}
+
+// ─── Support ─────────────────────────────────────────────────────────
+
+enum TicketStatus {
+  OPEN
+  WAITING_ON_CUSTOMER
+  RESOLVED
+}
+
+model Ticket {
+  id             String       @id @default(cuid())
+  reference      String       @unique
+  organisationId String
+  subject        String
+  status         TicketStatus @default(OPEN)
+  openedById     String
+  assigneeId     String?
+  /// Set when the assistant handed over; the conversation is attached.
+  conversationId String?      @unique
+  deletedAt      DateTime?
+  purgeAfter     DateTime?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  organisation Organisation           @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  assignee     User?                  @relation("ticketAssignee", fields: [assigneeId], references: [id], onDelete: Restrict)
+  conversation AssistantConversation? @relation(fields: [conversationId], references: [id], onDelete: Restrict)
+  messages     TicketMessage[]
+
+  @@index([organisationId, updatedAt])
+  @@index([status, updatedAt])
+}
+
+enum MessageAuthor {
+  CUSTOMER
+  STAFF
+  ASSISTANT
+  SYSTEM
+}
+
+model TicketMessage {
+  id             String        @id @default(cuid())
+  organisationId String
+  ticketId       String
+  authorKind     MessageAuthor
+  authorUserId   String?
+  authorLabel    String
+  body           String
+  /// Staff-only notes are hidden from the customer.
+  internal       Boolean       @default(false)
+  createdAt      DateTime      @default(now())
+
+  organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  ticket       Ticket       @relation(fields: [ticketId], references: [id], onDelete: Restrict)
+
+  @@index([ticketId, createdAt])
+}
+
+model AssistantConversation {
+  id             String    @id @default(cuid())
+  organisationId String
+  userId         String
+  title          String?
+  handedOverAt   DateTime?
+  deletedAt      DateTime?
+  purgeAfter     DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organisation Organisation       @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  messages     AssistantMessage[]
+  actions      AssistantAction[]
+  ticket       Ticket?
+
+  @@index([organisationId, userId, updatedAt])
+}
+
+enum AssistantRole {
+  USER
+  ASSISTANT
+}
+
+model AssistantMessage {
+  id             String        @id @default(cuid())
+  organisationId String
+  conversationId String
+  role           AssistantRole
+  /// What the person sees.
+  text           String
+  /// Tool calls and results in this turn, for the handover and the audit.
+  toolTrace      Json?
+  createdAt      DateTime      @default(now())
+
+  organisation Organisation          @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  conversation AssistantConversation @relation(fields: [conversationId], references: [id], onDelete: Restrict)
+
+  @@index([conversationId, createdAt])
+}
+
+enum AssistantActionStatus {
+  PROPOSED
+  CONFIRMED
+  DECLINED
+  EXPIRED
+}
+
+/// Something the assistant suggests doing. Nothing happens until the
+/// customer presses Confirm.
+model AssistantAction {
+  id             String                @id @default(cuid())
+  organisationId String
+  conversationId String
+  kind           String
+  /// Plain words shown on the confirm card.
+  summary        String
+  input          Json
+  status         AssistantActionStatus @default(PROPOSED)
+  decidedById    String?
+  decidedAt      DateTime?
+  result         Json?
+  createdAt      DateTime              @default(now())
+
+  organisation Organisation          @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  conversation AssistantConversation @relation(fields: [conversationId], references: [id], onDelete: Restrict)
+
+  @@index([conversationId])
+}
+
+// ─── Stand-in billing engine ─────────────────────────────────────────
+// Storage for StubBillingAdapter only. Shaped like the WHMCS records it
+// stands in for, so behaviour matches; the console never reads these
+// tables directly. Removed once WHMCS is live.
+
+model StubClient {
+  id          Int      @id @default(autoincrement())
+  companyName String
+  email       String
+  firstName   String
+  lastName    String
+  country     String
+  currency    String
+  address1    String?
+  city        String?
+  phone       String?
+  taxId       String?
+  status      String   @default("Active")
+  createdAt   DateTime @default(now())
+
+  services     StubService[]
+  invoices     StubInvoice[]
+  transactions StubTransaction[]
+  payMethods   StubPayMethod[]
+  domains      StubDomain[]
+  orders       StubOrder[]
+}
+
+model StubProduct {
+  id        Int     @id @default(autoincrement())
+  gid       Int
+  groupName String
+  name      String
+  type      String
+  /// { "BWP": { "monthly": "12500" } } in minor units.
+  pricing   Json
+  hidden    Boolean @default(false)
+}
+
+model StubOrder {
+  id        Int      @id @default(autoincrement())
+  clientId  Int
+  status    String
+  invoiceId Int?
+  items     Json
+  createdAt DateTime @default(now())
+
+  client StubClient @relation(fields: [clientId], references: [id], onDelete: Cascade)
+}
+
+model StubService {
+  id             Int      @id @default(autoincrement())
+  clientId       Int
+  productId      Int
+  orderId        Int?
+  name           String
+  groupName      String
+  domain         String?
+  /// Pending, Active, Suspended, Terminated, Cancelled.
+  status         String
+  quantity       Int      @default(1)
+  recurringMinor BigInt
+  currency       String
+  billingCycle   String   @default("Monthly")
+  regDate        DateTime @db.Date
+  nextDueDate    DateTime @db.Date
+  /// Users, resources and usage, as a provisioning module would report them.
+  details        Json?
+  suspendReason  String?
+
+  client StubClient @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([clientId])
+}
+
+model StubInvoice {
+  id         Int       @id @default(autoincrement())
+  clientId   Int
+  /// WHMCS invoice number, e.g. "INV-2026-0142".
+  invoiceNum String    @unique
+  date       DateTime  @db.Date
+  dueDate    DateTime  @db.Date
+  datePaid   DateTime?
+  /// Draft, Unpaid, Paid, Cancelled, Refunded, Collections, Payment Pending.
+  status     String
+  currency   String
+  subtotal   BigInt
+  taxRateBps Int       @default(0)
+  tax        BigInt    @default(0)
+  total      BigInt
+  notes      String?
+
+  client StubClient        @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  items  StubInvoiceItem[]
+
+  @@index([clientId, date])
+}
+
+model StubInvoiceItem {
+  id          Int     @id @default(autoincrement())
+  invoiceId   Int
+  /// Hosting, Domain, Setup, ProRata, Item, Upgrade.
+  type        String
+  relId       Int?
+  description String
+  amount      BigInt
+  taxed       Boolean @default(true)
+
+  invoice StubInvoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+}
+
+model StubTransaction {
+  id          Int      @id @default(autoincrement())
+  clientId    Int
+  invoiceId   Int?
+  date        DateTime
+  gateway     String
+  transId     String
+  amountIn    BigInt
+  amountOut   BigInt   @default(0)
+  currency    String
+  description String
+
+  client StubClient @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([clientId, date])
+}
+
+model StubPayMethod {
+  id          Int     @id @default(autoincrement())
+  clientId    Int
+  /// "CreditCard" or "BankAccount".
+  type        String
+  description String
+  cardType    String?
+  lastFour    String?
+  expiryDate  String?
+  isDefault   Boolean @default(false)
+
+  client StubClient @relation(fields: [clientId], references: [id], onDelete: Cascade)
+}
+
+model StubDomain {
+  id                Int      @id @default(autoincrement())
+  clientId          Int
+  domain            String   @unique
+  registrar         String
+  status            String
+  regDate           DateTime @db.Date
+  expiryDate        DateTime @db.Date
+  nextDueDate       DateTime @db.Date
+  recurringMinor    BigInt
+  currency          String
+  autoRenew         Boolean  @default(true)
+  registrationYears Int      @default(1)
+
+  client StubClient @relation(fields: [clientId], references: [id], onDelete: Cascade)
+}
+
+/// Tax rules, as WHMCS keeps them (Setup > Payments > Tax Configuration):
+/// a rate per client country, "*" for every other country. The console
+/// writes these from market settings; on WHMCS they are set up to match.
+model StubTaxRule {
+  country String @id
+  rateBps Int
+  label   String
+}
+
+model StubTldPrice {
+  tld        String   @id
+  currency   String
+  register   BigInt
+  renew      BigInt
+  transfer   BigInt
+  /// Names ending in this TLD that the stub treats as taken.
+  takenNames String[]
+}
+
+/// Stub card gateway only: what the pretend card company knows about a charge.
+model StubCardCharge {
+  id          String   @id
+  amountMinor BigInt
+  currency    String
+  description String
+  returnUrl   String
+  /// "pending", "succeeded" or "declined".
+  status      String   @default("pending")
+  lastFour    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}

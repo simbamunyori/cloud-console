@@ -1,0 +1,131 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: console
+          POSTGRES_PASSWORD: console
+          POSTGRES_DB: console
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U console"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://console:console@localhost:5432/console
+      NEXT_TELEMETRY_DISABLED: 1
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Audit dependencies
+        # Fails on any high or critical advisory in what ships to production.
+        run: npm audit --omit=dev --audit-level=high
+      - run: npx prisma generate
+      - name: Check migrations match the schema
+        run: |
+          PGPASSWORD=console psql -h localhost -U console -d console -c "CREATE DATABASE console_shadow"
+          npx prisma migrate diff --from-migrations prisma/migrations --to-schema-datamodel prisma/schema.prisma \
+            --shadow-database-url postgresql://console:console@localhost:5432/console_shadow --exit-code
+      - run: npx prisma migrate deploy
+      - name: Seed the demo data (twice, to prove it is safe to rerun)
+        run: npm run db:seed && npm run db:seed
+      - run: npm run lint
+      - run: npm run typecheck
+      - name: Check UI copy (no em dashes, company name)
+        run: npm run copy-check
+      - run: npm test
+      - run: npm run build
+
+  browser:
+    name: Accessibility, Lighthouse and screenshots
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: console
+          POSTGRES_PASSWORD: console
+          POSTGRES_DB: console
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U console"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://console:console@localhost:5432/console
+      NEXT_TELEMETRY_DISABLED: 1
+      APP_URL: http://localhost:3000
+      BASE_URL: http://localhost:3000
+      # No background jobs, so the demo data stays put while pages are checked.
+      CONSOLE_JOBS: "off"
+      # A demo server: it runs on the seeded placeholders on purpose.
+      ALLOW_PLACEHOLDERS: "yes"
+      STATUS_PAGE_URL: https://status.example.com
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: A throwaway key for two-step login secrets
+        run: echo "TOTP_ENCRYPTION_KEY=$(openssl rand -base64 32)" >> "$GITHUB_ENV"
+      - run: npx prisma generate && npx prisma migrate deploy && npm run db:seed
+      - run: npm run build
+      - name: Production refuses to start on placeholder values
+        run: scripts/check-placeholder-refusal.sh
+      - name: Start the console
+        id: start
+        run: |
+          npm start > server.log 2>&1 &
+          for i in $(seq 60); do curl -sf -o /dev/null http://localhost:3000/bw && exit 0; sleep 1; done
+          cat server.log; exit 1
+      - name: Accessibility (axe on every page, light and dark)
+        run: npm run test:a11y
+      - name: Lighthouse on the public pages
+        if: ${{ !cancelled() && steps.start.outcome == 'success' }}
+        run: CHROME_PATH=$(node -e "console.log(require('playwright-core').chromium.executablePath())") npx lhci autorun
+      - name: Screenshots (every page, 390 to 1440 px, light and dark)
+        if: ${{ !cancelled() && steps.start.outcome == 'success' }}
+        run: npm run screenshots
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() && steps.start.outcome == 'success' }}
+        with:
+          name: screenshots
+          path: screenshots-full/
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() && steps.start.outcome == 'success' }}
+        with:
+          name: lighthouse
+          path: .lighthouseci/reports/
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: accessibility-report
+          path: |
+            playwright-report/
+            test-results/
+            server.log
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the production image
+        run: docker build -t cloud-console:ci .

@@ -1,1 +1,246 @@
-# cloud-console
+# Cloud Console
+
+The customer and staff console for Fourth Generation Technologies, and the
+public website: buy and manage cloud services, see and pay invoices, get
+support. Phase 1 of the plan in `docs/CONSOLE_BRIEF.md`, with Change
+Request 01 (`docs/CHANGE_REQUEST_01.md`): markets, price books, the public
+site and the design standard.
+
+- The public site lives under each market: `/bw`, `/za`, `/zw`, `/global`.
+  `/` sends visitors to theirs.
+- Customers sign in at `/sign-in` and use the console at `/app`. "Forgot password?" emails a single-use link that works for 30 minutes; afterwards they sign in with the new password and their authenticator code as usual.
+- Staff sign in at `/admin`, with their own accounts and session cookie.
+- Every billing and provisioning call goes through `BillingAdapter`. Until
+  WHMCS is bought, a stub billing engine keeps its state in PostgreSQL, so
+  every journey works end to end.
+
+Stack: Next.js 15 (App Router) with TypeScript, PostgreSQL 16 through
+Prisma, pg-boss for background jobs, Tailwind 4, Vitest, Docker.
+
+## Run it locally
+
+You need Node 22 and Docker (or PostgreSQL 16 of your own).
+
+```sh
+cp .env.example .env
+# Fill in TOTP_ENCRYPTION_KEY:  openssl rand -base64 32
+docker compose up -d          # PostgreSQL, and Mailpit to catch email
+npm install
+npm run db:migrate            # or `npm run db:dev` while changing the schema
+npm run db:seed               # demo organisation, staff accounts, catalogue
+npm run dev                   # http://localhost:3000, the site; /app, the console
+```
+
+Every email the console sends lands in Mailpit at http://localhost:8025.
+
+### Demo accounts (from the seed)
+
+The password for all of them is `demo-password-2026`. You set up an
+authenticator app at first sign-in.
+
+| Where | Email | Role |
+| --- | --- | --- |
+| `/sign-in` | demo@kgalehill.co.bw | Owner of Kgale Hill Logistics |
+| `/sign-in` | kabo@, accounts@, lesego@kgalehill.co.bw | Admin, Billing, Read only |
+| `/admin` | staff@example.co.bw | Staff admin |
+| `/admin` | finance@, setup@, support@example.co.bw | Finance, Provisioning, Support |
+
+The demo organisation has six months of invoices, a server being set up, a
+bank transfer waiting for finance to confirm and a support ticket. The seed
+is safe to run again: it leaves an existing demo organisation alone. It
+refuses to run in production unless `SEED_DEMO=yes`, and a production server
+started on demo data refuses to start unless `ALLOW_PLACEHOLDERS=yes`.
+
+### Test payments
+
+With `PAYMENT_ADAPTER=stub`, "Pay by card" goes to a test payment page at
+`/stub-gateway/...`. No card is charged. Use any future expiry date and any
+three digits:
+
+| Card | Result |
+| --- | --- |
+| 4242 4242 4242 4242 | Pays |
+| 4000 0000 0000 0002 | Declined |
+| 4000 0000 0000 9995 | Declined, not enough funds |
+
+## Checks
+
+```sh
+npm run check     # lint, typecheck, UI copy check, all tests
+npm run build
+```
+
+The tests are integration tests against a real PostgreSQL, using
+`DATABASE_URL` and `TOTP_ENCRYPTION_KEY` from the environment (load `.env`
+first, e.g. `set -a; . ./.env; set +a`). They create their own
+organisations and leave them behind, so point them at a separate database
+to keep your development data tidy:
+
+```sh
+createdb -h localhost -U console console_test
+export DATABASE_URL=postgresql://console:console@localhost:5432/console_test
+npm run db:migrate && npm test
+```
+
+The copy check (`scripts/check-copy.ts`) fails on an em dash anywhere in
+the source or docs, and on the company's old name. Two tests guard the
+design: `tests/no-hardcoded-currency.test.ts` fails on currency symbols or
+codes written by hand in UI code, and `tests/design-tokens.test.ts` on
+hex colours, one-off Tailwind values or durations outside
+`src/config/theme/tokens.json`.
+
+### Browser checks and screenshots
+
+These run against a production build with the demo seed. Take them from a
+freshly seeded database, or test data shows up:
+
+```sh
+npm run build && ALLOW_PLACEHOLDERS=yes npm start &   # http://localhost:3000; demo data needs ALLOW_PLACEHOLDERS
+npm run test:a11y                                  # axe on every page, light and dark, and the site's routing
+npx lhci autorun                                   # Lighthouse budgets on the public pages
+npm run screenshots                                # every page, 4 widths, 2 themes, into screenshots-full/
+npm run screenshots -- --commit                    # also the 390 and 1440 px set into docs/screenshots/
+npm run screenshots:hero                           # the site's console pictures: hero, phone close-up, invoice
+```
+
+Set `BASE_URL` if the console isn't on port 3000. Browsers come from
+Playwright (`npx playwright install chromium`); for Lighthouse, point
+`CHROME_PATH` at a Chrome or Chromium. Pages to check are listed in
+`e2e/support/pages.ts`; add new pages there.
+
+CI (`.github/workflows/ci.yml`) runs `npm audit` on production
+dependencies, checks the migrations match the schema, seeds twice, runs
+lint, typecheck, the copy check, the tests and a production build, and
+builds the Docker image. A second job starts the built console and runs
+axe (WCAG 2.2 AA) on every page in both themes, Lighthouse on the public
+pages (performance 90, accessibility 100, SEO 100, best practices 95,
+LCP 2.5 s, CLS 0.1, TBT 200 ms), and uploads every screenshot as the
+`screenshots` artifact. `docs/design-audit.md` records the design audit.
+
+## Environment variables
+
+`.env.example` lists them all, with comments. Settings are read and
+checked in `src/server/env.ts`; secrets are read only through
+`src/server/secrets.ts`, so a vault can replace the environment later
+without touching anything else. Secrets are never logged, never shown in
+the UI and never sent to the assistant.
+
+| Variable | Needed | What it does |
+| --- | --- | --- |
+| `DATABASE_URL` | Yes | PostgreSQL connection |
+| `APP_URL` | Yes in production | Public address, used in email links |
+| `CONSOLE_NAME` | No | What customers see the console called (default "Cloud Console") |
+| `TOTP_ENCRYPTION_KEY` | Yes, secret | 32 random bytes, base64. Encrypts authenticator secrets. Losing it means everyone sets up their authenticator again |
+| `SMTP_URL` | Yes in production | Outgoing mail, e.g. `smtps://user:pass@smtp.example.com:465`. Mailpit in development |
+| `MAIL_FROM` | No | Sender address |
+| `BILLING_ADAPTER` | No | `stub` (default) or `whmcs` |
+| `WHMCS_API_URL` | With WHMCS | WHMCS API address |
+| `WHMCS_IDENTIFIER`, `WHMCS_SECRET` | With WHMCS, secret | API credentials |
+| `WHMCS_ACCESS_KEY` | Optional, secret | If WHMCS requires an API access key |
+| `PAYMENT_ADAPTER` | No | `stub` only, until the card gateway is chosen |
+| `ANTHROPIC_API_KEY` | Optional, secret | Switches the support assistant on. Without it, the assistant page offers a ticket instead |
+| `ANTHROPIC_MODEL` | No | Model the assistant uses (default `claude-sonnet-5`) |
+| `GEO_COUNTRY_HEADER` | No | Header the CDN puts the visitor's country in (default `cf-ipcountry`, Cloudflare's) |
+| `GEOLITE2_DB_PATH` | No | Path to a MaxMind GeoLite2 Country `.mmdb` file, for country detection without a CDN header |
+| `ADMIN_IP_ALLOWLIST` | Recommended in production | Comma-separated addresses or IPv4 ranges (CIDR) allowed to open `/admin`. Empty allows any address |
+| `CONSOLE_JOBS` | No | `off` stops background jobs on this server, for extra app servers |
+| `POSTGRES_PASSWORD`, `DOMAIN` | Production compose | Database password, and the domain Caddy gets a certificate for |
+| `SEED_DEMO` | No | `yes` lets the seed run in production. Don't |
+| `STATUS_PAGE_URL` | Recommended | The service status page linked from the site footer. The link is hidden while unset |
+| `ALLOW_PLACEHOLDERS` | Demo servers only | In production the server refuses to start while a development placeholder is set: a `support@localhost` market email, the demo bank details, seeded exchange rates, the demo accounts, or a localhost `APP_URL` or `MAIL_FROM`. It lists each one and where to fix it. `yes` starts anyway with a warning, for demo and CI servers. CI proves the refusal on every run with `scripts/check-placeholder-refusal.sh` |
+
+The company name and legal name live in `src/config/app.ts`. Support
+contacts, bank details for EFT, tax and legal page links are per market,
+edited at `/admin/markets`. The site's words are in `src/config/site.ts`. Every colour, font, radius and spacing value lives in
+`src/config/theme/tokens.json`, seeded from `brand/`.
+
+## Deploy
+
+```sh
+cp .env.example .env    # fill it in
+docker compose -f docker-compose.prod.yml up -d
+```
+
+This runs the app, PostgreSQL and Caddy (automatic HTTPS for `DOMAIN`). The
+app runs `prisma migrate deploy` on start. Background jobs (email delivery,
+the stub's nightly billing run, default PO numbers) run inside the app
+through pg-boss, in the same database.
+
+### Behind Cloudflare
+
+The site picks a visitor's market from their country. Behind Cloudflare
+nothing needs setting up: Cloudflare adds `cf-ipcountry` to every request
+(check that IP Geolocation is on under Network in the Cloudflare
+dashboard), and `GEO_COUNTRY_HEADER` reads it. Proxy the
+domain through Cloudflare (orange cloud) with SSL mode "Full (strict)",
+since Caddy has its own certificate.
+
+Without Cloudflare, either set `GEO_COUNTRY_HEADER` to the header your
+CDN or load balancer uses, or download the free GeoLite2 Country database
+from MaxMind (it needs an account and a licence key, and updates twice a
+week), mount it into the app container and set `GEOLITE2_DB_PATH`. With
+neither, everyone lands on the default market and can switch.
+
+## Markets and prices
+
+- **Switching a market on:** `/admin/markets`, as a staff admin. Fill in
+  its support contacts, bank details if it takes bank transfer, and tax,
+  and approve its prices (below), then switch it on. Its site and sign-up
+  open at once. Its currency, locale and countries come from the market
+  row, so a new currency needs no code.
+- **Prices:** `/admin/pricing` has a tab per market. Enter each month's
+  exchange rates per currency pair, then approve the suggested prices (one
+  at a time, at a different amount, or all at once). Approved prices apply
+  from next month; customers never see a suggestion. Products and domain
+  endings are offered per market there too.
+- **Waiting list:** people from countries with no market that is on can
+  leave their details at sign-up; staff see them at `/admin/waitlist`.
+
+`docs/decisions.md` lists what the console assumes and decided.
+
+## Swapping the stub for WHMCS
+
+The full mapping, method by method, is in `docs/whmcs-mapping.md`, with the
+API findings in `docs/whmcs-api-notes.md`. In short:
+
+1. Fill in each method of `WhmcsBillingAdapter`
+   (`src/server/billing/whmcs/whmcs-adapter.ts`). The transport and every
+   field mapping (`whmcs/map.ts`, with tests) are already written, and each
+   method names the WHMCS action it calls. WHMCS field names appear only in
+   `map.ts`.
+2. Set `BILLING_ADAPTER=whmcs`, `WHMCS_API_URL`, `WHMCS_IDENTIFIER`,
+   `WHMCS_SECRET` and, if used, `WHMCS_ACCESS_KEY`. Add the console's
+   address to WHMCS's API IP allowlist.
+3. Run the adapter contract tests (`tests/billing-contract.ts`) against a
+   WHMCS staging copy. The same tests pass on the stub today.
+4. Move existing organisations: create one WHMCS client for each and update
+   its `BillingAccount` row (provider `WHMCS`, the new client id). One
+   organisation is always exactly one WHMCS client, and the console refuses
+   to mix engines for one organisation.
+
+Nothing else changes: pages, orders and payments only see the adapter.
+WHMCS has no purchase order field on invoices, so PO numbers stay in the
+console and are also written into the invoice notes.
+
+## Where things are
+
+| Path | What |
+| --- | --- |
+| `src/app/[market]`, `src/components/site`, `src/config/site.ts` | Public website |
+| `src/app/(auth)`, `src/app/app` | Customer sign-in and console pages |
+| `src/app/admin` | Staff console |
+| `src/server/billing` | Billing adapter, stub, WHMCS shell, organisation-scoped wrapper |
+| `src/server/payments` | Payment adapter, stub card gateway, EFT |
+| `src/server/connectors` | One connector per product family, all manual in Phase 1 |
+| `src/server/markets`, `src/lib/domain/markets.ts` | Markets, country detection, waiting list |
+| `src/server/catalogue`, `src/lib/domain/pricing.ts` | Marketplace, price books and prices |
+| `src/lib/domain/money.ts` | Money and the one formatter |
+| `src/components/ui`, `src/config/theme/tokens.json` | Components and design tokens |
+| `src/server/support` | Tickets and the assistant (tools, confirmation, handover) |
+| `src/server/db.ts` | `tenantDb(organisationId)`: every customer query is scoped to one organisation |
+| `tests/` | Integration tests: tenant isolation, roles, billing contract, markets, orders, payments, staff, support |
+| `e2e/`, `lighthouserc.cjs` | Browser checks: axe, site routing, Lighthouse |
+| `docs/decisions.md` | What the console assumes and decided, for review |
+| `docs/design-audit.md` | The design audit against Change Request 01 |
+| `docs/screenshots/` | Every page at 390 and 1440 px, light and dark |
+| `docs/shared-with-thebe.md` | Modules copied from Thebe, so security fixes reach both |
