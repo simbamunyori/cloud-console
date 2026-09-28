@@ -15,7 +15,8 @@ export type SecretName =
   | "ANTHROPIC_API_KEY"
   | "WHMCS_IDENTIFIER"
   | "WHMCS_SECRET"
-  | "WHMCS_ACCESS_KEY";
+  | "WHMCS_ACCESS_KEY"
+  | "DPO_COMPANY_TOKEN";
 
 export interface SecretSource {
   get(name: SecretName): string | undefined;

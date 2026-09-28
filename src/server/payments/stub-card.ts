@@ -2,7 +2,7 @@ import type { PrismaClient } from "@prisma/client";
 import { money } from "@/lib/domain/money";
 import { PAYMENT_METHODS } from "@/server/billing/adapter";
 import { DomainError } from "@/server/org/access";
-import type { CardCharge, PaymentAdapter, PaymentOutcome } from "./adapter";
+import type { CardCharge, PaymentAdapter, PaymentCheck, PaymentOutcome } from "./adapter";
 
 /**
  * A pretend card company for development and demos. Its "hosted payment
@@ -29,7 +29,7 @@ export class StubCardGateway implements PaymentAdapter {
     return { redirectUrl: `/stub-gateway/${encodeURIComponent(charge.paymentRef)}` };
   }
 
-  async confirm(paymentRef: string): Promise<PaymentOutcome> {
+  async confirm({ paymentRef }: PaymentCheck): Promise<PaymentOutcome> {
     const charge = await this.db.stubCardCharge.findUnique({ where: { id: paymentRef } });
     if (!charge || charge.status === "pending") return { status: "pending" };
     if (charge.status === "succeeded") return { status: "succeeded", paidAt: charge.updatedAt, lastFour: charge.lastFour ?? undefined };

@@ -1,9 +1,9 @@
 import { randomBytes } from "node:crypto";
-import type { CardPayment } from "@prisma/client";
+import type { CardPayment, PrismaClient } from "@prisma/client";
 import { formatMoney, money, toJson } from "@/lib/domain/money";
-import { BillingError, type Invoice } from "@/server/billing/adapter";
-import type { ScopedBilling } from "@/server/billing/scoped";
-import type { TenantDb } from "@/server/db";
+import { BillingError, type BillingAdapter, type Invoice } from "@/server/billing/adapter";
+import { ScopedBilling } from "@/server/billing/scoped";
+import { tenantDb, type TenantDb } from "@/server/db";
 import { queueEmail } from "@/server/email/outbox";
 import { assertCan, DomainError, type Actor } from "@/server/org/access";
 import { audit, customerAudit } from "@/server/org/audit";
@@ -57,13 +57,14 @@ export async function startCardPayment(deps: PaymentDeps, invoiceId: string): Pr
       startedById: deps.actor.userId,
     },
   });
-  const { redirectUrl } = await deps.payments.startCardPayment({
+  const { redirectUrl, gatewayToken } = await deps.payments.startCardPayment({
     paymentRef,
     amount: invoice.balance,
     description: `Invoice ${invoice.number}`,
     returnUrl: `${deps.appUrl}/app/billing/card-return?ref=${encodeURIComponent(paymentRef)}`,
   });
-  return { redirectUrl, payment };
+  if (!gatewayToken) return { redirectUrl, payment };
+  return { redirectUrl, payment: await deps.db.cardPayment.update({ where: { id: payment.id }, data: { gatewayToken } }) };
 }
 
 /**
@@ -71,14 +72,14 @@ export async function startCardPayment(deps: PaymentDeps, invoiceId: string): Pr
  * than once: the payment is claimed with a conditional update, so the
  * invoice is only ever credited once.
  */
-export async function finishCardPayment(deps: Omit<PaymentDeps, "appUrl">, paymentRef: string): Promise<CardPayment> {
+export async function finishCardPayment(deps: Omit<PaymentDeps, "appUrl" | "actor"> & { actor: Pick<Actor, "userId" | "name"> }, paymentRef: string): Promise<CardPayment> {
   const payment = await deps.db.cardPayment.findFirst({ where: { gatewayRef: paymentRef } });
   if (!payment) throw new DomainError("not-found", "We couldn't find that payment.");
   if (payment.status !== "STARTED") return payment;
 
-  const outcome = await deps.payments.confirm(paymentRef);
-  if (outcome.status === "pending") return payment;
   const amount = money(payment.amountMinor, payment.currency);
+  const outcome = await deps.payments.confirm({ paymentRef, gatewayToken: payment.gatewayToken, amount });
+  if (outcome.status === "pending") return payment;
 
   if (outcome.status === "failed") {
     return deps.db.$transaction(async (tx) => {
@@ -127,4 +128,50 @@ export async function finishCardPayment(deps: Omit<PaymentDeps, "appUrl">, payme
     }
     return tx.cardPayment.findUniqueOrThrow({ where: { id: payment.id } });
   });
+}
+
+/**
+ * Settles card payments whose payer never came back (closed the tab after
+ * paying, lost signal). Asks the gateway about each payment left open for
+ * a while, as the person who started it, exactly as their return would.
+ * Runs every few minutes; finishCardPayment makes it safe to overlap.
+ */
+export async function settleOpenCardPayments(
+  db: PrismaClient,
+  deps: { billing: BillingAdapter; payments: PaymentAdapter; now?: Date },
+  opts: { olderThanMinutes?: number; withinDays?: number } = {},
+) {
+  const now = deps.now ?? new Date();
+  const open = await db.cardPayment.findMany({
+    where: {
+      status: "STARTED",
+      gateway: deps.payments.gateway,
+      createdAt: { lt: new Date(now.getTime() - (opts.olderThanMinutes ?? 10) * 60_000), gt: new Date(now.getTime() - (opts.withinDays ?? 3) * 86_400_000) },
+    },
+    select: { gatewayRef: true, organisationId: true, startedById: true },
+    orderBy: { createdAt: "asc" },
+  });
+  let settled = 0;
+  for (const p of open) {
+    const org = await db.organisation.findUnique({ where: { id: p.organisationId }, select: { id: true, billingEmail: true, locale: true, billingAccount: { select: { externalClientId: true } } } });
+    const user = await db.user.findUnique({ where: { id: p.startedById }, select: { id: true, name: true } });
+    if (!org?.billingAccount || !user) continue;
+    try {
+      const done = await finishCardPayment(
+        {
+          db: tenantDb(org.id),
+          billing: new ScopedBilling(deps.billing, org.billingAccount.externalClientId),
+          organisation: org,
+          actor: { userId: user.id, name: user.name },
+          payments: deps.payments,
+        },
+        p.gatewayRef,
+      );
+      if (done.status !== "STARTED") settled++;
+    } catch (e) {
+      // An unapplied payment is already logged for staff; keep going.
+      if (!(e instanceof DomainError)) console.error("Settling a card payment failed:", e);
+    }
+  }
+  return settled;
 }

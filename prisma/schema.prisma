@@ -743,6 +743,8 @@ model CardPayment {
   currency       String
   gateway        String
   gatewayRef     String            @unique
+  /// The gateway's own id for the transaction (DPO's TransToken), used to ask it what happened.
+  gatewayToken   String?
   status         CardPaymentStatus @default(STARTED)
   startedById    String
   failureReason  String?
@@ -752,6 +754,7 @@ model CardPayment {
   organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Restrict)
 
   @@index([organisationId])
+  @@index([status, createdAt])
 }
 
 // ─── Support ─────────────────────────────────────────────────────────

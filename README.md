@@ -51,6 +51,16 @@ is safe to run again: it leaves an existing demo organisation alone. It
 refuses to run in production unless `SEED_DEMO=yes`, and a production server
 started on demo data refuses to start unless `ALLOW_PLACEHOLDERS=yes`.
 
+### Card payments with DPO Pay
+
+With `PAYMENT_ADAPTER=dpo`, "Pay by card" sends the payer to DPO's hosted
+payment page, so card numbers never reach the console. When they come back,
+the console asks DPO what happened (`verifyToken`) and only then records the
+payment in the billing engine, once. A job every five minutes settles
+payments whose payer never came back. DPO test mode is DPO's test company
+token on the same addresses. The console must be able to reach
+`secure.3gdirectpay.com`.
+
 ### Test payments
 
 With `PAYMENT_ADAPTER=stub`, "Pay by card" goes to a test payment page at
@@ -137,7 +147,11 @@ the UI and never sent to the assistant.
 | `WHMCS_API_URL` | With WHMCS | WHMCS API address |
 | `WHMCS_IDENTIFIER`, `WHMCS_SECRET` | With WHMCS, secret | API credentials |
 | `WHMCS_ACCESS_KEY` | Optional, secret | If WHMCS requires an API access key |
-| `PAYMENT_ADAPTER` | No | `stub` only, until the card gateway is chosen |
+| `PAYMENT_ADAPTER` | No | `dpo` for DPO Pay, `stub` for the test card page (development only; production refuses to start on it) |
+| `DPO_COMPANY_TOKEN` | With `dpo`, secret | Our DPO company token. DPO's published test token works for trying it out; production refuses to start on it |
+| `DPO_SERVICE_TYPE` | With `dpo` | The service type number DPO gave our account |
+| `DPO_WHMCS_GATEWAY` | No | The DPO gateway's system name in WHMCS, recorded against card payments. Default `dpo` |
+| `DPO_API_URL`, `DPO_PAY_URL` | No | DPO's API and payment page. The defaults are DPO's own addresses |
 | `ANTHROPIC_API_KEY` | Optional, secret | Switches the support assistant on. Without it, the assistant page offers a ticket instead |
 | `ANTHROPIC_MODEL` | No | Model the assistant uses (default `claude-sonnet-5`) |
 | `GEO_COUNTRY_HEADER` | No | Header the CDN puts the visitor's country in (default `cf-ipcountry`, Cloudflare's) |
@@ -147,7 +161,7 @@ the UI and never sent to the assistant.
 | `POSTGRES_PASSWORD`, `DOMAIN` | Production compose | Database password, and the domain Caddy gets a certificate for |
 | `SEED_DEMO` | No | `yes` lets the seed run in production. Don't |
 | `STATUS_PAGE_URL` | Recommended | The service status page linked from the site footer. The link is hidden while unset |
-| `ALLOW_PLACEHOLDERS` | Demo servers only | In production the server refuses to start while a development placeholder is set: a `support@localhost` market email, the demo bank details, seeded exchange rates, the demo accounts, or a localhost `APP_URL` or `MAIL_FROM`. It lists each one and where to fix it. `yes` starts anyway with a warning, for demo and CI servers. CI proves the refusal on every run with `scripts/check-placeholder-refusal.sh` |
+| `ALLOW_PLACEHOLDERS` | Demo servers only | In production the server refuses to start while a development placeholder is set: a `support@localhost` market email, the demo bank details, seeded exchange rates, the demo accounts, a localhost `APP_URL` or `MAIL_FROM`, the test card page, or DPO's test token. It lists each one and where to fix it. `yes` starts anyway with a warning, for demo and CI servers. CI proves the refusal on every run with `scripts/check-placeholder-refusal.sh` |
 
 The company name and legal name live in `src/config/app.ts`. Support
 contacts, bank details for EFT, tax and legal page links are per market,
@@ -230,7 +244,7 @@ console and are also written into the invoice notes.
 | `src/app/(auth)`, `src/app/app` | Customer sign-in and console pages |
 | `src/app/admin` | Staff console |
 | `src/server/billing` | Billing adapter, stub, WHMCS shell, organisation-scoped wrapper |
-| `src/server/payments` | Payment adapter, stub card gateway, EFT |
+| `src/server/payments` | Payment adapter, DPO Pay, stub card gateway, EFT |
 | `src/server/connectors` | One connector per product family, all manual in Phase 1 |
 | `src/server/markets`, `src/lib/domain/markets.ts` | Markets, country detection, waiting list |
 | `src/server/catalogue`, `src/lib/domain/pricing.ts` | Marketplace, price books and prices |

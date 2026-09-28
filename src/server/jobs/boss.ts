@@ -7,6 +7,8 @@ import { deliverDue } from "@/server/email/outbox";
 import { billingAdapter } from "@/server/billing";
 import { applyDefaultPoNumbers } from "@/server/billing/po";
 import { StubBillingAdapter } from "@/server/billing/stub/stub-adapter";
+import { paymentAdapter } from "@/server/payments";
+import { settleOpenCardPayments } from "@/server/payments/card";
 
 /**
  * Background jobs, on pg-boss in the same PostgreSQL database. Each job
@@ -27,6 +29,8 @@ const JOBS: Job[] = [
     },
   },
   { name: "default-po-numbers", cron: "0 3 * * *", run: () => applyDefaultPoNumbers(prisma, billingAdapter()) },
+  // Card payments whose payer never came back from the gateway's page.
+  { name: "card-payments-settle", cron: "*/5 * * * *", run: () => settleOpenCardPayments(prisma, { billing: billingAdapter(), payments: paymentAdapter() }) },
 ];
 
 /** Later milestones add their jobs here (billing sync, purges). */

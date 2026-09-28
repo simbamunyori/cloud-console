@@ -25,8 +25,15 @@ const schema = z.object({
   BILLING_ADAPTER: z.enum(["stub", "whmcs"]).default("stub"),
   /** Base URL of WHMCS, e.g. https://billing.internal.example/includes/api.php. */
   WHMCS_API_URL: optionalUrl(),
-  /** Which card gateway takes card payments. Not chosen yet. */
-  PAYMENT_ADAPTER: z.enum(["stub"]).default("stub"),
+  /** Which card gateway takes card payments: DPO Pay, or the test page for development. */
+  PAYMENT_ADAPTER: z.enum(["stub", "dpo"]).default("stub"),
+  /** DPO Pay's API and hosted payment page. The defaults are DPO's live addresses; test mode uses a test company token on the same addresses. */
+  DPO_API_URL: z.string().url().default("https://secure.3gdirectpay.com/API/v6/"),
+  DPO_PAY_URL: z.string().url().default("https://secure.3gdirectpay.com/payv2.php"),
+  /** The service type DPO gave our account, sent with every payment. */
+  DPO_SERVICE_TYPE: optionalText(),
+  /** The payment gateway's system name in WHMCS, recorded against card payments. Must match the WHMCS gateway module. */
+  DPO_WHMCS_GATEWAY: z.string().min(1).default("dpo"),
   /** Request header carrying the visitor's country, set by the CDN in front of the console. */
   GEO_COUNTRY_HEADER: z.string().min(1).default("cf-ipcountry"),
   /** Optional MaxMind GeoLite2 Country database, used when the header is missing. */

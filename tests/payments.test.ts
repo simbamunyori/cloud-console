@@ -5,7 +5,7 @@ import { PAYMENT_METHODS } from "../src/server/billing/adapter";
 import { scopedBilling } from "../src/server/billing/scoped";
 import { seedStubCatalogue } from "../src/server/billing/stub/catalogue";
 import { OVERDUE_REASON, StubBillingAdapter } from "../src/server/billing/stub/stub-adapter";
-import { finishCardPayment, startCardPayment, type PaymentDeps } from "../src/server/payments/card";
+import { finishCardPayment, settleOpenCardPayments, startCardPayment, type PaymentDeps } from "../src/server/payments/card";
 import { confirmEftPayment, rejectEftPayment, reportEftPayment } from "../src/server/payments/eft";
 import { STUB_CARDS, StubCardGateway, stubCancel, stubPay } from "../src/server/payments/stub-card";
 import type { Actor } from "../src/server/org/access";
@@ -67,6 +67,22 @@ describe.skipIf(!hasDb)("payments", () => {
     expect(await db.auditEvent.count({ where: { organisationId: o.organisationId, action: "payment.card_paid" } })).toBe(1);
     const emails = await db.outboundEmail.findMany({ where: { organisationId: o.organisationId, kind: "payment.confirmed" } });
     expect(emails.map((e) => e.toAddress).sort()).toEqual(["accounts@ramotswa.co.bw", o.email.toLowerCase()].sort());
+  });
+
+  it("settles a card payment whose payer never came back from the gateway", async () => {
+    const o = await setUp();
+    const { payment } = await startCardPayment(o.deps(), o.invoiceId);
+    await stubPay(db, payment.gatewayRef, { number: STUB_CARDS.pays, ...CARD });
+    // Too recent to chase: the payer may still be on their way back.
+    await settleOpenCardPayments(db, { billing: o.stub, payments: o.payments });
+    expect((await db.cardPayment.findUniqueOrThrow({ where: { id: payment.id } })).status).toBe("STARTED");
+
+    const later = new Date(Date.now() + 15 * 60_000);
+    expect(await settleOpenCardPayments(db, { billing: o.stub, payments: o.payments, now: later })).toBeGreaterThanOrEqual(1);
+    expect((await db.cardPayment.findUniqueOrThrow({ where: { id: payment.id } })).status).toBe("SUCCEEDED");
+    expect(await o.billing.getInvoice(o.invoiceId)).toMatchObject({ status: "paid", balance: P(0n) });
+    // Written as the person who paid, as if they had come back.
+    expect(await db.auditEvent.findFirst({ where: { organisationId: o.organisationId, action: "payment.card_paid" } })).toMatchObject({ actorKind: "CUSTOMER", actorUserId: o.owner.userId });
   });
 
   it("records a declined or cancelled card without touching the invoice", async () => {
