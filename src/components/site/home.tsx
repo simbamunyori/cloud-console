@@ -1,7 +1,7 @@
 import { Boxes, Building2, Check, CreditCard, GraduationCap, Handshake, HardDrive, LayoutGrid, LifeBuoy, Lock, Mail, Search, Server, ShieldCheck, Sparkles, TrendingUp, Users } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { AUDIENCES, BUILDERS, CLOSING, CONSOLE, HERO, marketCopy, PLATE, withDataCentre } from "@/config/site";
+import { AUDIENCES, BUILDERS, CLOSING, CONSOLE, domainQuickPicks, HERO, marketCopy, PLATE, withDataCentre } from "@/config/site";
 import { formatMoney, money } from "@/lib/domain/money";
 import type { ServiceFrom } from "@/server/site/site";
 import { currentTheme } from "@/server/theme";
@@ -204,7 +204,7 @@ export function HomeContent({ market, services, taxNote }: { market: HomeMarket;
           </figure>
         </div>
         <div className="mx-auto max-w-content px-4 pb-12 sm:px-6 lg:pb-20">
-          <DomainSearch tlds={market.highlightedTlds} />
+          <DomainSearch tlds={domainQuickPicks(market.highlightedTlds)} />
         </div>
       </section>
 

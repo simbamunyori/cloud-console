@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { marketCopy, SERVICES, withDataCentre } from "./site";
+import { domainQuickPicks, marketCopy, SERVICES, withDataCentre } from "./site";
 
 describe("site copy", () => {
   it("claims our own data centre only where the market says it is live", () => {
@@ -13,5 +13,11 @@ describe("site copy", () => {
   it("keeps the local data copy line to Botswana", () => {
     expect(marketCopy("bw").localHosting).toMatch(/Botswana/);
     expect(marketCopy("za").localHosting).toBeUndefined();
+  });
+
+  it("offers .com after the market's own domain endings, once", () => {
+    expect(domainQuickPicks([".co.bw", ".bw"])).toEqual([".co.bw", ".bw", ".com"]);
+    expect(domainQuickPicks([".com", ".co.za"])).toEqual([".co.za", ".com"]);
+    expect(domainQuickPicks([])).toEqual([".com"]);
   });
 });

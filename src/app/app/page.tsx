@@ -33,39 +33,41 @@ export default async function HomePage() {
     <>
       <PageHeader eyebrow={organisation.name} title={`Welcome, ${actor.name.split(" ")[0]}`} />
       <div className="flex flex-col gap-6">
-        {/* Three totals: a compact row on phones, cards from tablet width up. */}
-        <div className="grid grid-cols-3 gap-2 sm:gap-4">
-          <Card className="flex min-w-0 flex-col gap-1 p-3 sm:p-5">
+        {/* Three totals: a compact row on phones, cards from tablet width up.
+            Amounts are always in full; on a very narrow phone the row scrolls
+            sideways rather than shortening or cutting a figure. */}
+        <div className="flex gap-2 overflow-x-auto sm:grid sm:grid-cols-3 sm:gap-4 sm:overflow-visible">
+          <Card className="flex min-w-fit flex-1 flex-col gap-1 p-3 sm:min-w-0 sm:p-5">
             <span className="text-caption text-ink-muted sm:text-callout">
               <span className="sm:hidden">This month</span>
               <span className="hidden sm:inline">Monthly total, {formatMonth(today)}</span>
             </span>
-            <Amount locale={locale} value={monthly} compact size="headline" className="text-ink sm:hidden" />
+            <Amount locale={locale} value={monthly} className="text-callout font-semibold text-ink sm:hidden" />
             <Amount locale={locale} value={monthly} size="title-1" className="hidden text-ink sm:inline" />
             <span className="hidden text-callout text-ink-muted sm:inline">
               For {live.length} {live.length === 1 ? "service" : "services"}
             </span>
           </Card>
-          <Card className="flex min-w-0 flex-col gap-1 p-3 sm:p-5">
+          <Card className="flex min-w-fit flex-1 flex-col gap-1 p-3 sm:min-w-0 sm:p-5">
             <span className="text-caption text-ink-muted sm:text-callout">Next invoice</span>
             {next ? (
               <>
-                <span className="text-headline text-ink sm:text-title-1">{formatDay(next.dueOn, next.dueOn.getUTCFullYear() !== today.getUTCFullYear())}</span>
+                <span className="whitespace-nowrap text-callout font-semibold text-ink sm:text-title-1 sm:font-bold">{formatDay(next.dueOn, next.dueOn.getUTCFullYear() !== today.getUTCFullYear())}</span>
                 <span className="hidden text-callout text-ink-muted sm:inline">
                   About <Amount locale={locale} value={next.amount} className="text-callout" /> falls due
                 </span>
               </>
             ) : (
-              <span className="text-headline text-ink sm:text-title-1">None due</span>
+              <span className="whitespace-nowrap text-callout font-semibold text-ink sm:text-title-1 sm:font-bold">None due</span>
             )}
           </Card>
-          <Link href="/app/billing" className="group min-w-0 rounded-lg">
+          <Link href="/app/billing" className="group min-w-fit flex-1 rounded-lg sm:min-w-0">
             <Card className="flex h-full flex-col gap-1 p-3 group-hover:bg-surface-2 sm:p-5">
               <span className="text-caption text-ink-muted sm:text-callout">
                 <span className="sm:hidden">To pay</span>
                 <span className="hidden sm:inline">To pay now</span>
               </span>
-              <Amount locale={locale} value={owed} compact size="headline" className={`sm:hidden ${owed.amountMinor > 0n ? "text-ink" : "text-positive"}`} />
+              <Amount locale={locale} value={owed} className={`text-callout font-semibold sm:hidden ${owed.amountMinor > 0n ? "text-ink" : "text-positive"}`} />
               <Amount locale={locale} value={owed} size="title-1" className={`hidden sm:inline ${owed.amountMinor > 0n ? "text-ink" : "text-positive"}`} />
               <span className="hidden text-callout text-link group-hover:underline sm:inline">{owed.amountMinor > 0n ? "See invoices" : "All paid, thank you"}</span>
             </Card>

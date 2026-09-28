@@ -88,7 +88,6 @@ export function SiteFrame({
                 groups={SERVICE_MENU}
                 pages={[
                   { label: "Pricing", href: `${base}/pricing` },
-                  { label: "Security", href: `${base}/security` },
                   ...(signedIn ? [] : [{ label: "Sign in", href: "/sign-in" }]),
                 ]}
                 footer={

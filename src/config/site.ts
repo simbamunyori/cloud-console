@@ -174,6 +174,11 @@ export function withDataCentre(text: string, market: { ownDataCentre: boolean })
   return market.ownDataCentre ? `${text} ${OWN_DATA_CENTRE_LINE}` : text;
 }
 
+/** The "Find your domain" quick picks: the market's own endings first, then .com once. */
+export function domainQuickPicks(highlighted: string[]): string[] {
+  return [...new Set([...highlighted.filter((t) => t !== ".com"), ".com"])];
+}
+
 /** Words that differ by market. Keyed by market code; anything missing uses the default. */
 export interface MarketCopy {
   /**

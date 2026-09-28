@@ -45,6 +45,10 @@ for (const scheme of ["light", "dark"] as const) {
       const menu = page.getByRole("dialog", { name: "Menu" });
       await expect(menu).toBeVisible();
       await expect(menu.getByRole("link", { name: "Pricing" })).toBeVisible();
+      // Security is already a service family above; the page links don't repeat it.
+      await expect(menu.getByRole("link", { name: "Security", exact: true })).toHaveCount(0);
+      // "Get started" stays pinned in view at the bottom, however long the list.
+      await expect(menu.getByRole("link", { name: "Get started" })).toBeInViewport();
       expect(await axe(page)).toEqual([]);
       await page.keyboard.press("Escape");
       await expect(menu).toBeHidden();
@@ -74,4 +78,17 @@ test("Find your domain opens the console's domain search, after sign-in for visi
   const to = new URL(res.headers()["location"], "http://x");
   expect(to.pathname).toBe("/sign-in");
   expect(to.searchParams.get("next")).toBe("/app/marketplace/domains?q=acme.co.bw");
+});
+
+test("phone summary cards show every amount in full", async ({ page, context, baseURL }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await signIn(context, "customer", baseURL!);
+  await page.goto("/app");
+  await settled(page);
+  const row = page.locator("#main-content, main").getByText("This month", { exact: true }).locator("xpath=ancestor::div[contains(@class,'overflow-x-auto')][1]");
+  const text = await row.innerText();
+  expect(text).toMatch(/\d\.\d{2}/);
+  expect(text).not.toMatch(/\d(\.\d)?\s?[KMB]\b/);
+  // The row fits a 390 px phone without scrolling sideways.
+  expect(await row.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
 });

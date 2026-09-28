@@ -117,14 +117,14 @@ export function SiteMenu({ base, groups, pages, footer }: { base: string; groups
         onClick={(e) => e.target === ref.current && setOpen(false)}
         className="m-0 ml-auto h-dvh max-h-none w-drawer bg-surface-1 p-0 text-ink backdrop:bg-scrim"
       >
-        <div className="flex h-full flex-col gap-6 overflow-y-auto p-4">
-          <div className="flex items-center justify-between">
+        <div className="flex h-full flex-col">
+          <div className="flex items-center justify-between p-4">
             <span className="text-headline">Menu</span>
             <button type="button" onClick={() => setOpen(false)} className="flex size-11 items-center justify-center rounded-md hover:bg-surface-2" aria-label="Close menu">
               <X aria-hidden className="size-5" />
             </button>
           </div>
-          <nav aria-label="Site" className="flex flex-col gap-6">
+          <nav aria-label="Site" className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-4 pb-4">
             <div className="flex flex-col gap-4">
               <h2 className="label-kicker text-ink-muted">Services</h2>
               {groups.map((g) => {
@@ -148,7 +148,8 @@ export function SiteMenu({ base, groups, pages, footer }: { base: string; groups
               ))}
             </div>
           </nav>
-          <div className="mt-auto flex flex-col gap-3 border-t border-border pt-4">{footer}</div>
+          {/* Pinned below the scrolling links, so "Get started" is always in view. */}
+          <div className="flex flex-col gap-3 border-t border-border p-4">{footer}</div>
         </div>
       </dialog>
     </>

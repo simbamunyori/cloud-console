@@ -88,6 +88,8 @@ jobs:
         run: echo "TOTP_ENCRYPTION_KEY=$(openssl rand -base64 32)" >> "$GITHUB_ENV"
       - run: npx prisma generate && npx prisma migrate deploy && npm run db:seed
       - run: npm run build
+      - name: Production refuses to start on placeholder values
+        run: scripts/check-placeholder-refusal.sh
       - name: Start the console
         id: start
         run: |
