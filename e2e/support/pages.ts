@@ -31,6 +31,7 @@ export const PAGES: PageSpec[] = [
   { name: "staff-sign-in", audience: "public", path: "/admin/sign-in" },
 
   { name: "home", audience: "customer", path: "/app" },
+  { name: "search", audience: "customer", path: "/app/search?q=backup" },
   { name: "marketplace", audience: "customer", path: "/app/marketplace" },
   { name: "product", audience: "customer", path: "/app/marketplace", follow: 'main a[href^="/app/marketplace/"]:not([href="/app/marketplace/domains"])' },
   { name: "domains", audience: "customer", path: "/app/marketplace/domains?q=kgalehill" },

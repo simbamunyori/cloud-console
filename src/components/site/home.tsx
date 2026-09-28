@@ -66,7 +66,7 @@ function DomainSearch({ tlds }: { tlds: string[] }) {
   return (
     <form action="/find-domain" method="get" role="search" aria-labelledby="domain-title" className="flex flex-col gap-5 rounded-lg bg-navy p-6 text-on-navy shadow-elevation-3 sm:p-8">
       <div className="flex flex-col gap-1">
-        <h2 id="domain-title" className="text-title-1">
+        <h2 id="domain-title" className="text-title-1 text-on-navy">
           Find your domain
         </h2>
         <p className="text-callout text-ink-on-dark">Search for a name. Renewals go on your monthly invoice.</p>
@@ -82,7 +82,7 @@ function DomainSearch({ tlds }: { tlds: string[] }) {
           autoCapitalize="none"
           autoComplete="off"
           spellCheck={false}
-          className="h-14 flex-1 rounded-md border border-transparent bg-surface-1 px-5 text-headline font-normal text-ink placeholder:text-ink-muted"
+          className="h-14 flex-1 rounded-md border border-on-navy/20 bg-surface-1 px-5 text-headline font-normal text-ink placeholder:text-ink-muted"
         />
         <Button type="submit" size="lg" className="h-14 px-8">
           <Search aria-hidden /> Search
@@ -289,7 +289,7 @@ export function HomeContent({ market, services, taxNote }: { market: HomeMarket;
           </div>
           <figure className="min-w-0">
             <div className="overflow-hidden rounded-lg border border-border bg-surface-0 shadow-elevation-3">
-              <ThemedShot name="console-invoice" width={1280} height={950} alt="A monthly invoice in the Cloud Console, with each line explained and what changed since last month" />
+              <ThemedShot name="console-invoice" width={1280} height={960} alt="A monthly invoice in the Cloud Console, with each line explained and what changed since last month" />
             </div>
             <figcaption className="mt-3 text-caption text-ink-muted">A monthly invoice in the Cloud Console, with demo data.</figcaption>
           </figure>

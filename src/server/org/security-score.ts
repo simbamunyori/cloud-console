@@ -5,8 +5,8 @@
  */
 
 export interface SecurityFacts {
-  /** Every member signs in with a password and an authenticator code. */
-  everyoneHasTwoStep: boolean;
+  /** Members who haven't finished setting up their authenticator app, so can't sign in yet. */
+  withoutTwoStep: number;
   /** Backup codes the person looking has left. */
   backupCodesLeft: number;
   /** Members who haven't signed in for 90 days or more (or never have, after 90 days). */
@@ -35,10 +35,16 @@ export const MAX_ADMINS = 3;
 
 export function securityChecks(f: SecurityFacts): SecurityCheck[] {
   return [
-    { key: "two-step", title: "Two-step login for everyone", points: 25, passed: f.everyoneHasTwoStep, fix: { label: "Review your team", href: "/app/team" } },
+    {
+      key: "two-step",
+      title: f.withoutTwoStep ? `${f.withoutTwoStep} ${f.withoutTwoStep === 1 ? "person hasn't" : "people haven't"} finished two-step login` : "Two-step login for everyone",
+      points: 25,
+      passed: f.withoutTwoStep === 0,
+      fix: { label: "Review your team", href: "/app/team" },
+    },
     {
       key: "backup-codes",
-      title: f.backupCodesLeft >= 3 ? "Backup codes ready" : `Only ${f.backupCodesLeft} backup ${f.backupCodesLeft === 1 ? "code" : "codes"} left`,
+      title: f.backupCodesLeft >= 3 ? "Backup codes ready" : f.backupCodesLeft === 0 ? "You have no backup codes" : `Only ${f.backupCodesLeft} backup ${f.backupCodesLeft === 1 ? "code" : "codes"} left`,
       points: 10,
       passed: f.backupCodesLeft >= 3,
       fix: { label: "Make new codes", href: "/app/security" },

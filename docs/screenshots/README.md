@@ -17,6 +17,8 @@ Refresh with `npm run screenshots -- --commit` against a running console with th
 | not-found | [view](site/not-found-390-light.webp) | [view](site/not-found-390-dark.webp) | [view](site/not-found-1440-light.webp) | [view](site/not-found-1440-dark.webp) |
 | sign-in | [view](site/sign-in-390-light.webp) | [view](site/sign-in-390-dark.webp) | [view](site/sign-in-1440-light.webp) | [view](site/sign-in-1440-dark.webp) |
 | sign-up | [view](site/sign-up-390-light.webp) | [view](site/sign-up-390-dark.webp) | [view](site/sign-up-1440-light.webp) | [view](site/sign-up-1440-dark.webp) |
+| forgot-password | [view](site/forgot-password-390-light.webp) | [view](site/forgot-password-390-dark.webp) | [view](site/forgot-password-1440-light.webp) | [view](site/forgot-password-1440-dark.webp) |
+| reset-link-expired | [view](site/reset-link-expired-390-light.webp) | [view](site/reset-link-expired-390-dark.webp) | [view](site/reset-link-expired-1440-light.webp) | [view](site/reset-link-expired-1440-dark.webp) |
 | staff-sign-in | [view](site/staff-sign-in-390-light.webp) | [view](site/staff-sign-in-390-dark.webp) | [view](site/staff-sign-in-1440-light.webp) | [view](site/staff-sign-in-1440-dark.webp) |
 
 ## Customer console
@@ -24,6 +26,7 @@ Refresh with `npm run screenshots -- --commit` against a running console with th
 | Page | 390 light | 390 dark | 1440 light | 1440 dark |
 | --- | --- | --- | --- | --- |
 | home | [view](customer/home-390-light.webp) | [view](customer/home-390-dark.webp) | [view](customer/home-1440-light.webp) | [view](customer/home-1440-dark.webp) |
+| search | [view](customer/search-390-light.webp) | [view](customer/search-390-dark.webp) | [view](customer/search-1440-light.webp) | [view](customer/search-1440-dark.webp) |
 | marketplace | [view](customer/marketplace-390-light.webp) | [view](customer/marketplace-390-dark.webp) | [view](customer/marketplace-1440-light.webp) | [view](customer/marketplace-1440-dark.webp) |
 | product | [view](customer/product-390-light.webp) | [view](customer/product-390-dark.webp) | [view](customer/product-1440-light.webp) | [view](customer/product-1440-dark.webp) |
 | domains | [view](customer/domains-390-light.webp) | [view](customer/domains-390-dark.webp) | [view](customer/domains-1440-light.webp) | [view](customer/domains-1440-dark.webp) |

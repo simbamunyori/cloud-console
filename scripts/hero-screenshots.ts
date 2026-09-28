@@ -39,27 +39,35 @@ async function main() {
       if (!new URL(page.url()).pathname.startsWith("/app")) throw new Error(`Expected the console, got ${page.url()}. Is the demo seed loaded?`);
       await sizes(await page.screenshot({ type: "png" }), `console-home-${scheme}`, [960, 1280, 1920, 2560]);
 
-      // The top of the page beside the sidebar: the totals and what needs attention, readable on a phone.
+      // The top of the page beside the sidebar and below the top bar: the totals and what needs attention, readable on a phone.
       const home = await mainBox(page);
-      await sizes(await page.screenshot({ type: "png", clip: { x: home.x, y: 0, width: 640, height: 480 } }), `console-home-${scheme}-crop`, [640, 960, 1280]);
+      await sizes(await page.screenshot({ type: "png", clip: { x: home.x, y: home.y, width: 640, height: 480 } }), `console-home-${scheme}-crop`, [640, 960, 1280]);
 
-      // The newest monthly invoice: the first invoice in the list whose page compares it with last month.
+      // A monthly invoice's lines, each explained, with what changed since last month. Prefer one that changed.
       await page.goto(`${BASE}/app/billing`);
       await settled(page);
       const hrefs = await page.locator('a[href^="/app/billing/invoices/"]').evaluateAll((as) => [...new Set(as.map((a) => a.getAttribute("href")!))]);
-      let found = false;
-      for (const href of hrefs) {
-        await page.goto(`${BASE}${href}`);
-        await settled(page);
-        if (await page.getByText(/compared with last month|The same as last month/).count()) {
-          found = true;
-          break;
+      let chosen: string | null = null;
+      for (const pattern of [/compared with last month/, /The same as last month/]) {
+        for (const href of hrefs) {
+          await page.goto(`${BASE}${href}`);
+          await settled(page);
+          if (await page.getByText(pattern).count()) {
+            chosen = href;
+            break;
+          }
         }
+        if (chosen) break;
       }
-      if (!found) throw new Error("No monthly invoice with a comparison in the demo data.");
-      await page.setViewportSize({ width: 1280, height: 1000 });
-      const invoice = await mainBox(page);
-      await sizes(await page.screenshot({ type: "png", clip: { x: invoice.x, y: 0, width: invoice.width, height: 760 } }), `console-invoice-${scheme}`, [640, 960, 1280]);
+      if (!chosen) throw new Error("No monthly invoice with a comparison in the demo data.");
+      await page.goto(`${BASE}${chosen}`);
+      await settled(page);
+      const lines = page.locator('section[aria-labelledby="lines-title"]');
+      const box = await lines.boundingBox();
+      if (!box) throw new Error("No invoice lines.");
+      // The card with a margin of page around it, always 4:3 so the site can reserve its space.
+      const width = box.width + 48;
+      await sizes(await page.screenshot({ type: "png", fullPage: true, clip: { x: box.x - 24, y: box.y - 24, width, height: Math.round((width * 3) / 4) } }), `console-invoice-${scheme}`, [640, 960, 1280]);
       await context.close();
     }
   } finally {

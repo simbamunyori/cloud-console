@@ -64,3 +64,23 @@ Every screen below passes axe (WCAG 2.0, 2.1 and 2.2 A and AA rules) in light an
 - `tests/design-tokens.test.ts`: no hex or rgb colours, arbitrary values or numeric durations outside `src/config/theme/`.
 - `e2e/a11y.spec.ts`: axe on every page in both themes, in CI.
 - `lighthouserc.cjs`: Lighthouse budgets on the public pages, in CI.
+
+## Screenshot review
+
+Changes after the owner reviewed the Change Request 01 screenshots.
+
+| Point | Before | Now |
+| --- | --- | --- |
+| Sidebar on long pages | The sidebar's background stopped at the first screen's height on long pages (marketplace, invoice). | Both consoles' sidebars sit in a column that runs the page's full height; the sidebar itself stays in view as the page scrolls. |
+| Site header | The mark alone on phones, a 36 px lockup on wide screens, a second row of links on phones. | The full lockup everywhere: 48 px tall on wide screens, 42 px on phones (its 160 px minimum width, brand/BRAND.md). One row on every width; phones get a menu button that opens a sheet with the services, pages, country and "Get started". |
+| Services | A link to the home page's services section. | A mega menu of the five service families (Productivity, Servers, Security, Web and domains, Applications), each with its products, linking to the market's prices. Opens from the keyboard, closes on Escape with focus back on the button, passes axe while open. |
+| Hero picture | Half the content width, at 1x, with a small copy on phones where the text was unreadable. | Seven twelfths of the content width on wide screens, from a 2x capture served at up to 2560 px so text stays sharp. Phones and tablets get a close-up of the page's top (totals and what needs attention) at a size where it reads. One picture is fetched per visit. The home page's largest paint is about 2.3 s against the 2.5 s budget. |
+| Domain search | Only inside the console. | "Find your domain" under the hero: a large search with the market's popular endings as one-tap picks, into the console's domain search. |
+| Cloud Console section | Four points only. | The four points beside a real monthly invoice from the console with demo data, showing lines explained and what changed. |
+| Built by people who build software | A line of text on navy. | Adds a Thebe card. It uses a purpose-made illustration of Thebe's approvals list until a Thebe screenshot is available (docs/decisions.md). |
+| Footer | The mark alone. | The full reverse lockup, and a "Service status" link when a status page is set. |
+| Console top bar | None: search, notifications and help didn't exist. | A top bar on wide screens with search, notifications (with a count) and help (assistant, new ticket, contacts). On phones the same three sit in the header beside the menu. |
+| Home on phones | Three totals stacked as full cards, pushing everything else down. | A compact row of three, with amounts shortened ("P 3.7K"); the exact amount is one tap away. |
+| Security | Only on the Security page. | A security score card on Home with the checks still to do, each linking to its fix. |
+
+Kept true by the same checks, plus `e2e/menus.spec.ts`: the Services menu, the phone menu and the console's notifications and help menus open from the keyboard, close on Escape and pass axe while open, in both themes.

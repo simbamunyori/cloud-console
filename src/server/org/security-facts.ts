@@ -16,7 +16,7 @@ export async function securityFacts(db: TenantDb, userId: string, liveServices: 
   ]);
   const since = now.getTime() - INACTIVE_DAYS * 24 * 60 * 60 * 1000;
   return {
-    everyoneHasTwoStep: team.members.every((m) => m.twoStepOn),
+    withoutTwoStep: team.members.filter((m) => !m.twoStepOn).length,
     backupCodesLeft,
     // Someone who has never signed in is still setting up, not inactive.
     inactiveMembers: team.members.filter((m) => m.lastSignIn && m.lastSignIn.getTime() < since).length,

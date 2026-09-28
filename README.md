@@ -8,7 +8,7 @@ site and the design standard.
 
 - The public site lives under each market: `/bw`, `/za`, `/zw`, `/global`.
   `/` sends visitors to theirs.
-- Customers sign in at `/sign-in` and use the console at `/app`.
+- Customers sign in at `/sign-in` and use the console at `/app`. "Forgot password?" emails a single-use link that works for 30 minutes; afterwards they sign in with the new password and their authenticator code as usual.
 - Staff sign in at `/admin`, with their own accounts and session cookie.
 - Every billing and provisioning call goes through `BillingAdapter`. Until
   WHMCS is bought, a stub billing engine keeps its state in PostgreSQL, so
@@ -95,12 +95,12 @@ These run against a production build with the demo seed. Take them from a
 freshly seeded database, or test data shows up:
 
 ```sh
-npm run build && npm start &                      # http://localhost:3000
+npm run build && ALLOW_PLACEHOLDERS=yes npm start &   # http://localhost:3000; demo data needs ALLOW_PLACEHOLDERS
 npm run test:a11y                                  # axe on every page, light and dark, and the site's routing
 npx lhci autorun                                   # Lighthouse budgets on the public pages
 npm run screenshots                                # every page, 4 widths, 2 themes, into screenshots-full/
 npm run screenshots -- --commit                    # also the 390 and 1440 px set into docs/screenshots/
-npm run screenshots:hero                           # the site hero, from the demo Home page
+npm run screenshots:hero                           # the site's console pictures: hero, phone close-up, invoice
 ```
 
 Set `BASE_URL` if the console isn't on port 3000. Browsers come from
