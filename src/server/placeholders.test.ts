@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { assertNoPlaceholders, findPlaceholders } from "./placeholders";
+import { assertNoPlaceholders, DPO_TEST_COMPANY_TOKEN, findPlaceholders } from "./placeholders";
 
 const market = (over: Record<string, unknown> = {}) => ({ code: "bw", supportEmail: "support@fourthgen.co.bw", eftBankName: "First National Bank Botswana", eftAccountNumber: "62812345678", eftBranchCode: "281467", ...over });
 
@@ -43,5 +43,11 @@ describe("production placeholders", () => {
     await expect(assertNoPlaceholders(db, live, true)).resolves.toBeUndefined();
     expect(warn).toHaveBeenCalledWith(expect.stringMatching(/ALLOW_PLACEHOLDERS=yes/));
     warn.mockRestore();
+  });
+
+  it("refuses the test card page and DPO's test token in production", async () => {
+    expect(await findPlaceholders(fakeDb(), { ...live, PAYMENT_ADAPTER: "stub" })).toEqual([expect.stringMatching(/PAYMENT_ADAPTER is stub/)]);
+    expect(await findPlaceholders(fakeDb(), { ...live, PAYMENT_ADAPTER: "dpo", DPO_COMPANY_TOKEN: DPO_TEST_COMPANY_TOKEN.toLowerCase() })).toEqual([expect.stringMatching(/DPO's test token/)]);
+    expect(await findPlaceholders(fakeDb(), { ...live, PAYMENT_ADAPTER: "dpo", DPO_COMPANY_TOKEN: "LIVE-TOKEN" })).toEqual([]);
   });
 });

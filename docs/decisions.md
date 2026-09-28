@@ -51,9 +51,9 @@ What the console assumes, decided or leaves out, for review before launch. Each 
 
 31. **The stub stands in for WHMCS.** It is simpler in a few places, listed in `docs/whmcs-mapping.md` ("Where the stub is simpler than WHMCS"): a domain renewal extends the expiry at once, the stub never suspends for non-payment by itself, and there is no credit balance. The stub raises invoices in a nightly job; WHMCS does this from its own cron.
 32. **Purchase order numbers.** WHMCS has no PO field on invoices, so the console stores PO numbers and also writes them into the invoice notes.
-33. **The card gateway is a stub.** Card payments go to a test payment page until a gateway is chosen. The adapter settles a payment by asking the gateway, never from the return address, and credits the invoice once.
+33. **Card payments go through DPO Pay.** The payer pays on DPO's hosted page, so card numbers never reach the console. The console settles a payment by asking DPO (`verifyToken`), never from the return address, checks DPO charged the amount and currency asked for, and credits the invoice once. A job every five minutes settles payments whose payer never came back, as the person who paid. The payer has 30 minutes on DPO's page. Payments are recorded in WHMCS under `DPO_WHMCS_GATEWAY`. A production server refuses to start on the test card page or DPO's test token (item 54). The test page stays for development and demos.
 34. **EFT is confirmed by a person.** The customer says they paid; finance staff find it in the bank statement and confirm it, or say why they can't. There is no bank feed.
-35. **Saved cards live in the billing engine.** The console never sees or stores a full card number. Adding or removing a card waits for the real gateway.
+35. **Saved cards live in the billing engine.** The console never sees or stores a full card number. Saving a card for automatic payment isn't built: DPO's hosted page takes the card each time.
 
 ## Business
 
@@ -93,7 +93,7 @@ What the console assumes, decided or leaves out, for review before launch. Each 
 
 52. **Tests share the database in `DATABASE_URL`.** They create their own organisations and leave them behind. The README shows how to point them at a separate database. Take screenshots from a freshly seeded database, or test data shows up in them.
 53. **Demo accounts have a published password.** The seed refuses to run in production unless `SEED_DEMO=yes`.
-54. **Production refuses placeholders.** In production the server won't start while any development placeholder is set: a `support@localhost` market email, the demo bank details (a "Demo" bank or an all-zero account or branch number), seeded exchange rates, the demo accounts, or a localhost `APP_URL` or `MAIL_FROM`. It lists each one and where to fix it. `ALLOW_PLACEHOLDERS=yes` starts a demo or CI server anyway, with a warning.
+54. **Production refuses placeholders.** In production the server won't start while any development placeholder is set: a `support@localhost` market email, the demo bank details (a "Demo" bank or an all-zero account or branch number), seeded exchange rates, the demo accounts, a localhost `APP_URL` or `MAIL_FROM`, the test card page, or DPO's test token. It lists each one and where to fix it. `ALLOW_PLACEHOLDERS=yes` starts a demo or CI server anyway, with a warning.
 55. **Browser checks sign in with test sessions** made straight in the database (`e2e/support/sessions.ts`), which refuses to run with `NODE_ENV=production`.
 
 ## Carried over from the Phase 1 go-ahead
