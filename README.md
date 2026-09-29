@@ -135,8 +135,11 @@ the UI and never sent to the assistant.
 | `MAIL_FROM` | No | Sender address |
 | `BILLING_ADAPTER` | No | `stub` (default) or `whmcs` |
 | `WHMCS_API_URL` | With WHMCS | WHMCS API address |
-| `WHMCS_IDENTIFIER`, `WHMCS_SECRET` | With WHMCS, secret | API credentials |
+| `WHMCS_API_IDENTIFIER`, `WHMCS_API_SECRET` | With WHMCS, secret | API credentials (docs/whmcs-setup.md) |
 | `WHMCS_ACCESS_KEY` | Optional, secret | If WHMCS requires an API access key |
+| `WHMCS_ENVIRONMENT` | With WHMCS | `test` or `production`. Production refuses the write tests and sends domain orders to the registrar |
+| `WHMCS_SYNC_SECRET` | For the price sync, secret | Shared with the sync addon in WHMCS |
+| `WHMCS_SYNC_URL` | No | The sync addon's address, if not beside `WHMCS_API_URL` |
 | `PAYMENT_ADAPTER` | No | `stub` only, until the card gateway is chosen |
 | `ANTHROPIC_API_KEY` | Optional, secret | Switches the support assistant on. Without it, the assistant page offers a ticket instead |
 | `ANTHROPIC_MODEL` | No | Model the assistant uses (default `claude-sonnet-5`) |
@@ -203,17 +206,23 @@ neither, everyone lands on the default market and can switch.
 The full mapping, method by method, is in `docs/whmcs-mapping.md`, with the
 API findings in `docs/whmcs-api-notes.md`. In short:
 
-1. Fill in each method of `WhmcsBillingAdapter`
-   (`src/server/billing/whmcs/whmcs-adapter.ts`). The transport and every
-   field mapping (`whmcs/map.ts`, with tests) are already written, and each
-   method names the WHMCS action it calls. WHMCS field names appear only in
-   `map.ts`.
-2. Set `BILLING_ADAPTER=whmcs`, `WHMCS_API_URL`, `WHMCS_IDENTIFIER`,
-   `WHMCS_SECRET` and, if used, `WHMCS_ACCESS_KEY`. Add the console's
-   address to WHMCS's API IP allowlist.
-3. Run the adapter contract tests (`tests/billing-contract.ts`) against a
-   WHMCS staging copy. The same tests pass on the stub today.
-4. Move existing organisations: create one WHMCS client for each and update
+1. Set WHMCS up as in `docs/whmcs-setup.md`: currencies, the API role and
+   credential, the IP restriction, and the price sync addon
+   (`whmcs/modules/addons/fourthgen_console`).
+2. Set `BILLING_ADAPTER=whmcs`, `WHMCS_API_URL`, `WHMCS_ENVIRONMENT` and
+   the secrets `WHMCS_API_IDENTIFIER`, `WHMCS_API_SECRET`,
+   `WHMCS_SYNC_SECRET` and, if used, `WHMCS_ACCESS_KEY`.
+3. Put the approved price books into WHMCS:
+   `npm run whmcs:sync` shows what would change, and
+   `npm run whmcs:sync -- --apply --staff you@fourthgen.co.bw` makes the
+   changes and writes a staff audit entry. Never set products up by hand
+   in WHMCS; the next sync replaces them.
+4. Check it: `npm run test:whmcs` reads only. With
+   `WHMCS_TEST_WRITES=yes` it also runs the full adapter contract, which
+   creates clients, orders and payments; it refuses to run when
+   `WHMCS_ENVIRONMENT=production`. `npm run test:whmcs-addon` tests the
+   addon's signature, replay and address checks (PHP, no WHMCS needed).
+5. Move existing organisations: create one WHMCS client for each and update
    its `BillingAccount` row (provider `WHMCS`, the new client id). One
    organisation is always exactly one WHMCS client, and the console refuses
    to mix engines for one organisation.

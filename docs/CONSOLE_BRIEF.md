@@ -36,7 +36,7 @@ No real WHMCS connection, no real provisioning (VPS, hosting, domains, Microsoft
 WHMCS will be the billing and provisioning engine, but it is not bought yet. All billing and provisioning calls go through one `BillingAdapter` interface with two implementations:
 
 - `StubBillingAdapter`: used now. Returns realistic sample clients, products, services, invoices, payments and domains from seed data, and keeps state so ordering, paying and cancelling can be tested end to end.
-- `WhmcsBillingAdapter`: an empty shell for Phase 2.
+- `WhmcsBillingAdapter`: built in Phase 2 (docs/whmcs-mapping.md).
 
 Shape the interface on the published WHMCS API (https://developers.whmcs.com/api/). Check the docs for the exact action names and fields rather than guessing. The actions we expect to need include client lookup and creation, products and pricing, orders, client services and module actions (create, suspend, unsuspend, terminate, upgrade), invoices and payments, and domains (register, renew, transfer, lookup, TLD pricing). Map WHMCS field names in the adapter only; the rest of the console uses our own domain model.
 

@@ -35,6 +35,17 @@ describe("production placeholders", () => {
     expect(found.join("\n")).toMatch(/demo@kgalehill\.co\.bw/);
   });
 
+  it("needs WHMCS billing, fully set up and pointing at production WHMCS", async () => {
+    expect(await findPlaceholders(fakeDb(), { ...live, BILLING_ADAPTER: "stub" })).toEqual([expect.stringMatching(/BILLING_ADAPTER is stub/)]);
+    expect(await findPlaceholders(fakeDb(), { ...live, BILLING_ADAPTER: "whmcs", WHMCS_API_URL: "https://billing.example/includes/api.php", WHMCS_ENVIRONMENT: "production" })).toEqual([
+      expect.stringMatching(/WHMCS_API_IDENTIFIER, WHMCS_API_SECRET are not set/),
+    ]);
+    expect(await findPlaceholders(fakeDb(), { ...live, BILLING_ADAPTER: "whmcs", WHMCS_API_URL: "https://billing.example/includes/api.php", WHMCS_API_IDENTIFIER_SET: true, WHMCS_API_SECRET_SET: true, WHMCS_ENVIRONMENT: "test" })).toEqual([
+      expect.stringMatching(/WHMCS_ENVIRONMENT is not production/),
+    ]);
+    expect(await findPlaceholders(fakeDb(), { ...live, BILLING_ADAPTER: "whmcs", WHMCS_API_URL: "https://billing.example/includes/api.php", WHMCS_API_IDENTIFIER_SET: true, WHMCS_API_SECRET_SET: true, WHMCS_ENVIRONMENT: "production" })).toEqual([]);
+  });
+
   it("refuses to start in production, starts in development, and lets a demo server start with a warning", async () => {
     const db = fakeDb({ markets: [market({ supportEmail: "support@localhost" })] });
     await expect(assertNoPlaceholders(db, live, false)).rejects.toThrow(/Refusing to start in production[\s\S]*support@localhost/);

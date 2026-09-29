@@ -20,6 +20,8 @@ async function clearTestMarkets() {
   const codes = old.map((m) => m.code);
   await db.organisation.updateMany({ where: { billingMarket: { in: codes } }, data: { billingMarket: "bw", currency: "BWP" } });
   await db.marketChange.deleteMany({ where: { marketCode: { in: codes } } });
+  // Other test files seed price books for every market, test markets included, while these run.
+  await db.priceBookEntry.deleteMany({ where: { marketCode: { in: codes } } });
   await db.market.deleteMany({ where: { code: { in: codes } } });
 }
 

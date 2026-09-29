@@ -23,8 +23,12 @@ const schema = z.object({
   ANTHROPIC_MODEL: z.string().min(1).default("claude-sonnet-5"),
   /** Which billing engine the console talks to. */
   BILLING_ADAPTER: z.enum(["stub", "whmcs"]).default("stub"),
-  /** Base URL of WHMCS, e.g. https://billing.internal.example/includes/api.php. */
+  /** The WHMCS API, e.g. https://billing.fourthgeneration.technology/includes/api.php. */
   WHMCS_API_URL: optionalUrl(),
+  /** The price sync addon's endpoint. Defaults to modules/addons/fourthgen_console/sync.php beside WHMCS_API_URL. */
+  WHMCS_SYNC_URL: optionalUrl(),
+  /** Which WHMCS this is. "production" makes the write tests refuse to run against it. */
+  WHMCS_ENVIRONMENT: z.enum(["test", "production"]).optional(),
   /** Which card gateway takes card payments. Not chosen yet. */
   PAYMENT_ADAPTER: z.enum(["stub"]).default("stub"),
   /** Request header carrying the visitor's country, set by the CDN in front of the console. */

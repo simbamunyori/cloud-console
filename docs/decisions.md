@@ -95,6 +95,11 @@ What the console assumes, decided or leaves out, for review before launch. Each 
 53. **Demo accounts have a published password.** The seed refuses to run in production unless `SEED_DEMO=yes`.
 54. **Production refuses placeholders.** In production the server won't start while any development placeholder is set: a `support@localhost` market email, the demo bank details (a "Demo" bank or an all-zero account or branch number), seeded exchange rates, the demo accounts, or a localhost `APP_URL` or `MAIL_FROM`. It lists each one and where to fix it. `ALLOW_PLACEHOLDERS=yes` starts a demo or CI server anyway, with a warning.
 55. **Browser checks sign in with test sessions** made straight in the database (`e2e/support/sessions.ts`), which refuses to run with `NODE_ENV=production`.
+56. **WHMCS is the billing engine in production** (`BILLING_ADAPTER=whmcs`). Production refuses to start on the stub, with WHMCS credentials missing, or with `WHMCS_ENVIRONMENT` other than `production`. Credentials come only from environment variables.
+57. **Prices reach WHMCS only through the sync.** `npm run whmcs:sync` puts the approved price books into WHMCS through the Fourth Generation Console Sync addon, which accepts only HMAC-signed requests under 5 minutes old, never the same request twice, from allowed addresses, and can only change product groups, products, descriptions, visibility and prices. Every change is in the WHMCS activity log and the console's staff audit log. Nobody sets products up by hand in WHMCS.
+58. **Seats are a "Users" quantity option** on per-user products, so WHMCS keeps the right user count and works out part-month charges itself.
+59. **The current WHMCS install is the test environment.** The full contract suite runs on it with `WHMCS_TEST_WRITES=yes`; it refuses to run when `WHMCS_ENVIRONMENT=production`. Before launch WHMCS is reset to a clean database and that variable is set. Domain orders reach a registrar only in production.
+60. **Cards are not saved in WHMCS.** Its AddPayMethod needs the full card number, which the console never handles; saved cards stay with the gateway.
 
 ## Carried over from the Phase 1 go-ahead
 

@@ -21,7 +21,8 @@ export function billingAdapter(): BillingAdapter {
     if (e.BILLING_ADAPTER === "whmcs") {
       if (!e.WHMCS_API_URL) throw new Error("WHMCS_API_URL is not set.");
       adapter = new WhmcsBillingAdapter(
-        new WhmcsClient({ url: e.WHMCS_API_URL, identifier: requireSecret("WHMCS_IDENTIFIER"), secret: requireSecret("WHMCS_SECRET"), accessKey: secret("WHMCS_ACCESS_KEY") }),
+        new WhmcsClient({ url: e.WHMCS_API_URL, identifier: requireSecret("WHMCS_API_IDENTIFIER"), secret: requireSecret("WHMCS_API_SECRET"), accessKey: secret("WHMCS_ACCESS_KEY") }),
+        { sendToRegistrar: e.WHMCS_ENVIRONMENT === "production" },
       );
     } else {
       adapter = new StubBillingAdapter(prisma);
