@@ -16,8 +16,8 @@ export async function register() {
     }
     const [{ getPayload }, { default: config }] = await Promise.all([import("payload"), import("@payload-config")]);
     const payload = await getPayload({ config });
-    // A new editor starts with the home page, so staff have something to edit.
-    const { seedWebsite } = await import("@/cms/seed-home");
+    // A new editor starts with the site as it was, so staff have something to edit.
+    const { seedWebsite } = await import("@/cms/seed");
     const seeded = await seedWebsite(payload);
     if (seeded) console.log(seeded);
     const { startJobs } = await import("@/server/jobs/boss");

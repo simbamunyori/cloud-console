@@ -5,7 +5,7 @@ import type { IconName } from "./icons";
 /**
  * The home page as the website editor's first content: the same words,
  * pictures and prices as the built-in page (src/components/site/home.tsx),
- * as blocks, one layout per market. Added by seedWebsite below.
+ * as blocks, one layout per market. Added by seedWebsite (src/cms/seed).
  */
 
 type Layout = NonNullable<Page["layout"]>;
@@ -89,23 +89,4 @@ export function homeLayout(market: string): Layout {
       secondary: { label: "Book a call", to: "email", subject: "Book a call" },
     },
   ] as Layout;
-}
-
-type Payload = Awaited<ReturnType<typeof import("payload").getPayload>>;
-
-/**
- * Gives the editor its first page: the home page in every market, published.
- * Only when the editor has no pages at all, so an editor's work is never
- * overwritten. Returns what it did, in words, or null when it did nothing.
- */
-export async function seedWebsite(payload: Payload): Promise<string | null> {
-  const { totalDocs } = await payload.count({ collection: "pages", overrideAccess: true });
-  if (totalDocs) return null;
-  const { MARKET_LOCALES } = await import("./locales");
-  const [first, ...rest] = MARKET_LOCALES;
-  const page = await payload.create({ collection: "pages", locale: first.code, data: { title: "Home", slug: "home", layout: homeLayout(first.code), _status: "published" }, overrideAccess: true });
-  for (const l of rest) {
-    await payload.update({ collection: "pages", id: page.id, locale: l.code, data: { layout: homeLayout(l.code), _status: "published" }, overrideAccess: true });
-  }
-  return `Added the home page to the website editor, published in ${MARKET_LOCALES.map((l) => l.label).join(", ")}.`;
 }

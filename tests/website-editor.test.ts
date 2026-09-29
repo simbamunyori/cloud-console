@@ -187,4 +187,47 @@ describe.skipIf(!hasDb || !process.env.PAYLOAD_SECRET)("the website editor (Payl
       await expect(schedule(pub)).resolves.toBeTruthy();
     });
   });
+
+  describe("legal text, header and footer", () => {
+    const signedIn = async (role: WebsiteRole) => {
+      const p = await person("STAFF", "SUPPORT", role);
+      return (await payload.auth({ headers: new Headers({ cookie: p.cookie }) })).user!;
+    };
+
+    it("starts from the site as it was, once, without overwriting anything", async () => {
+      const { seedWebsite } = await import("../src/cms/seed");
+      await seedWebsite(payload);
+      expect(await seedWebsite(payload)).toBeNull();
+      for (const slug of ["home", "pricing", "security"]) {
+        expect((await payload.count({ collection: "pages", where: { slug: { equals: slug } } })).totalDocs, slug).toBe(1);
+      }
+      expect((await payload.count({ collection: "legal" })).totalDocs).toBeGreaterThanOrEqual(5);
+    });
+
+    it("keeps each market's legal text to itself, and approval to Publishers", async () => {
+      const terms = (await payload.find({ collection: "legal", where: { kind: { equals: "terms" } }, locale: "bw" })).docs[0];
+      expect(terms).toMatchObject({ title: "Terms of Service", approvedByLegal: false });
+      expect(terms.draftNotice).toMatch(/^DRAFT FOR LEGAL REVIEW/);
+      const za = await payload.findByID({ collection: "legal", id: terms.id, locale: "za", fallbackLocale: false });
+      expect(za.body ?? null).toBeNull();
+
+      const editor = await signedIn("EDITOR");
+      const draft = await payload.update({ collection: "legal", id: terms.id, locale: "bw", draft: true, data: { title: terms.title, approvedByLegal: true }, user: editor, overrideAccess: false });
+      expect(draft.approvedByLegal).toBe(false);
+      await expect(payload.update({ collection: "legal", id: terms.id, locale: "bw", data: { title: terms.title, _status: "published" }, user: editor, overrideAccess: false })).rejects.toThrow();
+    });
+
+    it("lets Editors draft the header and footer, and only Publishers publish them", async () => {
+      const editor = await signedIn("EDITOR");
+      const pub = await signedIn("PUBLISHER");
+      for (const slug of ["header", "footer"] as const) {
+        const current = await payload.findGlobal({ slug });
+        await expect(payload.updateGlobal({ slug, data: { _status: "published" }, user: editor, overrideAccess: false })).rejects.toThrow();
+        await payload.updateGlobal({ slug, draft: true, data: {}, user: editor, overrideAccess: false });
+        const live = await payload.updateGlobal({ slug, data: { _status: "published" }, user: pub, overrideAccess: false });
+        expect(live._status).toBe("published");
+        expect(Date.parse(live.updatedAt!)).toBeGreaterThanOrEqual(Date.parse(current.updatedAt!));
+      }
+    });
+  });
 });

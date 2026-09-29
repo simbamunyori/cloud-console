@@ -1,13 +1,12 @@
 "use client";
 
-import { Boxes, ChevronDown, Globe2, Mail, Menu, Server, ShieldCheck, X } from "lucide-react";
+import { ChevronDown, Menu, X } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useId, useRef } from "react";
-import type { MenuGroup } from "@/config/site";
 import { cn } from "@/lib/cn";
 import { usePageToggle } from "@/lib/use-page-toggle";
-
-const GROUP_ICONS: Record<MenuGroup["key"], typeof Mail> = { productivity: Mail, servers: Server, security: ShieldCheck, web: Globe2, apps: Boxes };
+import type { FrameLink, MenuGroupView } from "./frame-content";
+import { BlockIcon } from "./icons";
 
 const link = "rounded-md px-3 py-2 text-callout font-medium text-ink hover:bg-surface-2";
 
@@ -16,7 +15,7 @@ const link = "rounded-md px-3 py-2 text-callout font-medium text-ink hover:bg-su
  * service families. Closes on Escape (focus returns to the button), on a
  * click outside and when a link is followed.
  */
-export function ServicesMenu({ base, groups }: { base: string; groups: MenuGroup[] }) {
+export function ServicesMenu({ groups, note, more }: { groups: MenuGroupView[]; note: string | null; more: FrameLink | null }) {
   const [open, setOpen] = usePageToggle();
   const button = useRef<HTMLButtonElement>(null);
   const root = useRef<HTMLDivElement>(null);
@@ -50,20 +49,19 @@ export function ServicesMenu({ base, groups }: { base: string; groups: MenuGroup
       <div id={panelId} hidden={!open} className="absolute inset-x-0 top-full border-b border-border bg-surface-1 shadow-elevation-3">
         <div className="mx-auto grid max-w-content grid-cols-5 gap-6 px-6 py-8">
           {groups.map((g) => {
-            const Icon = GROUP_ICONS[g.key];
             return (
-              <section key={g.key} aria-labelledby={`menu-${g.key}`} className="flex flex-col gap-3">
+              <section key={g.id} aria-labelledby={`menu-${g.id}`} className="flex flex-col gap-3">
                 <span className="flex size-10 items-center justify-center rounded-md bg-brand-soft text-link">
-                  <Icon aria-hidden className="size-5" />
+                  <BlockIcon name={g.icon} className="size-5" />
                 </span>
-                <h2 id={`menu-${g.key}`} className="text-headline text-ink">
+                <h2 id={`menu-${g.id}`} className="text-headline text-ink">
                   {g.title}
                 </h2>
                 <p className="text-callout text-ink-muted">{g.blurb}</p>
                 <ul className="flex flex-col gap-1">
                   {g.links.map((l) => (
                     <li key={l.label}>
-                      <Link href={`${base}${l.href}`} onClick={() => setOpen(false)} className="block rounded-sm py-1 text-callout font-medium text-link hover:underline">
+                      <Link href={l.href} onClick={() => setOpen(false)} className="block rounded-sm py-1 text-callout font-medium text-link hover:underline">
                         {l.label}
                       </Link>
                     </li>
@@ -73,14 +71,18 @@ export function ServicesMenu({ base, groups }: { base: string; groups: MenuGroup
             );
           })}
         </div>
-        <div className="border-t border-border bg-surface-0">
-          <div className="mx-auto flex max-w-content items-center justify-between gap-4 px-6 py-4 text-callout">
-            <span className="text-ink-muted">Every price is per month, in your currency, on one invoice.</span>
-            <Link href={`${base}/pricing`} onClick={() => setOpen(false)} className="font-semibold text-link hover:underline">
-              See every price
-            </Link>
+        {note || more ? (
+          <div className="border-t border-border bg-surface-0">
+            <div className="mx-auto flex max-w-content items-center justify-between gap-4 px-6 py-4 text-callout">
+              <span className="text-ink-muted">{note}</span>
+              {more ? (
+                <Link href={more.href} onClick={() => setOpen(false)} className="font-semibold text-link hover:underline">
+                  {more.label}
+                </Link>
+              ) : null}
+            </div>
           </div>
-        </div>
+        ) : null}
       </div>
     </div>
   );
@@ -90,7 +92,7 @@ export function ServicesMenu({ base, groups }: { base: string; groups: MenuGroup
  * The whole navigation behind one button on phones, so the header stays
  * one row. A modal sheet: focus stays inside until it closes.
  */
-export function SiteMenu({ base, groups, pages, footer }: { base: string; groups: MenuGroup[]; pages: { label: string; href: string }[]; footer: React.ReactNode }) {
+export function SiteMenu({ groups, pages, footer }: { groups: MenuGroupView[]; pages: FrameLink[]; footer: React.ReactNode }) {
   const ref = useRef<HTMLDialogElement>(null);
   const [open, setOpen] = usePageToggle();
 
@@ -124,10 +126,9 @@ export function SiteMenu({ base, groups, pages, footer }: { base: string; groups
             <div className="flex flex-col gap-4">
               <h2 className="label-kicker text-ink-muted">Services</h2>
               {groups.map((g) => {
-                const Icon = GROUP_ICONS[g.key];
                 return (
-                  <Link key={g.key} href={`${base}${g.links[0].href}`} onClick={() => setOpen(false)} className="flex items-start gap-3 rounded-md p-2 hover:bg-surface-2">
-                    <Icon aria-hidden className="mt-1 size-5 shrink-0 text-link" />
+                  <Link key={g.id} href={g.links[0].href} onClick={() => setOpen(false)} className="flex items-start gap-3 rounded-md p-2 hover:bg-surface-2">
+                    <BlockIcon name={g.icon} className="mt-1 size-5 shrink-0 text-link" />
                     <span className="flex flex-col">
                       <span className="text-body font-semibold text-ink">{g.title}</span>
                       <span className="text-callout text-ink-muted">{g.blurb}</span>

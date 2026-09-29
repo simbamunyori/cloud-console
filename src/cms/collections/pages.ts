@@ -1,8 +1,8 @@
-import { Forbidden, type CollectionConfig, type PayloadRequest } from "payload";
-import { canPublishWebsite } from "@/server/staff/access";
+import type { CollectionConfig } from "payload";
 import { PAGE_BLOCKS } from "../blocks";
 import { image, text, textarea } from "../fields";
 import { DEFAULT_LOCALE } from "../locales";
+import { auditPublished, editorsWriteDrafts, publishingAccess } from "../publishing";
 
 /**
  * The website's pages. Each market's words are a locale (Botswana's show
@@ -11,13 +11,13 @@ import { DEFAULT_LOCALE } from "../locales";
  */
 
 /** Addresses the site already uses, which a page can't take. */
-export const RESERVED_SLUGS = ["pricing", "legal", "security", "preview", "admin", "app", "media"];
+export const RESERVED_SLUGS = ["legal", "preview", "admin", "app", "media"];
+
+/** Pages with their own address and extras: pricing shows the price tables under its sections. */
+export const SPECIAL_SLUGS = ["home", "pricing", "security"];
 
 /** "home" is the market's home page; any other slug is /<market>/<slug>. */
 export const pagePath = (slug: string | null | undefined) => (!slug || slug === "home" ? "" : `/${slug}`);
-
-type EditorUser = { websiteRole?: string | null } | null | undefined;
-const publisher = (req: PayloadRequest) => canPublishWebsite((req.user as EditorUser)?.websiteRole as "EDITOR" | "PUBLISHER" | undefined);
 
 /** Where the editor's preview goes: the page in the market being edited, in draft mode. */
 const previewUrl = (slug: string | null | undefined, locale: string | undefined) =>
@@ -40,14 +40,7 @@ export const Pages: CollectionConfig = {
     },
     preview: (doc, { locale }) => previewUrl(doc?.slug as string, locale),
   },
-  access: {
-    // Visitors see published pages; staff in the editor see drafts too.
-    read: ({ req }) => (req.user ? true : { _status: { equals: "published" } }),
-    create: ({ req, data }) => Boolean(req.user) && (data?._status !== "published" || publisher(req)),
-    update: ({ req, data }) => Boolean(req.user) && (data?._status !== "published" || publisher(req)),
-    delete: ({ req }) => publisher(req),
-    readVersions: ({ req }) => Boolean(req.user),
-  },
+  access: publishingAccess,
   versions: {
     drafts: { autosave: { interval: 1500 }, schedulePublish: true },
     maxPerDoc: 50,
@@ -60,13 +53,24 @@ export const Pages: CollectionConfig = {
       required: true,
       unique: true,
       index: true,
-      admin: { position: "sidebar", description: "home is the market's home page. Anything else becomes /<market>/<address>, e.g. about." },
+      admin: { position: "sidebar", description: "home is the market's home page, pricing and security are those pages. Anything else becomes /<market>/<address>, e.g. about." },
       validate: (value: unknown) => {
         const v = String(value ?? "");
         if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(v)) return "Lower-case letters, numbers and single dashes, e.g. about-us.";
         if (RESERVED_SLUGS.includes(v)) return `The site already uses /${v}. Choose another address.`;
         return true;
       },
+    },
+    {
+      name: "style",
+      label: "Page style",
+      type: "select",
+      defaultValue: "landing",
+      admin: { position: "sidebar", description: "Landing: full-width sections. Document: one column of headings and text, like the Security page." },
+      options: [
+        { label: "Landing", value: "landing" },
+        { label: "Document", value: "document" },
+      ],
     },
     { name: "layout", label: "Sections", type: "blocks", localized: true, blocks: PAGE_BLOCKS },
     {
@@ -94,23 +98,12 @@ export const Pages: CollectionConfig = {
     },
   ],
   hooks: {
-    beforeOperation: [
-      ({ args, operation, req }) => {
-        // Editors only ever write drafts. A write that isn't a draft changes the live page (publish or unpublish).
-        const a = args as { overrideAccess?: boolean; draft?: boolean };
-        if (!req.user || a.overrideAccess || publisher(req)) return args;
-        if ((operation === "create" || operation === "update") && !a.draft) throw new Forbidden(req.t);
-        // Restoring a version replaces the page with it, so it's a Publisher's call.
-        if (operation === "restoreVersion") throw new Forbidden(req.t);
-        return args;
-      },
-    ],
+    beforeOperation: [editorsWriteDrafts],
     afterChange: [
       async ({ doc, previousDoc, req, operation }) => {
         if (doc._status !== "published") return doc;
-        const { websiteAudit } = await import("@/server/cms/audit");
         const first = operation === "create" || previousDoc?._status !== "published";
-        await websiteAudit(req.user as never, "website.page-published", `${first ? "Published" : "Published changes to"} the page ${doc.title}`, { pageId: doc.id, slug: doc.slug, locale: req.locale });
+        await auditPublished(req, "website.page-published", `${first ? "Published" : "Published changes to"} the page ${doc.title}`, { pageId: doc.id, slug: doc.slug });
         return doc;
       },
     ],

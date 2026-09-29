@@ -1,16 +1,18 @@
 # Legal pages: drafts for review
 
-These are original drafts written for Fourth Generation Technologies (Pty) Ltd. They are not copied from other companies' policies. They must be reviewed and approved by a Botswana attorney before the site launches. Every page carries a "DRAFT FOR LEGAL REVIEW" line that must be removed only after approval.
+These are original drafts written for Fourth Generation Technologies (Pty) Ltd. They are not copied from other companies' policies. They must be reviewed and approved by a Botswana attorney before the site launches.
+
+Since Change Request 02 they are the website editor's first content: a new editor gets them as Legal pages, and from then on they are edited there (/admin/content, Legal pages), not here. Each page shows its "DRAFT FOR LEGAL REVIEW" banner until a Publisher ticks "Approved by legal" and publishes, which is recorded in the staff audit log.
 
 ## Botswana pages (bw)
 
 | File | Page |
 | --- | --- |
-| bw/terms.md | Terms of Service |
-| bw/privacy.md | Privacy Notice |
-| bw/refunds.md | Refund and Cancellation Policy (also needed for DPO Pay onboarding) |
-| bw/data-protection.md | Security and Data Protection |
-| bw/service-providers.md | Service Providers (who processes customer data) |
+| bw.ts, terms | Terms of Service |
+| bw.ts, privacy | Privacy Notice |
+| bw.ts, refunds | Refund and Cancellation Policy (also needed for DPO Pay onboarding) |
+| bw.ts, data-protection | Security and Data Protection |
+| bw.ts, service-providers | Service Providers (who processes customer data) |
 
 South Africa, Zimbabwe and International pages are still to be written, under POPIA and Zimbabwe's Cyber and Data Protection Act, before those markets are switched on.
 

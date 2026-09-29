@@ -13,7 +13,7 @@ import type { TenantDb } from "@/server/db";
 import { queueEmail } from "@/server/email/outbox";
 import { assertCan, DomainError, type Actor } from "@/server/org/access";
 import { audit, customerAudit } from "@/server/org/audit";
-import { legalDocument } from "@/server/site/legal";
+import { hasLegalText } from "@/server/cms/legal";
 
 /**
  * Ordering: new products, seat changes on an existing service, and domain
@@ -94,7 +94,7 @@ export async function quoteOrder(deps: OrderDeps, input: { slug: string; quantit
  * straight away, which ends the consumer cooling-off period (refunds policy, section 1).
  */
 async function assertStartNow(deps: OrderDeps, startNow: boolean | undefined) {
-  if (startNow || !(await legalDocument(deps.organisation.billingMarket, "refunds"))) return;
+  if (startNow || !(await hasLegalText(deps.organisation.billingMarket, "refunds"))) return;
   throw new DomainError("invalid", "Confirm that the service can start now.", "startNow");
 }
 

@@ -1,65 +1,21 @@
-import {
-  Boxes,
-  Building2,
-  Check,
-  CreditCard,
-  Globe,
-  GraduationCap,
-  Handshake,
-  HardDrive,
-  LayoutGrid,
-  LifeBuoy,
-  Lock,
-  Mail,
-  Receipt,
-  Server,
-  ShieldCheck,
-  Sparkles,
-  TrendingUp,
-  Users,
-  type LucideIcon,
-} from "lucide-react";
 import Link from "next/link";
-import type { IconName } from "@/cms/icons";
 import type { Media } from "@/cms/payload-types";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/cn";
 import { HeroShot, ThebeIllustration, ThemedShot, type HomeMarket } from "../home";
 
+export { BlockIcon } from "../icons";
+export { linkHref, type CmsLinkValue } from "../links";
+import { linkHref, type CmsLinkValue } from "../links";
+
 /** What every block knows about the page it is on. */
 export interface BlockContext {
-  market: HomeMarket;
+  market: HomeMarket & { dataProtectionLaw?: string | null };
   /** Unique per block on the page, for headings' ids. */
   id: string;
 }
 
 export type Tone = "plain" | "light" | "dark";
-
-const ICONS: Record<IconName, LucideIcon> = {
-  users: Users,
-  "credit-card": CreditCard,
-  "life-buoy": LifeBuoy,
-  "shield-check": ShieldCheck,
-  mail: Mail,
-  server: Server,
-  lock: Lock,
-  "hard-drive": HardDrive,
-  "layout-grid": LayoutGrid,
-  boxes: Boxes,
-  sparkles: Sparkles,
-  "graduation-cap": GraduationCap,
-  building: Building2,
-  "trending-up": TrendingUp,
-  handshake: Handshake,
-  globe: Globe,
-  check: Check,
-  receipt: Receipt,
-};
-
-export function BlockIcon({ name, className }: { name: string | null | undefined; className?: string }) {
-  const Icon = ICONS[name as IconName] ?? Boxes;
-  return <Icon aria-hidden className={className} />;
-}
 
 /**
  * A section in one of the brand's three styles. Plain sections sit on the
@@ -97,21 +53,6 @@ export function Heading({ id, tone, kicker, heading, intro }: { id: string; tone
 
 /** A card's surface: raised off a plain page, or sunk into a light panel. */
 export const cardSurface = (tone: Tone | null | undefined) => (tone === "light" ? "bg-surface-0" : "bg-surface-1");
-
-export interface CmsLinkValue {
-  label?: string | null;
-  to?: "market" | "site" | "email" | null;
-  path?: string | null;
-  subject?: string | null;
-}
-
-/** Where a link goes, or null when it has no words (an empty button isn't shown). */
-export function linkHref(link: CmsLinkValue | null | undefined, market: Pick<HomeMarket, "code" | "supportEmail">): string | null {
-  if (!link?.label) return null;
-  if (link.to === "email") return `mailto:${market.supportEmail}${link.subject ? `?subject=${encodeURIComponent(link.subject)}` : ""}`;
-  const path = link.path && link.path.startsWith("/") && !link.path.startsWith("//") ? link.path : "/";
-  return link.to === "site" ? path : `/${market.code}${path === "/" ? "" : path}`;
-}
 
 export function CmsButton({ link, market, variant }: { link: CmsLinkValue | null | undefined; market: HomeMarket; variant?: "secondary" }) {
   const href = linkHref(link, market);

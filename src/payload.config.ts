@@ -16,8 +16,10 @@ import {
 import { APIError, buildConfig } from "payload";
 import sharp from "sharp";
 import { Media } from "./cms/collections/media";
+import { Legal } from "./cms/collections/legal";
 import { Pages } from "./cms/collections/pages";
 import { Staff } from "./cms/collections/staff";
+import { Footer, Header } from "./cms/globals/site-frame";
 import { DEFAULT_LOCALE, MARKET_LOCALES } from "./cms/locales";
 import { migrations } from "./cms/migrations";
 import { mediaStorage } from "./cms/storage";
@@ -47,7 +49,8 @@ export default buildConfig({
       logout: { Button: "@/cms/components/brand#BackToConsole" },
     },
   },
-  collections: [Pages, Media, Staff],
+  collections: [Pages, Legal, Media, Staff],
+  globals: [Header, Footer],
   // Each market is a locale; a market without its own words shows Botswana's.
   localization: {
     locales: MARKET_LOCALES.map((l) => ({ code: l.code, label: l.label })),
