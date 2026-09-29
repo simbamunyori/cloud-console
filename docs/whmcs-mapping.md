@@ -98,7 +98,7 @@ upgrade credits switched off, which is the setting to use.
 1. Fill in each method of `WhmcsBillingAdapter` using the action in the
    table and the mapper in `map.ts`.
 2. Set `BILLING_ADAPTER=whmcs`, `WHMCS_API_URL`, and the secrets
-   `WHMCS_IDENTIFIER`, `WHMCS_SECRET` and, if WHMCS uses one,
+   `WHMCS_API_IDENTIFIER`, `WHMCS_API_SECRET` and, if WHMCS uses one,
    `WHMCS_ACCESS_KEY`. Allow the console's address in WHMCS's API IP list.
 3. Run the contract tests (`tests/billing-contract.ts`) against a WHMCS
    staging copy.

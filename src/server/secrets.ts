@@ -13,9 +13,10 @@ import "server-only";
 export type SecretName =
   | "TOTP_ENCRYPTION_KEY"
   | "ANTHROPIC_API_KEY"
-  | "WHMCS_IDENTIFIER"
-  | "WHMCS_SECRET"
-  | "WHMCS_ACCESS_KEY";
+  | "WHMCS_API_IDENTIFIER"
+  | "WHMCS_API_SECRET"
+  | "WHMCS_ACCESS_KEY"
+  | "WHMCS_SYNC_SECRET";
 
 export interface SecretSource {
   get(name: SecretName): string | undefined;

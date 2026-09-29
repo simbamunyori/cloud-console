@@ -135,7 +135,7 @@ the UI and never sent to the assistant.
 | `MAIL_FROM` | No | Sender address |
 | `BILLING_ADAPTER` | No | `stub` (default) or `whmcs` |
 | `WHMCS_API_URL` | With WHMCS | WHMCS API address |
-| `WHMCS_IDENTIFIER`, `WHMCS_SECRET` | With WHMCS, secret | API credentials |
+| `WHMCS_API_IDENTIFIER`, `WHMCS_API_SECRET` | With WHMCS, secret | API credentials (docs/whmcs-setup.md) |
 | `WHMCS_ACCESS_KEY` | Optional, secret | If WHMCS requires an API access key |
 | `PAYMENT_ADAPTER` | No | `stub` only, until the card gateway is chosen |
 | `ANTHROPIC_API_KEY` | Optional, secret | Switches the support assistant on. Without it, the assistant page offers a ticket instead |
@@ -208,8 +208,8 @@ API findings in `docs/whmcs-api-notes.md`. In short:
    field mapping (`whmcs/map.ts`, with tests) are already written, and each
    method names the WHMCS action it calls. WHMCS field names appear only in
    `map.ts`.
-2. Set `BILLING_ADAPTER=whmcs`, `WHMCS_API_URL`, `WHMCS_IDENTIFIER`,
-   `WHMCS_SECRET` and, if used, `WHMCS_ACCESS_KEY`. Add the console's
+2. Set `BILLING_ADAPTER=whmcs`, `WHMCS_API_URL`, `WHMCS_API_IDENTIFIER`,
+   `WHMCS_API_SECRET` and, if used, `WHMCS_ACCESS_KEY`. Add the console's
    address to WHMCS's API IP allowlist.
 3. Run the adapter contract tests (`tests/billing-contract.ts`) against a
    WHMCS staging copy. The same tests pass on the stub today.
