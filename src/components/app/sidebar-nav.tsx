@@ -5,6 +5,7 @@ import {
   Globe,
   Hourglass,
   Building2,
+  FileText,
   ClipboardList,
   House,
   LayoutDashboard,
@@ -44,6 +45,7 @@ const ICONS = {
   catalogue: Boxes,
   markets: Globe,
   waitlist: Hourglass,
+  quotes: FileText,
   website: SquarePen,
   staff: UserCog,
 };

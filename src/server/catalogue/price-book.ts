@@ -86,7 +86,7 @@ export interface PricedProduct {
 /**
  * Everything on sale in a market, by category, at the prices in effect
  * this month. Our own test organisations (audience "internal") also see
- * internal products.
+ * internal products. Products sold by quote come with a null price.
  */
 export async function marketplace(db: Db, market: MarketRef, month: string, audience: Audience = "public") {
   const [categories, book] = await Promise.all([
@@ -98,9 +98,11 @@ export async function marketplace(db: Db, market: MarketRef, month: string, audi
     bookFor(db, market.code, month),
   ]);
   return categories.flatMap(({ products, ...category }) => {
+    // Products sold by quote have no price; they show with a way to ask for one.
     const priced = products.flatMap((product) => {
+      if (product.fulfilment === "QUOTE") return [{ product: { ...product, category }, price: null as Money | null }];
       const price = entryMoney(book.get(productItem(product.slug)), market);
-      return price ? [{ product: { ...product, category }, price }] : [];
+      return price ? [{ product: { ...product, category }, price: price as Money | null }] : [];
     });
     return priced.length ? [{ category, products: priced }] : [];
   });

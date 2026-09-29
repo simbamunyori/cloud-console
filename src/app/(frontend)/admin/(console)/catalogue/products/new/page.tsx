@@ -12,6 +12,8 @@ export const metadata: Metadata = { title: "Add a product" };
 export default async function NewProductPage({ searchParams }: { searchParams: Promise<{ category?: string }> }) {
   await requireStaffCan("manageCatalogue");
   const [{ category }, options] = await Promise.all([searchParams, productFormOptions(prisma)]);
+  // A family that sells everything one way (Connectivity: by quote) sets the default.
+  const familyFulfilment = category ? (await prisma.productCategory.findUnique({ where: { key: category }, select: { family: { select: { fulfilment: true } } } }))?.family.fulfilment : null;
   return (
     <>
       <BackToCatalogue />
@@ -38,7 +40,7 @@ export default async function NewProductPage({ searchParams }: { searchParams: P
               fixedPrice: "",
               fixedPriceCurrency: options.currencies[0]?.value ?? "",
               markets: options.markets.map((m) => m.value),
-              fulfilment: "MANUAL",
+              fulfilment: familyFulfilment ?? "MANUAL",
               status: "DRAFT",
               sortOrder: "100",
             }}

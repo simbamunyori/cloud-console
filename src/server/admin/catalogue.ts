@@ -31,7 +31,10 @@ export const CONNECTOR_LABEL: Record<ConnectorFamily, string> = {
   PROTECTION: "Protection (backup, recovery, monitoring)",
   OUR_SOFTWARE: "Our software",
   SERVICES: "Services",
+  CONNECTIVITY: "Connectivity",
 };
+
+const FULFILMENT_WORDS: Record<Fulfilment, string> = { AUTOMATIC: "with automatic setup", MANUAL: "with setup by our team", QUOTE: "by quote" };
 
 export const FULFILMENT_LABEL: Record<Fulfilment, string> = { AUTOMATIC: "Automatic", MANUAL: "Manual (a staff task)", QUOTE: "Request a quote" };
 
@@ -104,6 +107,8 @@ export interface FamilyInput {
   description: string;
   connector: string;
   status: string;
+  /** "" lets each product choose; otherwise every product is sold this way. */
+  fulfilment?: string;
   sortOrder: string;
 }
 
@@ -136,9 +141,14 @@ export async function saveFamily(deps: CatalogueDeps, input: FamilyInput, existi
     description: text(input.description, "description", "a description", 200, errors),
     connector: input.connector as ConnectorFamily,
     status: input.status as CatalogueStatus,
+    fulfilment: (input.fulfilment || null) as Fulfilment | null,
     sortOrder: whole(input.sortOrder || "0", "sortOrder", "a position", 0, 999, errors),
   };
   if (!(input.connector in CONNECTOR_LABEL)) errors.connector = "Choose the connector that fulfils this family.";
+  if (data.fulfilment && !FULFILMENTS.includes(data.fulfilment)) errors.fulfilment = "Choose how its products are sold.";
+  else if (data.fulfilment === "AUTOMATIC" && data.connector in CONNECTOR_LABEL && !connectorFor(data.connector).automatic) {
+    errors.fulfilment = `The ${CONNECTOR_LABEL[data.connector]} connector can't set products up by itself yet.`;
+  }
   if (!STATUSES.includes(data.status)) errors.status = "Choose a status.";
   check(errors);
 
@@ -323,7 +333,9 @@ export async function saveProduct(deps: CatalogueDeps, input: ProductInput, exis
   if (!FULFILMENTS.includes(fields.fulfilment)) errors.fulfilment = "Choose how it is fulfilled.";
   if (!STATUSES.includes(fields.status)) errors.status = "Choose a status.";
   if (!fields.quantityAllowed) fields.minQuantity = 1;
-  if (category && fields.fulfilment === "AUTOMATIC" && !connectorFor(category.family.connector).automatic) {
+  if (category?.family.fulfilment && fields.fulfilment !== category.family.fulfilment) {
+    errors.fulfilment = `Everything in ${category.family.name} is sold ${FULFILMENT_WORDS[category.family.fulfilment]}.`;
+  } else if (category && fields.fulfilment === "AUTOMATIC" && !connectorFor(category.family.connector).automatic) {
     errors.fulfilment = `The ${CONNECTOR_LABEL[category.family.connector]} connector can't set products up by itself yet. Choose manual.`;
   }
   if (fields.status !== "DRAFT") {

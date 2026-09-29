@@ -58,7 +58,7 @@ export interface SitePrice {
 export const sitePrices = cache(async (code: string): Promise<SitePrice[]> => {
   const m = await siteMarket(code);
   return (await marketplace(prisma as unknown as PrismaClient, m, siteMonth(m))).flatMap((c) =>
-    c.products.map(({ product: p, price }) => ({ slug: p.slug, name: p.name, summary: p.summary, categoryKey: p.categoryKey, unitLabel: p.unitLabel, price: shownPrice(m, price) })),
+    c.products.flatMap(({ product: p, price }) => (price ? [{ slug: p.slug, name: p.name, summary: p.summary, categoryKey: p.categoryKey, unitLabel: p.unitLabel, price: shownPrice(m, price) }] : [])),
   );
 });
 
@@ -85,7 +85,7 @@ export async function pricingTables(code: string) {
   const month = siteMonth(m);
   const [categories, domains] = await Promise.all([marketplace(prisma as unknown as PrismaClient, m, month), tldOffers(prisma as unknown as PrismaClient, m, month)]);
   return {
-    categories: categories.map((c) => ({ ...c, products: c.products.map((p) => ({ ...p, price: shownPrice(m, p.price) })) })),
+    categories: categories.map((c) => ({ ...c, products: c.products.map((p) => ({ ...p, price: p.price ? shownPrice(m, p.price) : null })) })),
     domains: domains.map((d) => ({ ...d, register: shownPrice(m, d.register), renew: shownPrice(m, d.renew) })),
   };
 }

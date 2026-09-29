@@ -1,5 +1,6 @@
 import type { Page } from "@playwright/test";
 import { PrismaClient } from "@prisma/client";
+import { hashToken, newToken } from "../../src/server/auth/tokens";
 import { DEMO_CUSTOMER } from "./sessions";
 
 /**
@@ -30,11 +31,16 @@ export const PAGES: PageSpec[] = [
   { name: "forgot-password", audience: "public", path: "/forgot-password" },
   { name: "reset-link-expired", audience: "public", path: "/reset-password/expired-example" },
   { name: "staff-sign-in", audience: "public", path: "/admin/sign-in" },
+  { name: "site-quote", audience: "public", path: "/bw/quote" },
+  { name: "quote-link", audience: "public", path: "quote-link:" },
 
   { name: "home", audience: "customer", path: "/app" },
   { name: "search", audience: "customer", path: "/app/search?q=backup" },
   { name: "marketplace", audience: "customer", path: "/app/marketplace" },
   { name: "product", audience: "customer", path: "/app/marketplace", follow: 'main a[href^="/app/marketplace/"]:not([href="/app/marketplace/domains"])' },
+  { name: "quotes", audience: "customer", path: "/app/quotes" },
+  { name: "quote", audience: "customer", path: "/app/quotes", follow: 'main a[href^="/app/quotes/QUO-"]' },
+  { name: "new-quote", audience: "customer", path: "/app/quotes/new" },
   { name: "domains", audience: "customer", path: "/app/marketplace/domains?q=kgalehill" },
   { name: "services", audience: "customer", path: "/app/services" },
   { name: "service", audience: "customer", path: "/app/services", follow: 'main a[href^="/app/services/"]' },
@@ -58,6 +64,8 @@ export const PAGES: PageSpec[] = [
   { name: "admin-tickets", audience: "staff", path: "/admin/tickets" },
   { name: "admin-ticket", audience: "staff", path: "/admin/tickets", follow: 'main a[href^="/admin/tickets/"]' },
   { name: "admin-orders", audience: "staff", path: "/admin/orders" },
+  { name: "admin-quotes", audience: "staff", path: "/admin/quotes" },
+  { name: "admin-quote", audience: "staff", path: "/admin/quotes", follow: 'main a[href^="/admin/quotes/QUO-"]' },
   { name: "admin-payments", audience: "staff", path: "/admin/payments" },
   { name: "admin-catalogue", audience: "staff", path: "/admin/catalogue" },
   { name: "admin-catalogue-product", audience: "staff", path: "/admin/catalogue/products/managed-vps-small" },
@@ -83,6 +91,19 @@ export async function resolvePath(page: Page, spec: PageSpec, base: string): Pro
         select: { reference: true },
       });
       return order ? `/app/orders/${order.reference}` : null;
+    } finally {
+      await db.$disconnect();
+    }
+  }
+  if (spec.path === "quote-link:") {
+    // The demo organisation's sent quote, with a fresh link as its email would carry.
+    const db = new PrismaClient();
+    try {
+      const quote = await db.quote.findFirst({ where: { status: "SENT", organisation: { memberships: { some: { user: { email: DEMO_CUSTOMER } } } } }, orderBy: { createdAt: "desc" } });
+      if (!quote) return null;
+      const token = newToken();
+      await db.quote.update({ where: { id: quote.id }, data: { tokenHash: hashToken(token) } });
+      return `/quote/${token}`;
     } finally {
       await db.$disconnect();
     }

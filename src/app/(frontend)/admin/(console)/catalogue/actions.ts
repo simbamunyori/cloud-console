@@ -22,7 +22,7 @@ const values = (form: FormData, keys: readonly string[]) => Object.fromEntries(k
 
 const saved = (changed: number) => (changed ? `Saved ${changed} ${changed === 1 ? "change" : "changes"}.` : "Nothing had changed.");
 
-const FAMILY_FIELDS = ["key", "name", "description", "connector", "status", "sortOrder"] as const;
+const FAMILY_FIELDS = ["key", "name", "description", "connector", "status", "fulfilment", "sortOrder"] as const;
 
 export async function saveFamilyAction(_prev: ActionState, form: FormData): Promise<ActionState> {
   const existing = field(form, "existing") || undefined;

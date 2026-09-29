@@ -21,6 +21,7 @@ import { scopedBilling } from "../src/server/billing/scoped";
 import { tenantDb } from "../src/server/db";
 import { placeOrder } from "../src/server/orders/orders";
 import { openTicket } from "../src/server/support/tickets";
+import { requestQuote, saveQuote, sendQuote } from "../src/server/quotes/quotes";
 import { syncStubTaxRules } from "../src/server/markets/tax-sync";
 
 const db = new PrismaClient();
@@ -206,6 +207,33 @@ async function main() {
     { db: tenant, organisation: orgRow, actor: { membershipId: owner.id, userId: owner.userId, name: owner.user.name, role: "OWNER" } },
     { subject: "Shared mailbox for deliveries", body: "Hello, can we add a shared mailbox deliveries@kgalehill.co.bw that Kabo and Lesego can both read? Does it need its own licence?" },
   );
+
+  // Quotes: a request from the website for staff to price, and a quote sent to the demo organisation.
+  await requestQuote(
+    db,
+    { name: "Tsholofelo Sithole", company: "Okavango Lodges", email: "tsholofelo@okavangolodges.example", phone: "+267 686 0000", country: "BW", need: "Email and file sharing for 40 staff across three lodges near Maun, moving from a local server. We'd like someone to do the move over a weekend." },
+    { market: "bw" },
+  );
+  const asked = await requestQuote(
+    db,
+    { name: owner.user.name, company: orgRow.name, email: owner.user.email, phone: orgRow.phone ?? "+267 391 2345", country: "BW", need: "Support for our depot in Francistown as well as Gaborone, with someone on site twice a month." },
+    { market: "bw", organisationId: org.id, userId: owner.userId },
+  );
+  const quoteStaff = await db.user.findUniqueOrThrow({ where: { email: "staff@example.co.bw" } });
+  const staffActor = { userId: quoteStaff.id, name: quoteStaff.name, staffRole: "ADMIN" as const };
+  const support = await db.product.findUniqueOrThrow({ where: { slug: "managed-support" } });
+  await saveQuote({ db, staff: staffActor }, asked.reference, {
+    market: "bw",
+    productId: support.id,
+    message: "Thanks for the call, Neo. This covers both depots, with two visits a month to Francistown.",
+    validUntil: addDays(today, 21).toISOString().slice(0, 10),
+    lines: [
+      { kind: "MONTHLY", description: "Managed support, Gaborone and Francistown", quantity: "1", unitPrice: "2400" },
+      { kind: "MONTHLY", description: "Site visit to Francistown", quantity: "2", unitPrice: "650" },
+      { kind: "ONE_OFF", description: "Setting up the Francistown depot", quantity: "1", unitPrice: "3500" },
+    ],
+  });
+  await sendQuote({ db, staff: staffActor }, asked.reference);
 
   const invoices = await stub.listInvoices(clientId);
   console.log(`Demo organisation: Kgale Hill Logistics, ${invoices.length} invoices from ${start.toISOString().slice(0, 10)}.`);

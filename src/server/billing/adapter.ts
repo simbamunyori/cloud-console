@@ -79,6 +79,16 @@ export interface NewOrder {
   paymentMethod: string;
   /** False when the change joins the next monthly invoice instead. */
   createInvoice: boolean;
+  /**
+   * Charges made once, such as installation, added to the order's invoice
+   * (createInvoice must be true). Each amount is the whole line.
+   */
+  oneOffLines?: OneOffLine[];
+}
+
+export interface OneOffLine {
+  description: string;
+  amount: Money;
 }
 
 export interface PlacedOrder {

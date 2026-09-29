@@ -55,7 +55,7 @@ function safeNext(next: string, audience: UserKind): string {
   if (audience === "STAFF") return /^\/admin(\/[\w\-/]*)?$/.test(next) ? next : "/admin";
   // The domain search may carry its query, as the site's "Find your domain" sends it.
   if (/^\/app\/marketplace\/domains\?q=[\w.%-]{1,300}$/.test(next)) return next;
-  return /^\/(app(\/[\w\-/]*)?|invite\/[\w\-%]+)$/.test(next) ? next : "/app";
+  return /^\/(app(\/[\w\-/]*)?|(invite|quote)\/[\w\-%]+)$/.test(next) ? next : "/app";
 }
 
 const PATHS: Record<UserKind, { signIn: string; code: string; setup: string }> = {

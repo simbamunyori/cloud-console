@@ -26,7 +26,7 @@ export function pricingLayout(): Layout {
       heading: "Not sure what you need? Tell us what you run today.",
       tone: "dark",
       primary: { label: "Get started", to: "site", path: "/sign-up" },
-      secondary: { label: "Book a call", to: "email", subject: "Book a call" },
+      secondary: { label: "Ask for a quote", to: "market", path: "/quote" },
     },
   ] as Layout;
 }

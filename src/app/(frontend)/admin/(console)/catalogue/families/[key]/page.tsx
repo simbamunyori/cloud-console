@@ -30,7 +30,7 @@ export default async function FamilyPage({ params, searchParams }: { params: Pro
           <FamilyForm
             existing={f.key}
             connectors={CONNECTOR_OPTIONS}
-            family={{ key: f.key, name: f.name, description: f.description, connector: f.connector, status: f.status, sortOrder: String(f.sortOrder) }}
+            family={{ key: f.key, name: f.name, description: f.description, connector: f.connector, status: f.status, fulfilment: f.fulfilment ?? "", sortOrder: String(f.sortOrder) }}
           />
         </CardBody>
       </Card>

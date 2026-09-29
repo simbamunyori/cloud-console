@@ -207,8 +207,18 @@ neither, everyone lands on the default market and can switch.
   customer in any market would see it, then make it internal (staff and
   our test organisations, set on a customer's page) or live. Draft and
   internal products never reach the public site, the marketplace, search
-  or the assistant. The seed only adds what is missing, so staff edits
+  or the assistant. Connectivity is a draft family sold only by quote,
+  with no products yet. The seed only adds what is missing, so staff edits
   stay. Every change is in the staff audit log with before and after.
+- **Quotes:** anyone can ask at `/<market>/quote` (no account), or in the
+  console at `/app/quotes/new`; products sold by quote link there. Staff
+  price requests at `/admin/quotes` (Support and Admin): monthly and
+  one-off lines, the product it is ordered as, and a date it holds until,
+  then send it. The email links to `/quote/<token>`, where anyone can read
+  or decline it; accepting needs an account and places an ordinary order
+  at the quoted price, with the one-off lines on its first invoice. The
+  form has a hidden field for bots and a limit of 5 requests an hour per
+  address.
 - **Waiting list:** people from countries with no market that is on can
   leave their details at sign-up; staff see them at `/admin/waitlist`.
 

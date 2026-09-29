@@ -16,7 +16,7 @@ export default async function NewFamilyPage() {
       <PageHeader title="Add a product family" description="A family groups categories fulfilled by one connector. It starts as a draft, so nothing in it shows until you make it internal or live." />
       <Card>
         <CardBody>
-          <FamilyForm connectors={CONNECTOR_OPTIONS} family={{ key: "", name: "", description: "", connector: "SERVICES", status: "DRAFT", sortOrder: "100" }} />
+          <FamilyForm connectors={CONNECTOR_OPTIONS} family={{ key: "", name: "", description: "", connector: "SERVICES", status: "DRAFT", fulfilment: "", sortOrder: "100" }} />
         </CardBody>
       </Card>
     </>

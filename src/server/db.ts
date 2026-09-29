@@ -22,6 +22,7 @@ export const TENANT_MODELS = new Set<string>([
   "BillingAccount",
   "InvoicePoNumber",
   "Order",
+  "Quote",
   "ProvisioningTask",
   "EftPayment",
   "CardPayment",
