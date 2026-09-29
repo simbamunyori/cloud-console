@@ -17,7 +17,7 @@ export async function placeOrderAction(_prev: ActionState, form: FormData): Prom
   const values = { quantity: field(form, "quantity"), ...Object.fromEntries(Object.entries(options).map(([k, v]) => [`option_${k}`, v])) };
   let reference = "";
   const result = await run(async () => {
-    const order = await placeOrder(await deps(), { slug: field(form, "slug"), quantity: values.quantity || "1", options });
+    const order = await placeOrder(await deps(), { slug: field(form, "slug"), quantity: values.quantity || "1", options, startNow: form.get("startNow") === "on" });
     reference = order.reference;
   }, values);
   if (!result.ok) return result;
@@ -28,7 +28,7 @@ export async function placeOrderAction(_prev: ActionState, form: FormData): Prom
 export async function registerDomainAction(_prev: ActionState, form: FormData): Promise<ActionState> {
   let reference = "";
   const result = await run(async () => {
-    const order = await registerDomain(await deps(), field(form, "domain"), field(form, "years"));
+    const order = await registerDomain(await deps(), field(form, "domain"), field(form, "years"), form.get("startNow") === "on");
     reference = order.reference;
   });
   if (!result.ok) return result;

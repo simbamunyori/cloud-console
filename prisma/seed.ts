@@ -190,7 +190,7 @@ async function main() {
   clock = today;
   await placeOrder(
     { db: tenant, billing: await scopedBilling(db, stub, org.id), organisation: orgRow, actor: { membershipId: owner.id, userId: owner.userId, name: owner.user.name, role: "OWNER" } },
-    { slug: "managed-vps-small", quantity: 1, options: { os: "Ubuntu 24.04 LTS" } },
+    { slug: "managed-vps-small", quantity: 1, options: { os: "Ubuntu 24.04 LTS" }, startNow: true },
   );
   if (latestInvoice) {
     const invoice = await stub.getInvoice(clientId, latestInvoice.invoiceId);
