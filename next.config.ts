@@ -22,4 +22,14 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default withPayload(nextConfig, { devBundleServerPackages: false });
+const withEditor = withPayload(nextConfig, { devBundleServerPackages: false });
+
+export default {
+  ...withEditor,
+  // Payload asks every page for the colour-scheme client hint with Critical-CH,
+  // which makes browsers load each page twice. Only the editor needs it.
+  async headers() {
+    const all = (await withEditor.headers?.()) ?? [];
+    return all.map((rule) => (rule.headers.some((h) => h.key === "Critical-CH") ? { ...rule, source: "/admin/content/:path*" } : rule));
+  },
+} satisfies NextConfig;
