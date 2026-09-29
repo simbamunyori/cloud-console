@@ -11,7 +11,7 @@
  * WHMCS_ENVIRONMENT=production. See docs/whmcs-setup.md, section 9.
  */
 import { randomBytes } from "node:crypto";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { money } from "../src/lib/domain/money";
 import { PAYMENT_METHODS } from "../src/server/billing/adapter";
 import { WhmcsClient, WhmcsRefusal } from "../src/server/billing/whmcs/client";
@@ -26,6 +26,8 @@ const live = Boolean(e.WHMCS_API_URL && e.WHMCS_API_IDENTIFIER && e.WHMCS_API_SE
 const writes = live && e.WHMCS_TEST_WRITES === "yes";
 // The hard guard: throws before any test is registered.
 if (writes) assertWritesAllowed({ WHMCS_ENVIRONMENT: e.WHMCS_ENVIRONMENT });
+// A live install answers in seconds per call, not the 5 s unit default.
+vi.setConfig({ testTimeout: 60_000 });
 
 const client = () => new WhmcsClient({ url: e.WHMCS_API_URL!, identifier: e.WHMCS_API_IDENTIFIER!, secret: e.WHMCS_API_SECRET!, accessKey: e.WHMCS_ACCESS_KEY || undefined });
 const adapter = () => new WhmcsBillingAdapter(client(), { sendToRegistrar: false });
