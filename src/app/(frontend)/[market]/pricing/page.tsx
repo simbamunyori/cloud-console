@@ -1,35 +1,55 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { PageHeading, RenderBlocks } from "@/components/site/blocks";
+import { CmsButton } from "@/components/site/blocks/parts";
+import { fill } from "@/components/site/rich-text";
 import { SitePage } from "@/components/site/site-page";
 import { Button } from "@/components/ui/button";
 import { company } from "@/config/app";
 import { formatMoney } from "@/lib/domain/money";
+import { cmsPage } from "@/server/site/cms";
+import { cmsMetadata } from "@/server/site/cms-metadata";
 import { pricingTables, siteMarket, siteMetadata, taxNote } from "@/server/site/site";
 
 type Props = { params: Promise<{ market: string }> };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const m = await siteMarket((await params).market);
-  return siteMetadata(m.code, "/pricing", {
+  const fallback = {
     title: `Pricing in ${m.name} | ${company.name}`,
     description: `Monthly prices in ${m.currency} for Microsoft 365, Google Workspace, servers, hosting, security and domain names, on one invoice.`,
-  });
+  };
+  const page = await cmsPage(m.code, "pricing");
+  return page ? cmsMetadata(m.code, "/pricing", page, fallback) : siteMetadata(m.code, "/pricing", fallback);
 }
 
+/**
+ * The market's prices, always live from its price book. The heading and
+ * the panel under the tables come from the editor's "pricing" page (its
+ * Page heading and first Call to action); any other sections follow.
+ */
 export default async function PricingPage({ params }: Props) {
   const m = await siteMarket((await params).market);
-  const { categories, domains } = await pricingTables(m.code);
+  const [{ categories, domains }, page] = await Promise.all([pricingTables(m.code), cmsPage(m.code, "pricing")]);
   const note = taxNote(m);
+  const layout = page?.layout ?? [];
+  const intro = layout.find((b) => b.blockType === "pageIntro");
+  const panel = layout.find((b) => b.blockType === "callToAction");
+  const rest = layout.filter((b) => b !== intro && b !== panel);
   return (
     <SitePage code={m.code} path="/pricing">
       <div className="mx-auto max-w-content px-4 py-12 sm:px-6 lg:py-16">
-        <div className="flex max-w-2xl flex-col gap-3">
-          <p className="label-kicker text-link">Pricing</p>
-          <h1 className="text-title-1 text-ink sm:text-display">One invoice a month, in your currency.</h1>
-          <p className="text-body text-ink-muted">
-            Prices for {m.name}, per month unless it says otherwise. They are fixed for the month and every line on your invoice is explained.{note ? ` ${note}` : ""}
-          </p>
-        </div>
+        {intro ? (
+          <PageHeading block={intro} market={m} />
+        ) : (
+          <div className="flex max-w-2xl flex-col gap-3">
+            <p className="label-kicker text-link">Pricing</p>
+            <h1 className="text-title-1 text-ink sm:text-display">One invoice a month, in your currency.</h1>
+            <p className="text-body text-ink-muted">
+              Prices for {m.name}, per month unless it says otherwise. They are fixed for the month and every line on your invoice is explained.{note ? ` ${note}` : ""}
+            </p>
+          </div>
+        )}
 
         <div className="mt-10 flex flex-col gap-10">
           {categories.map(({ category, products }) => (
@@ -88,18 +108,29 @@ export default async function PricingPage({ params }: Props) {
           ) : null}
         </div>
 
-        <div className="mt-12 flex flex-col items-start gap-4 rounded-lg bg-navy p-6 text-ink-on-dark sm:flex-row sm:items-center sm:justify-between sm:p-8">
-          <p className="text-headline text-on-navy">Not sure what you need? Tell us what you run today.</p>
-          <div className="flex flex-wrap gap-3">
-            <Button asChild size="lg">
-              <Link href="/sign-up">Get started</Link>
-            </Button>
-            <Button asChild size="lg" variant="secondary">
-              <a href={`mailto:${m.supportEmail}?subject=${encodeURIComponent("Book a call")}`}>Book a call</a>
-            </Button>
+        {panel ? (
+          <div className="mt-12 flex flex-col items-start gap-4 rounded-lg bg-navy p-6 text-ink-on-dark sm:flex-row sm:items-center sm:justify-between sm:p-8">
+            <p className="text-headline text-on-navy">{fill(panel.heading, m)}</p>
+            <div className="flex flex-wrap gap-3">
+              <CmsButton link={panel.primary} market={m} />
+              <CmsButton link={panel.secondary} market={m} variant="secondary" />
+            </div>
           </div>
-        </div>
+        ) : page ? null : (
+          <div className="mt-12 flex flex-col items-start gap-4 rounded-lg bg-navy p-6 text-ink-on-dark sm:flex-row sm:items-center sm:justify-between sm:p-8">
+            <p className="text-headline text-on-navy">Not sure what you need? Tell us what you run today.</p>
+            <div className="flex flex-wrap gap-3">
+              <Button asChild size="lg">
+                <Link href="/sign-up">Get started</Link>
+              </Button>
+              <Button asChild size="lg" variant="secondary">
+                <a href={`mailto:${m.supportEmail}?subject=${encodeURIComponent("Book a call")}`}>Book a call</a>
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
+      {rest.length ? <RenderBlocks blocks={rest} market={m} /> : null}
     </SitePage>
   );
 }

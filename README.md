@@ -253,7 +253,28 @@ npx payload migrate:create <name>   # CI fails if the config and migrations disa
 npm run cms:generate                # the editor's import map and TypeScript types
 ```
 
-A production server applies pending editor migrations when it starts.
+A production server applies pending editor migrations when it starts,
+and gives the editor its first content (`src/cms/seed`): the home,
+pricing and security pages in every market, Botswana's legal text
+(`src/cms/seed/legal`), and the header and footer, all as the site
+showed them before. Each part is added once and never overwrites an
+editor's work; `npm run cms:seed` does the same on a development database.
+
+Pages are built from blocks (`src/cms/blocks`), drawn by
+`src/components/site/blocks`. Each market's words are a locale in the
+editor; a market without its own shows Botswana's. Nobody types a price:
+text with an amount of money won't publish, and the Services and Live
+prices blocks show the price book's live prices. Editors' changes are
+drafts until a Publisher publishes them (now or scheduled). The Live
+Preview button shows the draft at phone and desktop widths; it goes
+through /preview, which turns on draft mode only for website staff.
+The home page is `home`; any other page is /<market>/<address>. The
+pricing page takes its heading and panel from the editor's `pricing`
+page around the live price tables, and the security page shows the
+market's data protection text (Legal pages) or else the `security` page.
+Legal text never falls back to another market's. While the editor has
+none of these, the site shows the built-in ones.
+
 Uploaded images go to `MEDIA_DIR` (a volume in `docker-compose.prod.yml`)
 and are served at /media. Storage sits behind `src/cms/storage`, so object
 storage can be added later without changing pages or the editor.

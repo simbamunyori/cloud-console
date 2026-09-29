@@ -1,44 +1,53 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { DraftBanner, LegalBody } from "@/components/site/legal-document";
+import { RenderBlocks } from "@/components/site/blocks";
+import { LegalView } from "@/components/site/legal-document";
 import { AssistantNotice, PageIntro, ProseSection } from "@/components/site/prose";
 import { SitePage } from "@/components/site/site-page";
 import { company, DELETION_NOTICE_DAYS } from "@/config/app";
 import { marketCopy } from "@/config/site";
 import { CATCH_ALL } from "@/lib/domain/markets";
-import { legalDocument } from "@/server/site/legal";
+import { cmsPage, legalPage } from "@/server/site/cms";
+import { cmsMetadata } from "@/server/site/cms-metadata";
 import { siteMarket, siteMetadata } from "@/server/site/site";
 
 type Props = { params: Promise<{ market: string }> };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const m = await siteMarket((await params).market);
-  return siteMetadata(m.code, "/security", {
+  const fallback = {
     title: `Security and data protection | ${company.name}`,
     description: "Two-step login on every account, every staff action shown to you, tested backups, and an assistant that only reads what a question needs.",
-  });
+  };
+  const source = (await legalPage(m.code, "data-protection")) ?? (await cmsPage(m.code, "security"));
+  return source ? cmsMetadata(m.code, "/security", source, fallback) : siteMetadata(m.code, "/security", fallback);
 }
 
 /**
  * Security and data protection. A market with its own data protection
- * text (content/legal/<market>/data-protection.md) shows that; others show
- * the product facts in plain words.
+ * text (the editor's legal page) shows that; others show the editor's
+ * "security" page of product facts, or the built-in one until it has one.
  */
 export default async function SecurityPage({ params }: Props) {
   const m = await siteMarket((await params).market);
   const where = m.code === CATCH_ALL ? "your country" : m.name;
-  const written = await legalDocument(m.code, "data-protection");
-  if (written) {
+  const legal = await legalPage(m.code, "data-protection");
+  if (legal) {
     return (
       <SitePage code={m.code} path="/security">
-        <article className="mx-auto flex max-w-3xl flex-col gap-8 px-4 py-12 sm:px-6 lg:py-16">
-          {written.draft ? <DraftBanner text={written.draft} /> : null}
-          <PageIntro kicker={`Legal, ${m.name}`} title={written.title} />
-          <LegalBody doc={written} />
+        <LegalView doc={legal} market={m}>
           <ProseSection id="assistant" title="Product notice: the assistant">
             <AssistantNotice countryName={where} />
           </ProseSection>
-        </article>
+        </LegalView>
+      </SitePage>
+    );
+  }
+  const page = await cmsPage(m.code, "security");
+  if (page) {
+    return (
+      <SitePage code={m.code} path="/security">
+        <RenderBlocks blocks={page.layout} market={m} style={page.style} />
       </SitePage>
     );
   }

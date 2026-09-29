@@ -4,9 +4,9 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/ui/logo";
 import { company } from "@/config/app";
-import { FOOTER_LEGAL, LEGAL_PAGES, SERVICE_MENU } from "@/config/site";
 import type { Theme } from "@/lib/theme";
 import { ThemeSwitch } from "@/components/theme/theme-switch";
+import type { FrameContent } from "./frame-content";
 import { MarketSwitcher, type SwitcherMarket } from "./market-switcher";
 import { ServicesMenu, SiteMenu } from "./site-nav";
 
@@ -16,6 +16,12 @@ export interface FrameMarket extends SwitcherMarket {
   supportHours: string;
   paymentMethods: string[];
 }
+
+/** The header's pages for the phone menu, less any a service family above them already links to. */
+const phonePages = (content: FrameContent) => {
+  const inGroups = new Set(content.groups.flatMap((g) => g.links.map((l) => l.href)));
+  return content.pages.filter((p) => !inGroups.has(p.href));
+};
 
 const PAYMENT_WORDS: Record<string, string> = { card: "card", eft: "bank transfer" };
 
@@ -30,6 +36,7 @@ export function SiteFrame({
   signedIn,
   theme,
   statusUrl,
+  content,
   children,
 }: {
   market: FrameMarket;
@@ -39,6 +46,8 @@ export function SiteFrame({
   theme: Theme;
   /** The service status page, when one is set up (STATUS_PAGE_URL). */
   statusUrl?: string;
+  /** The header's menu and the footer's links, from the website editor. */
+  content: FrameContent;
   children: React.ReactNode;
 }) {
   const base = `/${market.code}`;
@@ -56,13 +65,12 @@ export function SiteFrame({
             <Logo height={48} className="hidden lg:inline-flex" />
           </Link>
           <nav aria-label="Site" className="hidden flex-1 items-center gap-1 lg:flex">
-            <ServicesMenu base={base} groups={SERVICE_MENU} />
-            <Link href={`${base}/pricing`} aria-current={path === "/pricing" ? "page" : undefined} className="rounded-md px-3 py-2 text-callout font-medium text-ink hover:bg-surface-2 aria-[current=page]:text-link">
-              Pricing
-            </Link>
-            <Link href={`${base}/security`} aria-current={path === "/security" ? "page" : undefined} className="rounded-md px-3 py-2 text-callout font-medium text-ink hover:bg-surface-2 aria-[current=page]:text-link">
-              Security
-            </Link>
+            {content.groups.length ? <ServicesMenu groups={content.groups} note={content.menuNote} more={content.menuLink} /> : null}
+            {content.pages.map((p) => (
+              <Link key={p.href} href={p.href} aria-current={p.href === `${base}${path}` ? "page" : undefined} className="rounded-md px-3 py-2 text-callout font-medium text-ink hover:bg-surface-2 aria-[current=page]:text-link">
+                {p.label}
+              </Link>
+            ))}
           </nav>
           <div className="ml-auto flex items-center gap-2">
             <div className="hidden lg:block">
@@ -84,12 +92,8 @@ export function SiteFrame({
             )}
             <div className="lg:hidden">
               <SiteMenu
-                base={base}
-                groups={SERVICE_MENU}
-                pages={[
-                  { label: "Pricing", href: `${base}/pricing` },
-                  ...(signedIn ? [] : [{ label: "Sign in", href: "/sign-in" }]),
-                ]}
+                groups={content.groups}
+                pages={[...phonePages(content), ...(signedIn ? [] : [{ label: "Sign in", href: "/sign-in" }])]}
                 footer={
                   <>
                     <MarketSwitcher markets={markets} current={market} path={path} align="start" up />
@@ -116,41 +120,23 @@ export function SiteFrame({
             <Link href={base} aria-label={`${company.name} home`} className="w-fit rounded-sm">
               <img src="/brand/logo/fgt-logo-reverse.svg" alt="" width={184} height={48} />
             </Link>
-            <p className="text-callout">{company.tagline}</p>
+            {content.tagline ? <p className="text-callout">{content.tagline}</p> : null}
             <MarketSwitcher markets={markets} current={market} path={path} align="start" tone="navy" />
           </div>
-          <nav aria-labelledby="footer-services" className="flex flex-col gap-3">
-            <h2 id="footer-services" className="text-callout font-semibold text-on-navy">
-              Services
-            </h2>
-            <Link href={`${base}#services`} className="text-callout hover:text-on-navy hover:underline">
-              What we manage
-            </Link>
-            <Link href={`${base}/pricing`} className="text-callout hover:text-on-navy hover:underline">
-              Pricing
-            </Link>
-            <Link href="/sign-up" className="text-callout hover:text-on-navy hover:underline">
-              Get started
-            </Link>
-            <Link href="/sign-in" className="text-callout hover:text-on-navy hover:underline">
-              Sign in
-            </Link>
-          </nav>
-          <nav aria-labelledby="footer-company" className="flex flex-col gap-3">
-            <h2 id="footer-company" className="text-callout font-semibold text-on-navy">
-              Company
-            </h2>
-            <Link href={`${base}/security`} className="text-callout hover:text-on-navy hover:underline">
-              Security and data protection
-            </Link>
-            {FOOTER_LEGAL.map((kind) => (
-              <Link key={kind} href={`${base}/legal/${kind}`} className="text-callout hover:text-on-navy hover:underline">
-                {LEGAL_PAGES[kind]}
-              </Link>
-            ))}
-          </nav>
+          {content.columns.map((c, i) => (
+            <nav key={i} aria-labelledby={`footer-${i + 1}`} className="flex flex-col gap-3">
+              <h2 id={`footer-${i + 1}`} className="text-callout font-semibold text-on-navy">
+                {c.heading}
+              </h2>
+              {c.links.map((l) => (
+                <Link key={l.href + l.label} href={l.href} className="text-callout hover:text-on-navy hover:underline">
+                  {l.label}
+                </Link>
+              ))}
+            </nav>
+          ))}
           <div className="flex flex-col gap-3">
-            <h2 className="text-callout font-semibold text-on-navy">Talk to us</h2>
+            <h2 className="text-callout font-semibold text-on-navy">{content.contactHeading}</h2>
             <a href={`mailto:${market.supportEmail}`} className="text-callout break-all hover:text-on-navy hover:underline">
               {market.supportEmail}
             </a>

@@ -44,14 +44,39 @@ export interface ServiceFrom {
   unitLabel: string | null;
 }
 
+/** A product on sale in a market, with its price as the market shows it. */
+export interface SitePrice {
+  slug: string;
+  name: string;
+  summary: string;
+  categoryKey: string;
+  unitLabel: string;
+  price: Money;
+}
+
+/** Every product on sale in the market this month, in catalogue order. */
+export const sitePrices = cache(async (code: string): Promise<SitePrice[]> => {
+  const m = await siteMarket(code);
+  return (await marketplace(prisma as unknown as PrismaClient, m, siteMonth(m))).flatMap((c) =>
+    c.products.map(({ product: p, price }) => ({ slug: p.slug, name: p.name, summary: p.summary, categoryKey: p.categoryKey, unitLabel: p.unitLabel, price: shownPrice(m, price) })),
+  );
+});
+
+/** The products a selection names: whole categories or single products. */
+export const selected = (prices: SitePrice[], sel: { categories?: string[]; products?: string[]; slugs?: string[] }) =>
+  prices.filter((p) => sel.categories?.includes(p.categoryKey) || sel.products?.includes(p.slug) || sel.slugs?.includes(p.slug));
+
+/** The cheapest of the selected products, or null when none is on sale in the market. */
+export function lowestPrice(prices: SitePrice[], sel: Parameters<typeof selected>[1]): SitePrice | null {
+  return selected(prices, sel).sort((a, b) => (a.price.amountMinor < b.price.amountMinor ? -1 : 1))[0] ?? null;
+}
+
 /** Each service card with its lowest monthly price in the market's book. */
 export const serviceCards = cache(async (code: string): Promise<ServiceFrom[]> => {
-  const m = await siteMarket(code);
-  const products = (await marketplace(prisma as unknown as PrismaClient, m, siteMonth(m))).flatMap((c) => c.products);
+  const prices = await sitePrices(code);
   return SERVICES.map((card) => {
-    const matching = products.filter((p) => card.products.categories?.includes(p.product.categoryKey) || card.products.slugs?.includes(p.product.slug));
-    const cheapest = matching.sort((a, b) => (a.price.amountMinor < b.price.amountMinor ? -1 : 1))[0];
-    return { card, from: cheapest ? shownPrice(m, cheapest.price) : null, unitLabel: cheapest?.product.unitLabel ?? null };
+    const cheapest = lowestPrice(prices, card.products);
+    return { card, from: cheapest?.price ?? null, unitLabel: cheapest?.unitLabel ?? null };
   });
 });
 
