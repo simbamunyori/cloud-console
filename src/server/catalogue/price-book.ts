@@ -1,10 +1,11 @@
-import { Prisma, type PriceBookEntry, type PrismaClient, type Product, type ProductCategory } from "@prisma/client";
+import { Prisma, type CatalogueStatus, type PriceBookEntry, type PrismaClient, type Product, type ProductCategory } from "@prisma/client";
 import { money, parseMoney, MoneyParseError, type Money } from "@/lib/domain/money";
 import { customerPrice, PricingError, type PriceBreakdown } from "@/lib/domain/pricing";
 import { company } from "@/config/app";
 import { DomainError } from "@/server/org/access";
 import { assertStaffCan, type StaffActor } from "@/server/staff/access";
 import { DOMAIN_PRODUCT_SLUG } from "./seed-data";
+import { effectiveStatus, shownTo, shownWhere, type Audience, type WithFamily } from "./visibility";
 
 /**
  * Each market has a price book: the prices staff approved, in the
@@ -42,7 +43,8 @@ function entryMoney(entry: PriceBookEntry | undefined | null, market: MarketRef)
   return money(entry.amountMinor, entry.currency);
 }
 
-export const offeredIn = (p: Pick<Product, "active" | "markets">, marketCode: string) => p.active && p.markets.includes(marketCode);
+/** Whether a product is on sale in a market to an audience (see visibility.ts). */
+export const offeredIn = (p: Pick<Product, "markets"> & WithFamily, marketCode: string, audience: Audience = "public") => shownTo(p, audience) && p.markets.includes(marketCode);
 
 /** The approved price for an item in a market in a month, whether or not it is still offered to new customers. */
 export async function approvedPrice(db: Pick<PrismaClient, "priceBookEntry">, market: MarketRef, item: string, month: string): Promise<Money | null> {
@@ -51,8 +53,8 @@ export async function approvedPrice(db: Pick<PrismaClient, "priceBookEntry">, ma
 }
 
 /** A product's price per unit per month in a market, or null if it isn't offered there. */
-export async function productPrice(db: Pick<PrismaClient, "priceBookEntry">, product: Pick<Product, "slug" | "active" | "markets">, market: MarketRef, month: string): Promise<Money | null> {
-  return offeredIn(product, market.code) ? approvedPrice(db, market, productItem(product.slug), month) : null;
+export async function productPrice(db: Pick<PrismaClient, "priceBookEntry">, product: Pick<Product, "slug" | "markets"> & WithFamily, market: MarketRef, month: string, audience: Audience = "public"): Promise<Money | null> {
+  return offeredIn(product, market.code, audience) ? approvedPrice(db, market, productItem(product.slug), month) : null;
 }
 
 export interface TldOffer {
@@ -81,12 +83,17 @@ export interface PricedProduct {
   price: Money;
 }
 
-/** Everything on sale in a market, by category, at the prices in effect this month. */
-export async function marketplace(db: Db, market: MarketRef, month: string) {
+/**
+ * Everything on sale in a market, by category, at the prices in effect
+ * this month. Our own test organisations (audience "internal") also see
+ * internal products.
+ */
+export async function marketplace(db: Db, market: MarketRef, month: string, audience: Audience = "public") {
   const [categories, book] = await Promise.all([
     db.productCategory.findMany({
-      orderBy: { sortOrder: "asc" },
-      include: { products: { where: { active: true, slug: { not: DOMAIN_PRODUCT_SLUG }, markets: { has: market.code } }, orderBy: { sortOrder: "asc" } } },
+      where: { family: { status: { in: audience === "internal" ? ["INTERNAL", "LIVE"] : ["LIVE"] } } },
+      orderBy: [{ family: { sortOrder: "asc" } }, { sortOrder: "asc" }],
+      include: { products: { where: { ...shownWhere(audience), slug: { not: DOMAIN_PRODUCT_SLUG }, markets: { has: market.code } }, orderBy: { sortOrder: "asc" } } },
     }),
     bookFor(db, market.code, month),
   ]);
@@ -129,6 +136,8 @@ export interface BookRow {
   name: string;
   group: string;
   offered: boolean;
+  /** A product's status with its family's taken into account; domains are always live. */
+  status: CatalogueStatus;
   cost: Money;
   /** In effect this month. */
   current: Money | null;
@@ -161,7 +170,8 @@ export async function bookRows(db: Db, marketCode: string, month: string): Promi
   if (!market) throw new DomainError("not-found", "No such market.");
   const next = nextMonth(month);
   const [categories, tlds, settings, current, upToNext] = await Promise.all([
-    db.productCategory.findMany({ orderBy: { sortOrder: "asc" }, include: { products: { where: { active: true, slug: { not: DOMAIN_PRODUCT_SLUG } }, orderBy: { sortOrder: "asc" } } } }),
+    // Drafts are priced too, so a product can be priced before it goes live.
+    db.productCategory.findMany({ orderBy: [{ family: { sortOrder: "asc" } }, { sortOrder: "asc" }], include: { family: true, products: { where: { slug: { not: DOMAIN_PRODUCT_SLUG } }, orderBy: { sortOrder: "asc" } } } }),
     db.tld.findMany({ orderBy: { sortOrder: "asc" } }),
     db.pricingSettings.findUnique({ where: { id: "global" } }),
     bookFor(db, marketCode, month),
@@ -186,6 +196,7 @@ export async function bookRows(db: Db, marketCode: string, month: string): Promi
         name: p.name,
         group: c.name,
         offered: p.markets.includes(marketCode),
+        status: effectiveStatus(p, c.family),
         cost: fixedPrice ?? money(p.costMinor, p.costCurrency),
         current: now,
         scheduled,
@@ -208,6 +219,7 @@ export async function bookRows(db: Db, marketCode: string, month: string): Promi
     rows.push({
       item,
       kind: "tld",
+      status: "LIVE",
       name: t.tld,
       group: "Domain names, a year",
       offered: t.markets.includes(marketCode),

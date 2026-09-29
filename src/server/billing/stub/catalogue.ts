@@ -70,3 +70,16 @@ export async function seedStubCatalogue(db: PrismaClient): Promise<Record<StubPr
   }
   return ids;
 }
+
+/**
+ * Gives a product added in the staff Catalogue a product in the stub, as
+ * the WHMCS product sync does for WHMCS, once it is internal or live.
+ * Its price here is a placeholder: orders carry the console's own price.
+ */
+export async function linkStubProduct(db: PrismaClient, slug: string): Promise<string | null> {
+  const product = await db.product.findUnique({ where: { slug }, include: { category: true } });
+  if (!product || product.billingProductId || product.status === "DRAFT") return product?.billingProductId ?? null;
+  const row = await db.stubProduct.create({ data: { gid: 100, groupName: product.category.name, name: product.name, type: "other", pricing: { BWP: { monthly: "0" } } } });
+  await db.product.update({ where: { slug }, data: { billingProductId: String(row.id) } });
+  return String(row.id);
+}

@@ -60,6 +60,7 @@ const TITLES: Record<ConnectorRequest["work"], (r: ConnectorRequest) => string> 
 
 /** The Phase 1 connector: a task for staff, done by hand. */
 export class ManualConnector implements ProductConnector {
+  readonly automatic = false;
   constructor(readonly family: ConnectorFamily) {}
 
   async request(tx: ConnectorTx, r: ConnectorRequest, now: Date): Promise<ConnectorResult> {

@@ -7,6 +7,7 @@ import { cn } from "@/lib/cn";
 import { formatMoment, formatMonth, todayIn } from "@/lib/dates";
 import { currencySymbol, formatMoney, toPlainAmount, type Money } from "@/lib/domain/money";
 import { monthOf } from "@/lib/domain/pricing";
+import { STATUS_LABEL } from "@/server/catalogue/visibility";
 import { requireStaffCan } from "@/server/admin/context";
 import { bpsToPercent, microsToRate, pricingOverview } from "@/server/admin/pricing";
 import { awaitingApproval, bookRows, type BookRow } from "@/server/catalogue/price-book";
@@ -53,7 +54,10 @@ function Row({ r, market, symbol }: { r: BookRow; market: string; symbol: string
     <tr className={r.offered ? undefined : "text-ink-muted"}>
       <td className="w-56 px-5 py-3 sm:px-6">
         <span className={r.offered ? "text-ink" : undefined}>{r.name}</span>
-        <span className="block text-caption text-ink-muted">{r.offered ? r.group : `${r.group}. Not offered here`}</span>
+        <span className="block text-caption text-ink-muted">
+          {r.offered ? r.group : `${r.group}. Not offered here`}
+          {r.status === "LIVE" ? "" : `. ${STATUS_LABEL[r.status]}`}
+        </span>
       </td>
       <td className="px-3 py-3 text-right whitespace-nowrap text-ink-muted tabular-nums">{show(r.cost)}</td>
       <td className="px-3 py-3 text-right">

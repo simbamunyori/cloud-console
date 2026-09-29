@@ -5,7 +5,7 @@ import type { JSONFieldClientComponent } from "payload";
 import { useEffect, useState } from "react";
 
 type Selection = { categories?: string[]; products?: string[] };
-type Options = { categories: { key: string; name: string; products: { slug: string; name: string; active: boolean }[] }[] };
+type Options = { categories: { key: string; name: string; products: { slug: string; name: string; live: boolean }[] }[] };
 
 const toggle = (list: string[] | undefined, value: string, on: boolean) => {
   const set = new Set(list ?? []);
@@ -63,7 +63,7 @@ export const CataloguePicker: JSONFieldClientComponent = ({ field, path }) => {
                   onChange={(e) => update({ ...current, products: toggle(current.products, p.slug, e.target.checked) })}
                 />{" "}
                 {p.name}
-                {p.active ? "" : " (hidden)"}
+                {p.live ? "" : " (not on sale)"}
               </label>
             ))}
           </fieldset>

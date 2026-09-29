@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  Boxes,
   Globe,
   Hourglass,
   Building2,
@@ -40,6 +41,7 @@ const ICONS = {
   overview: LayoutDashboard,
   orders: Package,
   pricing: Percent,
+  catalogue: Boxes,
   markets: Globe,
   waitlist: Hourglass,
   website: SquarePen,
