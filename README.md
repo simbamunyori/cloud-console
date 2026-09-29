@@ -250,7 +250,20 @@ npx payload migrate:create <name>   # CI fails if the config and migrations disa
 npm run cms:generate                # the editor's import map and TypeScript types
 ```
 
-A production server applies pending editor migrations when it starts.
+A production server applies pending editor migrations when it starts,
+and gives an empty editor the home page (`src/cms/seed-home.ts`).
+
+Pages are built from blocks (`src/cms/blocks`), drawn by
+`src/components/site/blocks`. Each market's words are a locale in the
+editor; a market without its own shows Botswana's. Nobody types a price:
+text with an amount of money won't publish, and the Services and Live
+prices blocks show the price book's live prices. Editors' changes are
+drafts until a Publisher publishes them (now or scheduled). The Live
+Preview button shows the draft at phone and desktop widths; it goes
+through /preview, which turns on draft mode only for website staff.
+The home page is `home`; any other page is /<market>/<address>. While
+the editor has no home page, the site shows the built-in one.
+
 Uploaded images go to `MEDIA_DIR` (a volume in `docker-compose.prod.yml`;
 back it up with the database) and are served at /media.
 

@@ -1,0 +1,409 @@
+import { RichText } from "@payloadcms/richtext-lexical/react";
+import { Check } from "lucide-react";
+import type {
+  CallToActionBlock,
+  DomainSearchBlock,
+  FaqBlock,
+  FeatureCardsBlock,
+  HeroBlock,
+  ImageTextBlock,
+  LogoStripBlock,
+  Page,
+  PricingBlock,
+  ServicesGridBlock,
+  TestimonialsBlock,
+  TextBlock,
+} from "@/cms/payload-types";
+import { domainQuickPicks, withDataCentre } from "@/config/site";
+import { cn } from "@/lib/cn";
+import { formatMoney } from "@/lib/domain/money";
+import { selection } from "@/server/cms/catalogue-options";
+import { lowestPrice, selected, siteMarket, sitePrices, taxNote } from "@/server/site/site";
+import { DomainSearch, type HomeMarket } from "../home";
+import {
+  BlockIcon,
+  captionFor,
+  cardSurface,
+  CmsButton,
+  CmsTextLink,
+  Heading,
+  hasPicture,
+  MediaImage,
+  PictureBody,
+  Section,
+  type BlockContext,
+  type PictureValue,
+} from "./parts";
+
+/**
+ * Draws a page's sections from the website editor, with the brand's own
+ * components. Prices always come live from the market's price book.
+ */
+
+function Hero({ block: b, ctx }: { block: HeroBlock; ctx: BlockContext }) {
+  const picture = b.picture as PictureValue | undefined;
+  return (
+    <section aria-labelledby={`${ctx.id}-title`} className="overflow-hidden border-b border-border bg-surface-1">
+      <div className={cn("mx-auto grid max-w-content items-center gap-10 px-4 pt-12 pb-10 sm:px-6 lg:gap-12 lg:pt-20 lg:pb-14", hasPicture(picture) && "lg:grid-cols-12")}>
+        <div className={cn("flex min-w-0 flex-col gap-6", hasPicture(picture) && "lg:col-span-5")}>
+          {b.kicker ? <p className="label-kicker text-link">{b.kicker}</p> : null}
+          <h1 id={`${ctx.id}-title`} className="text-display text-ink sm:text-hero">
+            {b.heading}
+          </h1>
+          {b.sub ? <p className="max-w-xl text-body text-ink-body sm:text-headline sm:font-normal">{b.sub}</p> : null}
+          {b.primary?.label || b.secondary?.label ? (
+            <div className="flex flex-wrap gap-3">
+              <CmsButton link={b.primary} market={ctx.market} />
+              <CmsButton link={b.secondary} market={ctx.market} variant="secondary" />
+            </div>
+          ) : null}
+          {b.supporting?.length ? (
+            <ul className="flex flex-col gap-2 text-callout text-ink-muted sm:flex-row sm:flex-wrap sm:gap-x-5">
+              {b.supporting.map((s) => (
+                <li key={s.id ?? s.text} className="flex items-center gap-2">
+                  <Check aria-hidden className="size-4 text-positive" />
+                  {s.text}
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </div>
+        {hasPicture(picture) ? (
+          <figure className="relative mx-auto w-full max-w-xl min-w-0 lg:col-span-7 lg:max-w-none">
+            <div className="overflow-hidden rounded-lg border border-border bg-surface-0 shadow-elevation-3">
+              <PictureBody picture={picture} market={ctx.market} hero />
+            </div>
+            {picture.caption ? <figcaption className="mt-3 text-caption text-ink-muted">{picture.caption}</figcaption> : null}
+          </figure>
+        ) : null}
+      </div>
+      {b.domainSearch ? (
+        <div className="mx-auto max-w-content px-4 pb-12 sm:px-6 lg:pb-20">
+          <DomainSearch tlds={domainQuickPicks(ctx.market.highlightedTlds)} />
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function DomainSearchSection({ block: b, ctx }: { block: DomainSearchBlock; ctx: BlockContext }) {
+  return (
+    <div className="mx-auto max-w-content px-4 py-12 sm:px-6">
+      <DomainSearch tlds={domainQuickPicks(ctx.market.highlightedTlds)} heading={b.heading || undefined} intro={b.intro || undefined} />
+    </div>
+  );
+}
+
+const gridCols = (n: number) => (n % 3 === 0 && n % 4 !== 0 ? "lg:grid-cols-3" : "lg:grid-cols-4");
+
+function FeatureCards({ block: b, ctx }: { block: FeatureCardsBlock; ctx: BlockContext }) {
+  const raised = b.style === "raised";
+  const items = b.items ?? [];
+  return (
+    <Section tone={b.tone} labelledBy={`${ctx.id}-title`}>
+      <Heading id={`${ctx.id}-title`} tone={b.tone} kicker={b.kicker} heading={b.heading} intro={b.intro} />
+      <ul className={cn("mt-10 grid gap-4 sm:grid-cols-2", gridCols(items.length))}>
+        {items.map((it) => (
+          <li key={it.id ?? it.title} className={cn("flex flex-col gap-3 rounded-lg border border-border p-6 text-ink", cardSurface(b.tone), raised && "shadow-elevation-1")}>
+            {raised ? (
+              <span className="flex size-10 items-center justify-center rounded-md bg-brand-soft text-link">
+                <BlockIcon name={it.icon} className="size-5" />
+              </span>
+            ) : (
+              <BlockIcon name={it.icon} className="size-6 text-link" />
+            )}
+            <h3 className="text-headline text-ink">{it.title}</h3>
+            {it.body ? <p className="text-callout text-ink-muted">{it.body}</p> : null}
+          </li>
+        ))}
+      </ul>
+    </Section>
+  );
+}
+
+async function ServicesGrid({ block: b, ctx }: { block: ServicesGridBlock; ctx: BlockContext }) {
+  const [prices, market] = await Promise.all([sitePrices(ctx.market.code), siteMarket(ctx.market.code)]);
+  const tax = b.showTaxNote ? taxNote(market) : null;
+  const intro = [b.intro, tax].filter(Boolean).join(" ");
+  return (
+    <Section tone={b.tone} id={b.anchor} labelledBy={`${ctx.id}-title`}>
+      <Heading id={`${ctx.id}-title`} tone={b.tone} kicker={b.kicker} heading={b.heading} intro={intro} />
+      <ul className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {(b.cards ?? []).map((card) => {
+          const from = lowestPrice(prices, selection(card.products));
+          return (
+            <li key={card.id ?? card.title} className={cn("flex flex-col gap-3 rounded-lg border border-border p-6", b.tone === "plain" ? "bg-surface-1" : "bg-surface-0")}>
+              <BlockIcon name={card.icon} className="size-6 text-link" />
+              <h3 className="text-headline text-ink">{card.title}</h3>
+              <div className="flex flex-1 flex-col gap-2 text-callout text-ink-muted">
+                {card.body ? <p>{card.dataCentre ? withDataCentre(card.body, ctx.market) : card.body}</p> : null}
+                {card.note ? <p>{card.note}</p> : null}
+              </div>
+              <p className="text-callout text-ink">
+                {from ? (
+                  <>
+                    From <span className="font-semibold tabular-nums">{formatMoney(from.price, ctx.market.locale)}</span> {from.unitLabel} a month
+                  </>
+                ) : (
+                  "Priced for you. Talk to us."
+                )}
+              </p>
+            </li>
+          );
+        })}
+      </ul>
+      {b.more?.label ? (
+        <p className="mt-8">
+          <CmsTextLink link={b.more} market={ctx.market} />
+        </p>
+      ) : null}
+    </Section>
+  );
+}
+
+async function Pricing({ block: b, ctx }: { block: PricingBlock; ctx: BlockContext }) {
+  const [prices, market] = await Promise.all([sitePrices(ctx.market.code), siteMarket(ctx.market.code)]);
+  const rows = selected(prices, selection(b.products));
+  const tax = taxNote(market);
+  return (
+    <Section tone={b.tone} labelledBy={`${ctx.id}-title`}>
+      <Heading id={`${ctx.id}-title`} tone={b.tone} kicker={b.kicker} heading={b.heading} intro={[b.intro, tax].filter(Boolean).join(" ")} />
+      {rows.length ? (
+        <ul className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {rows.map((p) => (
+            <li key={p.slug} className={cn("flex flex-col gap-2 rounded-lg border border-border p-6", cardSurface(b.tone))}>
+              <h3 className="text-headline text-ink">{p.name}</h3>
+              <p className="flex-1 text-callout text-ink-muted">{p.summary}</p>
+              <p className="text-callout text-ink">
+                <span className="text-title-2 font-semibold tabular-nums">{formatMoney(p.price, ctx.market.locale)}</span> {p.unitLabel} a month
+              </p>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className={cn("mt-6 text-body", b.tone === "dark" ? "" : "text-ink-muted")}>These services are priced for you. Talk to us.</p>
+      )}
+      {b.more?.label ? (
+        <p className="mt-8">
+          <CmsTextLink link={b.more} market={ctx.market} />
+        </p>
+      ) : null}
+    </Section>
+  );
+}
+
+/** Rich text in the site's type styles. */
+function Words({ data, dark }: { data: TextBlock["body"]; dark?: boolean }) {
+  return (
+    <RichText
+      data={data}
+      className={cn(
+        "flex max-w-3xl flex-col gap-4 text-body [&_a]:font-semibold [&_a]:underline [&_h2]:text-title-2 [&_h3]:text-headline [&_li]:ml-5 [&_ol]:list-decimal [&_ul]:list-disc",
+        dark ? "[&_a]:text-on-navy [&_h2]:text-on-navy [&_h3]:text-on-navy" : "text-ink-body [&_a]:text-link [&_h2]:text-ink [&_h3]:text-ink",
+      )}
+    />
+  );
+}
+
+function TextSection({ block: b, ctx }: { block: TextBlock; ctx: BlockContext }) {
+  return (
+    <Section tone={b.tone} labelledBy={`${ctx.id}-title`}>
+      {b.heading ? <Heading id={`${ctx.id}-title`} tone={b.tone} heading={b.heading} /> : <span id={`${ctx.id}-title`} className="sr-only">Text</span>}
+      <div className={b.heading ? "mt-6" : undefined}>
+        <Words data={b.body} dark={b.tone === "dark"} />
+      </div>
+    </Section>
+  );
+}
+
+function Figure({ picture, market, className }: { picture: PictureValue; market: HomeMarket; className?: string }) {
+  const caption = captionFor(picture);
+  return (
+    <figure className={cn("min-w-0", className)}>
+      <div className="overflow-hidden rounded-lg border border-border bg-surface-0 shadow-elevation-3">
+        <PictureBody picture={picture} market={market} />
+      </div>
+      {caption ? <figcaption className={picture.source === "thebe-approvals" && !picture.caption ? "sr-only" : "mt-3 text-caption text-ink-muted"}>{caption}</figcaption> : null}
+    </figure>
+  );
+}
+
+function ImageText({ block: b, ctx }: { block: ImageTextBlock; ctx: BlockContext }) {
+  const picture = b.picture as PictureValue | undefined;
+  const card = b.card?.title ? b.card : null;
+  const dark = b.tone === "dark";
+  const text = (
+    <div className={cn("flex min-w-0 flex-col", card ? "gap-4" : "gap-10")}>
+      <Heading id={`${ctx.id}-title`} tone={b.tone} kicker={b.kicker} heading={b.heading} intro={b.intro} />
+      {b.points?.length ? (
+        <ul className="flex flex-col gap-6">
+          {b.points.map((p) => (
+            <li key={p.id ?? p.title} className="flex gap-4">
+              <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-brand-soft text-link">
+                <BlockIcon name={p.icon} className="size-5" />
+              </span>
+              <div className="flex flex-col gap-1">
+                <h3 className={cn("text-headline", dark ? "text-on-navy" : "text-ink")}>{p.title}</h3>
+                {p.body ? <p className={cn("text-callout", dark ? "" : "text-ink-muted")}>{p.body}</p> : null}
+              </div>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
+  );
+  const side = hasPicture(picture) ? (
+    card ? (
+      <article aria-labelledby={`${ctx.id}-card`} className="overflow-hidden rounded-lg border border-on-navy/10 bg-surface-1 text-ink shadow-elevation-3">
+        <figure className="border-b border-border">
+          <PictureBody picture={picture} market={ctx.market} />
+          {captionFor(picture) ? <figcaption className={picture.caption ? "px-6 pt-3 text-caption text-ink-muted" : "sr-only"}>{captionFor(picture)}</figcaption> : null}
+        </figure>
+        <div className="flex flex-col gap-2 p-6">
+          {card.kicker ? <p className="label-kicker text-link">{card.kicker}</p> : null}
+          <h3 id={`${ctx.id}-card`} className="text-title-2 text-ink">
+            {card.title}
+          </h3>
+          {card.body ? <p className="text-callout text-ink-muted">{card.body}</p> : null}
+          <CmsTextLink link={card.link} market={ctx.market} className="mt-2 w-fit" />
+        </div>
+      </article>
+    ) : (
+      <Figure picture={picture} market={ctx.market} />
+    )
+  ) : null;
+  return (
+    <Section tone={b.tone} labelledBy={`${ctx.id}-title`}>
+      <div className={cn("grid items-center lg:grid-cols-2", card ? "gap-10" : "gap-12")}>
+        {b.pictureSide === "left" ? (
+          <>
+            {side}
+            {text}
+          </>
+        ) : (
+          <>
+            {text}
+            {side}
+          </>
+        )}
+      </div>
+    </Section>
+  );
+}
+
+function Faq({ block: b, ctx }: { block: FaqBlock; ctx: BlockContext }) {
+  return (
+    <Section tone={b.tone} labelledBy={`${ctx.id}-title`}>
+      <Heading id={`${ctx.id}-title`} tone={b.tone} kicker={b.kicker} heading={b.heading} intro={b.intro} />
+      <div className="mt-10 flex max-w-3xl flex-col divide-y divide-border rounded-lg border border-border">
+        {(b.items ?? []).map((q) => (
+          <details key={q.id ?? q.question} className={cn("group p-5", cardSurface(b.tone))}>
+            <summary className="cursor-pointer text-headline text-ink">{q.question}</summary>
+            <div className="mt-3">
+              <Words data={q.answer} />
+            </div>
+          </details>
+        ))}
+      </div>
+    </Section>
+  );
+}
+
+function Testimonials({ block: b, ctx }: { block: TestimonialsBlock; ctx: BlockContext }) {
+  if (!b.items?.length) return null;
+  return (
+    <Section tone={b.tone} labelledBy={`${ctx.id}-title`}>
+      <h2 id={`${ctx.id}-title`} className={b.heading ? cn("mb-10 text-title-1 sm:text-display", b.tone === "dark" ? "text-on-navy" : "text-ink") : "sr-only"}>
+        {b.heading || "What customers say"}
+      </h2>
+      <ul className="grid gap-4 md:grid-cols-2">
+        {b.items.map((t) => (
+          <li key={t.id ?? t.name} className={cn("rounded-lg border border-border p-6", cardSurface(b.tone))}>
+            <blockquote className="text-body text-ink">{t.quote}</blockquote>
+            <p className="mt-3 text-callout text-ink-muted">
+              {t.name}
+              {t.role ? `, ${t.role}` : ""}
+            </p>
+          </li>
+        ))}
+      </ul>
+    </Section>
+  );
+}
+
+function LogoStrip({ block: b, ctx }: { block: LogoStripBlock; ctx: BlockContext }) {
+  return (
+    <Section tone={b.tone} labelledBy={`${ctx.id}-title`}>
+      <h2 id={`${ctx.id}-title`} className={b.heading ? cn("text-headline", b.tone === "dark" ? "text-on-navy" : "text-ink-muted") : "sr-only"}>
+        {b.heading || "Organisations we work with"}
+      </h2>
+      <ul className="mt-6 flex flex-wrap items-center gap-x-10 gap-y-6">
+        {(b.logos ?? []).map((l) => (
+          <li key={l.id ?? l.name} className="h-10 w-32">
+            <MediaImage media={l.image} sizes="128px" className="h-10 w-auto object-contain" />
+            <span className="sr-only">{l.name}</span>
+          </li>
+        ))}
+      </ul>
+    </Section>
+  );
+}
+
+function CallToAction({ block: b, ctx }: { block: CallToActionBlock; ctx: BlockContext }) {
+  const dark = b.tone === "dark";
+  return (
+    <section aria-labelledby={`${ctx.id}-title`} className={dark ? "bg-navy text-ink-on-dark" : b.tone === "light" ? "border-t border-border bg-surface-1" : undefined}>
+      <div className="mx-auto flex max-w-content flex-col items-start gap-6 px-4 py-16 sm:px-6 lg:py-20">
+        <h2 id={`${ctx.id}-title`} className={cn("max-w-3xl text-title-1 sm:text-display", dark ? "text-on-navy" : "text-ink")}>
+          {b.heading}
+        </h2>
+        {b.body ? <p className={cn("max-w-2xl text-body", dark ? "" : "text-ink-muted")}>{b.body}</p> : null}
+        {b.primary?.label || b.secondary?.label ? (
+          <div className="flex flex-wrap gap-3">
+            <CmsButton link={b.primary} market={ctx.market} />
+            <CmsButton link={b.secondary} market={ctx.market} variant="secondary" />
+          </div>
+        ) : null}
+      </div>
+    </section>
+  );
+}
+
+type AnyBlock = NonNullable<Page["layout"]>[number];
+
+export function RenderBlocks({ blocks, market }: { blocks: Page["layout"]; market: HomeMarket }) {
+  return (
+    <>
+      {(blocks ?? []).map((block: AnyBlock, i) => {
+        const ctx: BlockContext = { market, id: `s${i + 1}` };
+        const key = block.id ?? i;
+        switch (block.blockType) {
+          case "hero":
+            return <Hero key={key} block={block} ctx={ctx} />;
+          case "domainSearch":
+            return <DomainSearchSection key={key} block={block} ctx={ctx} />;
+          case "featureCards":
+            return <FeatureCards key={key} block={block} ctx={ctx} />;
+          case "servicesGrid":
+            return <ServicesGrid key={key} block={block} ctx={ctx} />;
+          case "pricing":
+            return <Pricing key={key} block={block} ctx={ctx} />;
+          case "text":
+            return <TextSection key={key} block={block} ctx={ctx} />;
+          case "imageText":
+            return <ImageText key={key} block={block} ctx={ctx} />;
+          case "faq":
+            return <Faq key={key} block={block} ctx={ctx} />;
+          case "testimonials":
+            return <Testimonials key={key} block={block} ctx={ctx} />;
+          case "logoStrip":
+            return <LogoStrip key={key} block={block} ctx={ctx} />;
+          case "callToAction":
+            return <CallToAction key={key} block={block} ctx={ctx} />;
+          default:
+            return null;
+        }
+      })}
+    </>
+  );
+}

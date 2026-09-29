@@ -5,7 +5,9 @@ import { ipAllowed, parseAllowlist } from "@/lib/net/ip-allowlist";
  * Runs before every page:
  * - a fresh nonce per request for the content security policy, so only
  *   scripts the server rendered can run;
- * - /admin refused outside ADMIN_IP_ALLOWLIST, when one is set.
+ * - /admin refused outside ADMIN_IP_ALLOWLIST, when one is set;
+ * - framing allowed from this site only in draft mode (the website
+ *   editor's live preview), never otherwise.
  */
 
 function clientIp(req: NextRequest): string | null {
@@ -14,7 +16,7 @@ function clientIp(req: NextRequest): string | null {
   return req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || req.headers.get("x-real-ip") || null;
 }
 
-export function contentSecurityPolicy(nonce: string, dev: boolean): string {
+export function contentSecurityPolicy(nonce: string, dev: boolean, framedBySite = false, upgrade = !dev): string {
   return [
     "default-src 'self'",
     `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${dev ? " 'unsafe-eval'" : ""}`,
@@ -23,11 +25,12 @@ export function contentSecurityPolicy(nonce: string, dev: boolean): string {
     "img-src 'self' data: blob:",
     "font-src 'self'",
     `connect-src 'self'${dev ? " ws:" : ""}`,
-    "frame-ancestors 'none'",
+    // The website editor's live preview frames the site; nothing else may.
+    framedBySite ? "frame-ancestors 'self'" : "frame-ancestors 'none'",
     "form-action 'self'",
     "base-uri 'none'",
     "object-src 'none'",
-    ...(dev ? [] : ["upgrade-insecure-requests"]),
+    ...(upgrade ? ["upgrade-insecure-requests"] : []),
   ].join("; ");
 }
 
@@ -41,7 +44,10 @@ export function proxy(req: NextRequest) {
   }
 
   const nonce = btoa(crypto.randomUUID());
-  const csp = contentSecurityPolicy(nonce, process.env.NODE_ENV === "development");
+  const dev = process.env.NODE_ENV === "development";
+  // A server on plain http (a test server) can't upgrade its own requests.
+  const upgrade = !dev && !process.env.APP_URL?.startsWith("http://");
+  const csp = contentSecurityPolicy(nonce, dev, req.cookies.has("__prerender_bypass"), upgrade);
   const headers = new Headers(req.headers);
   headers.set("x-nonce", nonce);
   headers.set("content-security-policy", csp);

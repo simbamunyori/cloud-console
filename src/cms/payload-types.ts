@@ -67,18 +67,22 @@ export interface Config {
   };
   blocks: {};
   collections: {
+    pages: Page;
     media: Media;
     staff: Staff;
     'payload-kv': PayloadKv;
+    'payload-jobs': PayloadJob;
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
     'payload-migrations': PayloadMigration;
   };
   collectionsJoins: {};
   collectionsSelect: {
+    pages: PagesSelect<false> | PagesSelect<true>;
     media: MediaSelect<false> | MediaSelect<true>;
     staff: StaffSelect<false> | StaffSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
+    'payload-jobs': PayloadJobsSelect<false> | PayloadJobsSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
     'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
     'payload-migrations': PayloadMigrationsSelect<false> | PayloadMigrationsSelect<true>;
@@ -86,16 +90,23 @@ export interface Config {
   db: {
     defaultIDType: number;
   };
-  fallbackLocale: null;
+  fallbackLocale:
+    ('false' | 'none' | 'null') | false | null | ('bw' | 'za' | 'zw' | 'global') | ('bw' | 'za' | 'zw' | 'global')[];
   globals: {};
   globalsSelect: {};
-  locale: null;
+  locale: 'bw' | 'za' | 'zw' | 'global';
   widgets: {
     collections: CollectionsWidget;
   };
   user: Staff;
   jobs: {
-    tasks: unknown;
+    tasks: {
+      schedulePublish: TaskSchedulePublish;
+      inline: {
+        input: unknown;
+        output: unknown;
+      };
+    };
     workflows: unknown;
   };
 }
@@ -116,6 +127,91 @@ export interface StaffAuthOperations {
     email: string;
     password: string;
   };
+}
+/**
+ * Each market's version is a language in the switcher at the top. A market without its own words shows Botswana's.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "pages".
+ */
+export interface Page {
+  id: number;
+  /**
+   * The page's name in the editor, and its title unless the search title below says otherwise.
+   */
+  title: string;
+  /**
+   * home is the market's home page. Anything else becomes /<market>/<address>, e.g. about.
+   */
+  slug: string;
+  layout?:
+    | (
+        | HeroBlock
+        | DomainSearchBlock
+        | FeatureCardsBlock
+        | ServicesGridBlock
+        | PricingBlock
+        | TextBlock
+        | ImageTextBlock
+        | FaqBlock
+        | TestimonialsBlock
+        | LogoStripBlock
+        | CallToActionBlock
+      )[]
+    | null;
+  seo?: {
+    title?: string | null;
+    description?: string | null;
+    image?: (number | null) | Media;
+  };
+  updatedAt: string;
+  createdAt: string;
+  _status?: ('draft' | 'published') | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "HeroBlock".
+ */
+export interface HeroBlock {
+  kicker?: string | null;
+  /**
+   * The page's main heading. Keep it short.
+   */
+  heading: string;
+  sub?: string | null;
+  primary?: {
+    label?: string | null;
+    to?: ('market' | 'site' | 'email') | null;
+    /**
+     * Starts with /. For this market's pricing page: /pricing
+     */
+    path?: string | null;
+    subject?: string | null;
+  };
+  secondary?: {
+    label?: string | null;
+    to?: ('market' | 'site' | 'email') | null;
+    /**
+     * Starts with /. For this market's pricing page: /pricing
+     */
+    path?: string | null;
+    subject?: string | null;
+  };
+  supporting?:
+    | {
+        text: string;
+        id?: string | null;
+      }[]
+    | null;
+  picture: {
+    source: 'upload' | 'console-home' | 'console-invoice' | 'thebe-approvals';
+    image?: (number | null) | Media;
+    caption?: string | null;
+  };
+  domainSearch?: boolean | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'hero';
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -174,6 +270,353 @@ export interface Media {
   };
 }
 /**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "DomainSearchBlock".
+ */
+export interface DomainSearchBlock {
+  heading?: string | null;
+  intro?: string | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'domainSearch';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "FeatureCardsBlock".
+ */
+export interface FeatureCardsBlock {
+  kicker?: string | null;
+  heading: string;
+  intro?: string | null;
+  tone: 'plain' | 'light' | 'dark';
+  style: 'raised' | 'flat';
+  items?:
+    | {
+        icon:
+          | 'users'
+          | 'credit-card'
+          | 'life-buoy'
+          | 'shield-check'
+          | 'mail'
+          | 'server'
+          | 'lock'
+          | 'hard-drive'
+          | 'layout-grid'
+          | 'boxes'
+          | 'sparkles'
+          | 'graduation-cap'
+          | 'building'
+          | 'trending-up'
+          | 'handshake'
+          | 'globe'
+          | 'check'
+          | 'receipt';
+        title: string;
+        body?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'featureCards';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ServicesGridBlock".
+ */
+export interface ServicesGridBlock {
+  kicker?: string | null;
+  heading: string;
+  intro?: string | null;
+  tone: 'plain' | 'light' | 'dark';
+  /**
+   * Optional. Lets a link jump here, e.g. services for /bw#services.
+   */
+  anchor?: string | null;
+  showTaxNote?: boolean | null;
+  cards?:
+    | {
+        icon:
+          | 'users'
+          | 'credit-card'
+          | 'life-buoy'
+          | 'shield-check'
+          | 'mail'
+          | 'server'
+          | 'lock'
+          | 'hard-drive'
+          | 'layout-grid'
+          | 'boxes'
+          | 'sparkles'
+          | 'graduation-cap'
+          | 'building'
+          | 'trending-up'
+          | 'handshake'
+          | 'globe'
+          | 'check'
+          | 'receipt';
+        title: string;
+        body?: string | null;
+        note?: string | null;
+        dataCentre?: boolean | null;
+        /**
+         * Tick categories or single products. The lowest live price among them shows in each market.
+         */
+        products?:
+          | {
+              [k: string]: unknown;
+            }
+          | unknown[]
+          | string
+          | number
+          | boolean
+          | null;
+        id?: string | null;
+      }[]
+    | null;
+  more?: {
+    label?: string | null;
+    to?: ('market' | 'site' | 'email') | null;
+    /**
+     * Starts with /. For this market's pricing page: /pricing
+     */
+    path?: string | null;
+    subject?: string | null;
+  };
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'servicesGrid';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "PricingBlock".
+ */
+export interface PricingBlock {
+  kicker?: string | null;
+  heading: string;
+  intro?: string | null;
+  tone: 'plain' | 'light' | 'dark';
+  /**
+   * Tick categories or single products. The lowest live price among them shows in each market.
+   */
+  products?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  more?: {
+    label?: string | null;
+    to?: ('market' | 'site' | 'email') | null;
+    /**
+     * Starts with /. For this market's pricing page: /pricing
+     */
+    path?: string | null;
+    subject?: string | null;
+  };
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'pricing';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "TextBlock".
+ */
+export interface TextBlock {
+  heading?: string | null;
+  body: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  };
+  tone: 'plain' | 'light' | 'dark';
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'text';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ImageTextBlock".
+ */
+export interface ImageTextBlock {
+  kicker?: string | null;
+  heading: string;
+  intro?: string | null;
+  tone: 'plain' | 'light' | 'dark';
+  points?:
+    | {
+        icon:
+          | 'users'
+          | 'credit-card'
+          | 'life-buoy'
+          | 'shield-check'
+          | 'mail'
+          | 'server'
+          | 'lock'
+          | 'hard-drive'
+          | 'layout-grid'
+          | 'boxes'
+          | 'sparkles'
+          | 'graduation-cap'
+          | 'building'
+          | 'trending-up'
+          | 'handshake'
+          | 'globe'
+          | 'check'
+          | 'receipt';
+        title: string;
+        body?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  picture: {
+    source: 'upload' | 'console-home' | 'console-invoice' | 'thebe-approvals';
+    image?: (number | null) | Media;
+    caption?: string | null;
+  };
+  pictureSide: 'right' | 'left';
+  /**
+   * Optional. Puts the picture in a card with a title, a line and a link.
+   */
+  card?: {
+    kicker?: string | null;
+    title?: string | null;
+    body?: string | null;
+    link?: {
+      label?: string | null;
+      to?: ('market' | 'site' | 'email') | null;
+      /**
+       * Starts with /. For this market's pricing page: /pricing
+       */
+      path?: string | null;
+      subject?: string | null;
+    };
+  };
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'imageText';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "FaqBlock".
+ */
+export interface FaqBlock {
+  kicker?: string | null;
+  heading: string;
+  intro?: string | null;
+  tone: 'plain' | 'light' | 'dark';
+  items?:
+    | {
+        question: string;
+        answer: {
+          root: {
+            type: string;
+            children: {
+              type: any;
+              version: number;
+              [k: string]: unknown;
+            }[];
+            direction: ('ltr' | 'rtl') | null;
+            format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+            indent: number;
+            version: number;
+          };
+          [k: string]: unknown;
+        };
+        id?: string | null;
+      }[]
+    | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'faq';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "TestimonialsBlock".
+ */
+export interface TestimonialsBlock {
+  /**
+   * Hidden from view (read by screen readers) when left empty.
+   */
+  heading?: string | null;
+  tone: 'plain' | 'light' | 'dark';
+  /**
+   * Real customers only, with their permission. The section stays hidden while there are none.
+   */
+  items?:
+    | {
+        quote: string;
+        name: string;
+        role?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'testimonials';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "LogoStripBlock".
+ */
+export interface LogoStripBlock {
+  heading?: string | null;
+  tone: 'plain' | 'light' | 'dark';
+  logos?:
+    | {
+        name: string;
+        image: number | Media;
+        id?: string | null;
+      }[]
+    | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'logoStrip';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "CallToActionBlock".
+ */
+export interface CallToActionBlock {
+  heading: string;
+  body?: string | null;
+  tone: 'plain' | 'light' | 'dark';
+  primary?: {
+    label?: string | null;
+    to?: ('market' | 'site' | 'email') | null;
+    /**
+     * Starts with /. For this market's pricing page: /pricing
+     */
+    path?: string | null;
+    subject?: string | null;
+  };
+  secondary?: {
+    label?: string | null;
+    to?: ('market' | 'site' | 'email') | null;
+    /**
+     * Starts with /. For this market's pricing page: /pricing
+     */
+    path?: string | null;
+    subject?: string | null;
+  };
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'callToAction';
+}
+/**
  * Website roles are set on the Staff page in the staff console.
  *
  * This interface was referenced by `Config`'s JSON-Schema
@@ -208,11 +651,107 @@ export interface PayloadKv {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "payload-jobs".
+ */
+export interface PayloadJob {
+  id: number;
+  /**
+   * Input data provided to the job
+   */
+  input?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  taskStatus?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  completedAt?: string | null;
+  totalTried?: number | null;
+  /**
+   * If hasError is true this job will not be retried
+   */
+  hasError?: boolean | null;
+  /**
+   * If hasError is true, this is the error that caused it
+   */
+  error?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  /**
+   * Task execution log
+   */
+  log?:
+    | {
+        executedAt: string;
+        completedAt: string;
+        taskSlug: 'inline' | 'schedulePublish';
+        taskID: string;
+        input?:
+          | {
+              [k: string]: unknown;
+            }
+          | unknown[]
+          | string
+          | number
+          | boolean
+          | null;
+        output?:
+          | {
+              [k: string]: unknown;
+            }
+          | unknown[]
+          | string
+          | number
+          | boolean
+          | null;
+        state: 'failed' | 'succeeded';
+        error?:
+          | {
+              [k: string]: unknown;
+            }
+          | unknown[]
+          | string
+          | number
+          | boolean
+          | null;
+        id?: string | null;
+      }[]
+    | null;
+  taskSlug?: ('inline' | 'schedulePublish') | null;
+  queue?: string | null;
+  waitUntil?: string | null;
+  processing?: boolean | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-locked-documents".
  */
 export interface PayloadLockedDocument {
   id: number;
   document?:
+    | ({
+        relationTo: 'pages';
+        value: number | Page;
+      } | null)
     | ({
         relationTo: 'media';
         value: number | Media;
@@ -262,6 +801,300 @@ export interface PayloadMigration {
   batch?: number | null;
   updatedAt: string;
   createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "pages_select".
+ */
+export interface PagesSelect<T extends boolean = true> {
+  title?: T;
+  slug?: T;
+  layout?:
+    | T
+    | {
+        hero?: T | HeroBlockSelect<T>;
+        domainSearch?: T | DomainSearchBlockSelect<T>;
+        featureCards?: T | FeatureCardsBlockSelect<T>;
+        servicesGrid?: T | ServicesGridBlockSelect<T>;
+        pricing?: T | PricingBlockSelect<T>;
+        text?: T | TextBlockSelect<T>;
+        imageText?: T | ImageTextBlockSelect<T>;
+        faq?: T | FaqBlockSelect<T>;
+        testimonials?: T | TestimonialsBlockSelect<T>;
+        logoStrip?: T | LogoStripBlockSelect<T>;
+        callToAction?: T | CallToActionBlockSelect<T>;
+      };
+  seo?:
+    | T
+    | {
+        title?: T;
+        description?: T;
+        image?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+  _status?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "HeroBlock_select".
+ */
+export interface HeroBlockSelect<T extends boolean = true> {
+  kicker?: T;
+  heading?: T;
+  sub?: T;
+  primary?:
+    | T
+    | {
+        label?: T;
+        to?: T;
+        path?: T;
+        subject?: T;
+      };
+  secondary?:
+    | T
+    | {
+        label?: T;
+        to?: T;
+        path?: T;
+        subject?: T;
+      };
+  supporting?:
+    | T
+    | {
+        text?: T;
+        id?: T;
+      };
+  picture?:
+    | T
+    | {
+        source?: T;
+        image?: T;
+        caption?: T;
+      };
+  domainSearch?: T;
+  id?: T;
+  blockName?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "DomainSearchBlock_select".
+ */
+export interface DomainSearchBlockSelect<T extends boolean = true> {
+  heading?: T;
+  intro?: T;
+  id?: T;
+  blockName?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "FeatureCardsBlock_select".
+ */
+export interface FeatureCardsBlockSelect<T extends boolean = true> {
+  kicker?: T;
+  heading?: T;
+  intro?: T;
+  tone?: T;
+  style?: T;
+  items?:
+    | T
+    | {
+        icon?: T;
+        title?: T;
+        body?: T;
+        id?: T;
+      };
+  id?: T;
+  blockName?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ServicesGridBlock_select".
+ */
+export interface ServicesGridBlockSelect<T extends boolean = true> {
+  kicker?: T;
+  heading?: T;
+  intro?: T;
+  tone?: T;
+  anchor?: T;
+  showTaxNote?: T;
+  cards?:
+    | T
+    | {
+        icon?: T;
+        title?: T;
+        body?: T;
+        note?: T;
+        dataCentre?: T;
+        products?: T;
+        id?: T;
+      };
+  more?:
+    | T
+    | {
+        label?: T;
+        to?: T;
+        path?: T;
+        subject?: T;
+      };
+  id?: T;
+  blockName?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "PricingBlock_select".
+ */
+export interface PricingBlockSelect<T extends boolean = true> {
+  kicker?: T;
+  heading?: T;
+  intro?: T;
+  tone?: T;
+  products?: T;
+  more?:
+    | T
+    | {
+        label?: T;
+        to?: T;
+        path?: T;
+        subject?: T;
+      };
+  id?: T;
+  blockName?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "TextBlock_select".
+ */
+export interface TextBlockSelect<T extends boolean = true> {
+  heading?: T;
+  body?: T;
+  tone?: T;
+  id?: T;
+  blockName?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ImageTextBlock_select".
+ */
+export interface ImageTextBlockSelect<T extends boolean = true> {
+  kicker?: T;
+  heading?: T;
+  intro?: T;
+  tone?: T;
+  points?:
+    | T
+    | {
+        icon?: T;
+        title?: T;
+        body?: T;
+        id?: T;
+      };
+  picture?:
+    | T
+    | {
+        source?: T;
+        image?: T;
+        caption?: T;
+      };
+  pictureSide?: T;
+  card?:
+    | T
+    | {
+        kicker?: T;
+        title?: T;
+        body?: T;
+        link?:
+          | T
+          | {
+              label?: T;
+              to?: T;
+              path?: T;
+              subject?: T;
+            };
+      };
+  id?: T;
+  blockName?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "FaqBlock_select".
+ */
+export interface FaqBlockSelect<T extends boolean = true> {
+  kicker?: T;
+  heading?: T;
+  intro?: T;
+  tone?: T;
+  items?:
+    | T
+    | {
+        question?: T;
+        answer?: T;
+        id?: T;
+      };
+  id?: T;
+  blockName?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "TestimonialsBlock_select".
+ */
+export interface TestimonialsBlockSelect<T extends boolean = true> {
+  heading?: T;
+  tone?: T;
+  items?:
+    | T
+    | {
+        quote?: T;
+        name?: T;
+        role?: T;
+        id?: T;
+      };
+  id?: T;
+  blockName?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "LogoStripBlock_select".
+ */
+export interface LogoStripBlockSelect<T extends boolean = true> {
+  heading?: T;
+  tone?: T;
+  logos?:
+    | T
+    | {
+        name?: T;
+        image?: T;
+        id?: T;
+      };
+  id?: T;
+  blockName?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "CallToActionBlock_select".
+ */
+export interface CallToActionBlockSelect<T extends boolean = true> {
+  heading?: T;
+  body?: T;
+  tone?: T;
+  primary?:
+    | T
+    | {
+        label?: T;
+        to?: T;
+        path?: T;
+        subject?: T;
+      };
+  secondary?:
+    | T
+    | {
+        label?: T;
+        to?: T;
+        path?: T;
+        subject?: T;
+      };
+  id?: T;
+  blockName?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -347,6 +1180,37 @@ export interface PayloadKvSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "payload-jobs_select".
+ */
+export interface PayloadJobsSelect<T extends boolean = true> {
+  input?: T;
+  taskStatus?: T;
+  completedAt?: T;
+  totalTried?: T;
+  hasError?: T;
+  error?: T;
+  log?:
+    | T
+    | {
+        executedAt?: T;
+        completedAt?: T;
+        taskSlug?: T;
+        taskID?: T;
+        input?: T;
+        output?: T;
+        state?: T;
+        error?: T;
+        id?: T;
+      };
+  taskSlug?: T;
+  queue?: T;
+  waitUntil?: T;
+  processing?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-locked-documents_select".
  */
 export interface PayloadLockedDocumentsSelect<T extends boolean = true> {
@@ -386,6 +1250,26 @@ export interface CollectionsWidget {
     [k: string]: unknown;
   };
   width: 'full';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "TaskSchedulePublish".
+ */
+export interface TaskSchedulePublish {
+  input: {
+    type?: ('publish' | 'unpublish') | null;
+    locale?: string | null;
+    doc?: {
+      relationTo: 'pages';
+      value: number | Page;
+    } | null;
+    global?: string | null;
+    user?: {
+      relationTo: 'staff';
+      value: number | Staff;
+    } | null;
+  };
+  output?: unknown;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema

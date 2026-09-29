@@ -2,11 +2,14 @@ import { withPayload } from "@payloadcms/next/withPayload";
 import type { NextConfig } from "next";
 
 // The content security policy is set per request in src/proxy.ts,
-// because it carries a fresh nonce each time.
+// because it carries a fresh nonce each time. Pages can't be framed,
+// except by the website editor's live preview (same site, draft mode).
+/** Next.js's draft mode cookie, set only by /preview for website editors. */
+const DRAFT_COOKIE = "__prerender_bypass";
+
 const securityHeaders = [
   { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains" },
   { key: "X-Content-Type-Options", value: "nosniff" },
-  { key: "X-Frame-Options", value: "DENY" },
   { key: "Referrer-Policy", value: "no-referrer" },
   { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(), payment=()" },
   { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
@@ -18,7 +21,12 @@ const nextConfig: NextConfig = {
   // The site and the website editor have separate root layouts, so an unknown address gets its own page.
   experimental: { globalNotFound: true },
   async headers() {
-    return [{ source: "/:path*", headers: securityHeaders }];
+    const draft = [{ type: "cookie" as const, key: DRAFT_COOKIE }];
+    return [
+      { source: "/:path*", headers: securityHeaders },
+      { source: "/:path*", missing: draft, headers: [{ key: "X-Frame-Options", value: "DENY" }] },
+      { source: "/:path*", has: draft, headers: [{ key: "X-Frame-Options", value: "SAMEORIGIN" }] },
+    ];
   },
 };
 

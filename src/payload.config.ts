@@ -13,11 +13,14 @@ import {
   UnorderedListFeature,
   lexicalEditor,
 } from "@payloadcms/richtext-lexical";
-import { buildConfig } from "payload";
+import { APIError, buildConfig } from "payload";
 import sharp from "sharp";
 import { Media } from "./cms/collections/media";
+import { Pages } from "./cms/collections/pages";
 import { Staff } from "./cms/collections/staff";
+import { DEFAULT_LOCALE, MARKET_LOCALES } from "./cms/locales";
 import { migrations } from "./cms/migrations";
+import { canPublishWebsite } from "./server/staff/access";
 
 const dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -43,7 +46,37 @@ export default buildConfig({
       logout: { Button: "@/cms/components/brand#BackToConsole" },
     },
   },
-  collections: [Media, Staff],
+  collections: [Pages, Media, Staff],
+  // Each market is a locale; a market without its own words shows Botswana's.
+  localization: {
+    locales: MARKET_LOCALES.map((l) => ({ code: l.code, label: l.label })),
+    defaultLocale: DEFAULT_LOCALE,
+    fallback: true,
+  },
+  jobs: {
+    // Scheduled publishing. The console's background jobs switch (CONSOLE_JOBS=off) stops these too.
+    autoRun: [{ cron: "* * * * *", queue: "default" }],
+    shouldAutoRun: () => process.env.CONSOLE_JOBS !== "off",
+    // Runs the hook below, which checks who scheduled a publish.
+    runHooks: true,
+    jobsCollectionOverrides: ({ defaultJobsCollection }) => ({
+      ...defaultJobsCollection,
+      hooks: {
+        ...defaultJobsCollection.hooks,
+        beforeChange: [
+          ...(defaultJobsCollection.hooks?.beforeChange ?? []),
+          // Only Publishers may schedule a publish or unpublish. The job carries who scheduled it.
+          async ({ data, operation, req }) => {
+            if (operation !== "create" || data?.taskSlug !== "schedulePublish") return data;
+            const by = data.input?.user as { relationTo?: string; value?: string | number } | undefined;
+            const staff = by?.relationTo === "staff" && by.value != null ? await req.payload.findByID({ collection: "staff", id: by.value, depth: 0, overrideAccess: true, disableErrors: true }) : null;
+            if (!canPublishWebsite(staff?.websiteRole)) throw new APIError("Only Publishers can schedule a publish.", 403);
+            return data;
+          },
+        ],
+      },
+    }),
+  },
   // Rich text is words only: headings, bold, italic, links and lists. No colours, fonts or code.
   editor: lexicalEditor({
     features: () => [
