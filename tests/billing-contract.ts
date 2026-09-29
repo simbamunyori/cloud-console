@@ -62,7 +62,8 @@ export function billingContract(name: string, adapter: () => BillingAdapter, fix
       const client = await a.getClient(clientId);
       expect(client).toMatchObject({ clientId, firstName: "Thato", country: "BW", currency: f.currency, status: "active" });
       await a.updateClient(clientId, { phone: "+267 71 234 567" });
-      expect((await a.getClient(clientId))?.phone).toBe("+267 71 234 567");
+      // WHMCS keeps only the digits.
+      expect((await a.getClient(clientId))?.phone?.replace(/\D/g, "")).toBe("26771234567");
       expect(await a.getClient("987654321")).toBeNull();
     });
 

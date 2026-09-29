@@ -207,6 +207,8 @@ export function fakeWhmcs(options: FakeWhmcsOptions = {}) {
 
     AddClient: (p) => {
       for (const field of ["firstname", "lastname", "email", "address1", "city", "state", "postcode", "country", "phonenumber"]) if (!p[field]) return fail(`You did not provide required ${field}`);
+      // What the live install answers (WHMCS 9.0.9), though the API docs call it optional.
+      if (!p.password2 && !p.owner_user_id) return fail("The Password field is required.");
       if ([...clients.values()].some((c) => c.email === p.email)) return fail("A user already exists with that email address");
       const clientId = id();
       clients.set(clientId, { id: clientId, firstname: p.firstname, lastname: p.lastname, companyname: p.companyname ?? "", email: p.email, address1: p.address1, city: p.city, state: p.state, postcode: p.postcode, countrycode: p.country, phonenumber: p.phonenumber, tax_id: p.tax_id ?? "", currency: p.currency ?? "1", status: "Active" });
@@ -217,6 +219,8 @@ export function fakeWhmcs(options: FakeWhmcsOptions = {}) {
       const c = clients.get(p.clientid);
       if (!c) return fail("Client ID Not Found");
       for (const field of ["firstname", "lastname", "companyname", "email", "address1", "city", "phonenumber", "tax_id", "currency", "status"]) if (p[field] !== undefined) c[field] = p[field];
+      // As the live install does: only the digits of a phone number are kept.
+      if (p.phonenumber !== undefined) c.phonenumber = p.phonenumber.replace(/\D/g, "");
       if (p.country !== undefined) c.countrycode = p.country;
       return { clientid: p.clientid };
     },

@@ -43,7 +43,7 @@ audit event for each action.
 | Adapter method | WHMCS action | Notes |
 | --- | --- | --- |
 | `getClient` | GetClientsDetails | The currency code comes from `currency_code`, or from the id through GetCurrencies (cached). An unknown client is null |
-| `createClient` | AddClient | WHMCS needs state and postcode; Botswana has neither, so placeholders are sent. `noemail` is set: the console sends its own emails |
+| `createClient` | AddClient | WHMCS needs state and postcode; Botswana has neither, so placeholders are sent. `noemail` is set: the console sends its own emails. WHMCS 9 requires `password2` (the docs say optional), so a random one is sent and never kept: customers sign in to the console, not WHMCS |
 | `updateClient` | UpdateClient | |
 | `listProducts` | GetProducts | `-1.00` marks a cycle that is switched off |
 | `placeOrder` | AddOrder | Prices are always sent as `priceoverride[]` (see Prices below). A per-user product is one unit with its number of users in the "Users" quantity option (`configoptions[]`, base64 of a PHP-serialised array). Options the console keys by label (operating system) stay on the console's order. `noinvoice` when the change joins the next monthly invoice |

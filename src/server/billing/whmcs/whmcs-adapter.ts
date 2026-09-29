@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import { money } from "@/lib/domain/money";
 import type {
   BillingAdapter,
@@ -166,7 +167,11 @@ export class WhmcsBillingAdapter implements BillingAdapter {
 
   async createClient(input: NewBillingClient) {
     if (!input.email.includes("@")) throw new BillingError("invalid", "A client needs an email address.");
-    const r = await this.write("AddClient", map.toAddClient(input, await this.currencyId(input.currency)));
+    // WHMCS 9 refuses AddClient without a password for the client's user.
+    // Customers sign in to the console, never WHMCS, so it gets a random
+    // one that is never stored or shown.
+    const password = randomBytes(24).toString("base64url");
+    const r = await this.write("AddClient", { ...map.toAddClient(input, await this.currencyId(input.currency)), password2: password });
     const clientId = map.newClientId(r);
     this.clientCurrencies.set(clientId, input.currency.toUpperCase());
     return { clientId };
