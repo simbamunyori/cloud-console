@@ -6,9 +6,11 @@ import { company } from "@/config/app";
 import { env } from "@/server/env";
 import { themeAttribute } from "@/lib/theme";
 import { currentTheme } from "@/server/theme";
-import "./globals.css";
+import "../globals.css";
 
 // brand/BRAND.md: Poppins through next/font/google, weights 300 to 700.
+// Called here, in the site's root layout, so every page preloads it: a
+// font from a shared module isn't preloaded, which slowed the largest paint.
 const poppins = Poppins({
   subsets: ["latin"],
   weight: ["300", "400", "500", "600", "700"],

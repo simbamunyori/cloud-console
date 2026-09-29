@@ -16,7 +16,7 @@ module in the other.
 | `src/server/org/access.ts` | `src/server/org/access.ts` | Console roles (Owner, Admin, Billing only, Read only) and permissions |
 | `src/server/org/audit.ts` | `src/server/org/audit.ts` | Actor kinds include staff and the assistant; staff events can never be hidden |
 | `src/server/org/context.ts`, `src/server/org/members.ts` | same paths | Console roles; removing someone ends their sessions |
-| `src/app/(auth)/*` (sign-in, code, authenticator set-up, sign-up, invitation) and `src/components/auth/*` | same paths | Brand pack styling; the staff console reuses the forms |
+| `src/app/(frontend)/(auth)/*` (sign-in, code, authenticator set-up, sign-up, invitation) and `src/components/auth/*` | same paths | Brand pack styling; the staff console reuses the forms |
 | `src/server/db.ts` | `src/server/db.ts` (`tenantDb`, `scopeArgs`) | Console models; `updateManyAndReturn` and `upsert` updates also refuse to move rows between organisations |
 | `src/lib/domain/money.ts` | `src/lib/domain/money.ts` | Every amount carries a currency; currency table with decimal places; arithmetic refuses to mix currencies |
 | `src/lib/dates.ts`, `src/lib/cn.ts`, `src/lib/initials.ts` | same paths | Nothing of substance |

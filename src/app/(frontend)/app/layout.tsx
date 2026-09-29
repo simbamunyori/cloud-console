@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { signOutAction } from "@/app/(auth)/actions";
+import { signOutAction } from "@/app/(frontend)/(auth)/actions";
 import { Search } from "lucide-react";
 import { MobileNav } from "@/components/app/mobile-nav";
 import { OrgSwitcher } from "@/components/app/org-switcher";

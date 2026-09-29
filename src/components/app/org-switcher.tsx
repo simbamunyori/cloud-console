@@ -2,7 +2,7 @@
 
 import { Check, ChevronsUpDown } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
-import { switchOrganisationAction } from "@/app/app/actions";
+import { switchOrganisationAction } from "@/app/(frontend)/app/actions";
 import { cn } from "@/lib/cn";
 
 export interface OrgOption {

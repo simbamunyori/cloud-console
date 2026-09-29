@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { staffCodeAction } from "@/app/(auth)/actions";
-import { CodeForm } from "@/app/(auth)/sign-in/code/code-form";
+import { staffCodeAction } from "@/app/(frontend)/(auth)/actions";
+import { CodeForm } from "@/app/(frontend)/(auth)/sign-in/code/code-form";
 import { AuthShell } from "@/components/auth/auth-shell";
 import { company } from "@/config/app";
 import { currentSession, staffHomeFor } from "@/server/auth/next";

@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { lockedMessage } from "@/app/(auth)/messages";
-import { staffSignInAction } from "@/app/(auth)/actions";
-import { SignInForm } from "@/app/(auth)/sign-in/sign-in-form";
+import { lockedMessage } from "@/app/(frontend)/(auth)/messages";
+import { staffSignInAction } from "@/app/(frontend)/(auth)/actions";
+import { SignInForm } from "@/app/(frontend)/(auth)/sign-in/sign-in-form";
 import { AuthShell } from "@/components/auth/auth-shell";
 import { company } from "@/config/app";
 import { currentSession } from "@/server/auth/next";

@@ -63,6 +63,8 @@ export const PAGES: PageSpec[] = [
   { name: "admin-markets", audience: "staff", path: "/admin/markets" },
   { name: "admin-market", audience: "staff", path: "/admin/markets/bw" },
   { name: "admin-waitlist", audience: "staff", path: "/admin/waitlist" },
+  { name: "admin-staff", audience: "staff", path: "/admin/staff" },
+  { name: "admin-website-access", audience: "staff", path: "/admin/website-access" },
 ];
 
 /** The address to open for a page, following its link or looking up the demo customer's latest order. */

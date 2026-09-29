@@ -23,8 +23,10 @@ ENV NEXT_TELEMETRY_DISABLED=1
 RUN npm run build
 
 FROM base AS runner
-ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 HOSTNAME=0.0.0.0
+ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 HOSTNAME=0.0.0.0 MEDIA_DIR=/app/media
 RUN groupadd --system console && useradd --system --gid console console
+# Images uploaded in the website editor; a volume in docker-compose.prod.yml.
+RUN mkdir -p /app/media && chown console:console /app/media
 COPY --from=build /app/public ./public
 COPY --from=build --chown=console:console /app/.next/standalone ./
 COPY --from=build --chown=console:console /app/.next/static ./.next/static
@@ -36,5 +38,5 @@ COPY --from=build /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=migrate /migrate/node_modules /migrate/node_modules
 USER console
 EXPOSE 3000
-# Apply any pending migrations, then start.
+# Apply any pending migrations, then start. The website editor applies its own when the server starts.
 CMD ["sh", "-c", "node /migrate/node_modules/prisma/build/index.js migrate deploy && node server.js"]

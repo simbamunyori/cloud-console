@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { staffSignOutAction } from "@/app/(auth)/actions";
+import { staffSignOutAction } from "@/app/(frontend)/(auth)/actions";
 import { MobileNav } from "@/components/app/mobile-nav";
 import { SidebarNav, type NavItem } from "@/components/app/sidebar-nav";
 import { UserCard } from "@/components/app/user-card";
@@ -9,11 +9,11 @@ import { Logo, LogoMark } from "@/components/ui/logo";
 import { requireStaff } from "@/server/admin/context";
 import { staffOverview } from "@/server/admin/customers";
 import { prisma } from "@/server/db";
-import { STAFF_ROLE_LABEL, staffCan, type StaffPermission } from "@/server/staff/access";
+import { STAFF_ROLE_LABEL, staffCan, websiteRoleOf, type StaffPermission } from "@/server/staff/access";
 import { currentTheme } from "@/server/theme";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
-  const { staff } = await requireStaff();
+  const { staff, session } = await requireStaff();
   const counts = await staffOverview(prisma);
   const all: (NavItem & { needs: StaffPermission })[] = [
     { href: "/admin", label: "Overview", icon: "overview", exact: true, needs: "viewCustomers" },
@@ -25,8 +25,11 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     { href: "/admin/pricing", label: "Pricing", icon: "pricing", needs: "managePricing" },
     { href: "/admin/markets", label: "Markets", icon: "markets", needs: "manageMarkets" },
     { href: "/admin/waitlist", label: "Waiting list", icon: "waitlist", needs: "viewCustomers", badge: counts.waitlist || undefined },
+    { href: "/admin/staff", label: "Staff", icon: "staff", needs: "manageStaff" },
   ];
   const nav: NavItem[] = all.filter((i) => staffCan(staff, i.needs)).map(({ needs: _needs, ...i }) => i);
+  // The website editor has its own page frame, so this link loads a new page.
+  if (websiteRoleOf(session.user)) nav.push({ href: "/admin/content", label: "Website", icon: "website" });
   const user = <UserCard name={staff.name} role={`${STAFF_ROLE_LABEL[staff.staffRole]} staff`} signOut={staffSignOutAction} />;
 
   const themeSwitch = <ThemeSwitch current={await currentTheme()} />;

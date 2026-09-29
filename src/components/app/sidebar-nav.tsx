@@ -15,6 +15,8 @@ import {
   ShieldCheck,
   ShoppingBag,
   SlidersHorizontal,
+  SquarePen,
+  UserCog,
   Users,
   Wallet,
 } from "lucide-react";
@@ -40,6 +42,8 @@ const ICONS = {
   pricing: Percent,
   markets: Globe,
   waitlist: Hourglass,
+  website: SquarePen,
+  staff: UserCog,
 };
 
 export interface NavItem {
