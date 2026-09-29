@@ -1,20 +1,12 @@
 import type { Metadata, Viewport } from "next";
-import { Poppins } from "next/font/google";
 import { headers } from "next/headers";
 import tokens from "@/config/theme/tokens.json";
 import { company } from "@/config/app";
 import { env } from "@/server/env";
 import { themeAttribute } from "@/lib/theme";
 import { currentTheme } from "@/server/theme";
-import "./globals.css";
-
-// brand/BRAND.md: Poppins through next/font/google, weights 300 to 700.
-const poppins = Poppins({
-  subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700"],
-  variable: "--font-poppins",
-  display: "swap",
-});
+import { poppins } from "../fonts";
+import "../globals.css";
 
 export async function generateMetadata(): Promise<Metadata> {
   const name = env().CONSOLE_NAME;

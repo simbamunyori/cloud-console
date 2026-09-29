@@ -1,4 +1,4 @@
-import type { StaffRole } from "@prisma/client";
+import type { StaffRole, WebsiteRole } from "@prisma/client";
 import { DomainError } from "@/server/org/access";
 
 /**
@@ -24,7 +24,9 @@ export type StaffPermission =
   /** Change margins, the currency buffer and exchange rates. */
   | "managePricing"
   /** Change market settings, switch markets on and off, and move a customer to another market. */
-  | "manageMarkets";
+  | "manageMarkets"
+  /** Give staff a website role. */
+  | "manageStaff";
 
 const ALLOWED: Record<StaffPermission, StaffRole[]> = {
   viewCustomers: ["SUPPORT", "PROVISIONING", "FINANCE", "ADMIN"],
@@ -33,6 +35,7 @@ const ALLOWED: Record<StaffPermission, StaffRole[]> = {
   answerTickets: ["SUPPORT", "ADMIN"],
   managePricing: ["ADMIN"],
   manageMarkets: ["ADMIN"],
+  manageStaff: ["ADMIN"],
 };
 
 export function staffCan(actor: Pick<StaffActor, "staffRole">, permission: StaffPermission): boolean {
@@ -52,3 +55,20 @@ export const STAFF_ROLE_LABEL: Record<StaffRole, string> = {
 
 /** How staff appear in a customer's audit log. The page adds that they are our staff, from the actor kind. */
 export const staffLabel = (actor: Pick<StaffActor, "name">) => actor.name;
+
+// ─── The website editor ─────────────────────────────────────────────
+
+/** What a staff member may do in the website editor, or null for nothing. Admins can always publish. */
+export function websiteRoleOf(user: { staffRole: StaffRole | null; websiteRole: WebsiteRole | null }): WebsiteRole | null {
+  if (!user.staffRole) return null;
+  if (user.staffRole === "ADMIN") return "PUBLISHER";
+  return user.websiteRole;
+}
+
+/** Publish, schedule, restore a version and approve legal text. */
+export const canPublishWebsite = (role: WebsiteRole | null | undefined) => role === "PUBLISHER";
+
+export const WEBSITE_ROLE_LABEL: Record<WebsiteRole, string> = {
+  EDITOR: "Editor",
+  PUBLISHER: "Publisher",
+};

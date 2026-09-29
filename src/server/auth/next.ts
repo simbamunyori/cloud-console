@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/server/db";
 import { env } from "@/server/env";
 import { totpKey } from "@/server/secrets";
+import { SESSION_COOKIE } from "./cookies";
 import { getSession, type AuthDeps, type RequestContext, type SessionWithUser } from "./service";
 
 /**
@@ -14,10 +15,7 @@ import { getSession, type AuthDeps, type RequestContext, type SessionWithUser } 
  */
 
 const SECURE = process.env.NODE_ENV === "production";
-/** __Host- makes the browser insist on HTTPS, this exact host and path "/". */
-const COOKIE: Record<UserKind, string> = SECURE
-  ? { CUSTOMER: "__Host-console_session", STAFF: "__Host-console_staff" }
-  : { CUSTOMER: "console_session", STAFF: "console_staff" };
+const COOKIE = SESSION_COOKIE;
 
 export function authDeps(): AuthDeps {
   return { db: prisma, encryptionKey: totpKey(), issuer: env().CONSOLE_NAME };

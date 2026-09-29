@@ -1,3 +1,4 @@
+import { withPayload } from "@payloadcms/next/withPayload";
 import type { NextConfig } from "next";
 
 // The content security policy is set per request in src/proxy.ts,
@@ -14,9 +15,11 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   output: "standalone",
   poweredByHeader: false,
+  // The site and the website editor have separate root layouts, so an unknown address gets its own page.
+  experimental: { globalNotFound: true },
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },
 };
 
-export default nextConfig;
+export default withPayload(nextConfig, { devBundleServerPackages: false });

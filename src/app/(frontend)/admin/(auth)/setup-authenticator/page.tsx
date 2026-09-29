@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import QRCode from "qrcode";
-import { staffConfirmSetupAction } from "@/app/(auth)/actions";
-import { SetupForm } from "@/app/(auth)/setup-authenticator/setup-form";
+import { staffConfirmSetupAction } from "@/app/(frontend)/(auth)/actions";
+import { SetupForm } from "@/app/(frontend)/(auth)/setup-authenticator/setup-form";
 import { AuthShell } from "@/components/auth/auth-shell";
 import { company } from "@/config/app";
 import tokens from "@/config/theme/tokens.json";

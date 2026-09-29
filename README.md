@@ -23,12 +23,12 @@ You need Node 22 and Docker (or PostgreSQL 16 of your own).
 
 ```sh
 cp .env.example .env
-# Fill in TOTP_ENCRYPTION_KEY:  openssl rand -base64 32
+# Fill in TOTP_ENCRYPTION_KEY and PAYLOAD_SECRET:  openssl rand -base64 32
 docker compose up -d          # PostgreSQL, and Mailpit to catch email
 npm install
-npm run db:migrate            # or `npm run db:dev` while changing the schema
+npm run db:migrate            # Prisma, then the website editor's; `npm run db:dev` while changing the schema
 npm run db:seed               # demo organisation, staff accounts, catalogue
-npm run dev                   # http://localhost:3000, the site; /app, the console
+npm run dev                   # http://localhost:3000, the site; /app, the console; /admin/content, the website editor
 ```
 
 Every email the console sends lands in Mailpit at http://localhost:8025.
@@ -128,6 +128,8 @@ the UI and never sent to the assistant.
 | Variable | Needed | What it does |
 | --- | --- | --- |
 | `DATABASE_URL` | Yes | PostgreSQL connection |
+| `PAYLOAD_SECRET` | Yes | Secret for the website editor's own tokens (staff never get an editor password) |
+| `MEDIA_DIR` | No | Where images uploaded in the website editor are kept; defaults to `media/` |
 | `APP_URL` | Yes in production | Public address, used in email links |
 | `CONSOLE_NAME` | No | What customers see the console called (default "Cloud Console") |
 | `TOTP_ENCRYPTION_KEY` | Yes, secret | 32 random bytes, base64. Encrypts authenticator secrets. Losing it means everyone sets up their authenticator again |
@@ -231,13 +233,35 @@ Nothing else changes: pages, orders and payments only see the adapter.
 WHMCS has no purchase order field on invoices, so PO numbers stay in the
 console and are also written into the invoice notes.
 
+## Website editor
+
+Staff change the public website in the editor at /admin/content
+([Payload](https://payloadcms.com) 3, inside this app). They sign in to
+the staff console as usual; the editor reads the same session, so there
+are no separate passwords. An Admin gives each person a website role on
+the Staff page: Editors save drafts, Publishers also publish, schedule,
+restore versions and approve legal text. Admins can always publish.
+
+Payload keeps its tables in the `cms` schema of the same database, with
+its own migrations in `src/cms/migrations`. After changing a collection:
+
+```sh
+npx payload migrate:create <name>   # CI fails if the config and migrations disagree
+npm run cms:generate                # the editor's import map and TypeScript types
+```
+
+A production server applies pending editor migrations when it starts.
+Uploaded images go to `MEDIA_DIR` (a volume in `docker-compose.prod.yml`;
+back it up with the database) and are served at /media.
+
 ## Where things are
 
 | Path | What |
 | --- | --- |
-| `src/app/[market]`, `src/components/site`, `src/config/site.ts` | Public website |
-| `src/app/(auth)`, `src/app/app` | Customer sign-in and console pages |
-| `src/app/admin` | Staff console |
+| `src/app/(frontend)/[market]`, `src/components/site`, `src/config/site.ts` | Public website |
+| `src/app/(frontend)/(auth)`, `src/app/(frontend)/app` | Customer sign-in and console pages |
+| `src/app/(frontend)/admin` | Staff console |
+| `src/payload.config.ts`, `src/cms`, `src/app/(payload)` | Website editor (Payload) at /admin/content, its collections and migrations |
 | `src/server/billing` | Billing adapter, stub, WHMCS shell, organisation-scoped wrapper |
 | `src/server/payments` | Payment adapter, stub card gateway, EFT |
 | `src/server/connectors` | One connector per product family, all manual in Phase 1 |
