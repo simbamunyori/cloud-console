@@ -4,7 +4,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/ui/logo";
 import { company } from "@/config/app";
-import { LEGAL_PAGES, SERVICE_MENU } from "@/config/site";
+import { FOOTER_LEGAL, LEGAL_PAGES, SERVICE_MENU } from "@/config/site";
 import type { Theme } from "@/lib/theme";
 import { ThemeSwitch } from "@/components/theme/theme-switch";
 import { MarketSwitcher, type SwitcherMarket } from "./market-switcher";
@@ -143,9 +143,9 @@ export function SiteFrame({
             <Link href={`${base}/security`} className="text-callout hover:text-on-navy hover:underline">
               Security and data protection
             </Link>
-            {Object.entries(LEGAL_PAGES).map(([kind, title]) => (
+            {FOOTER_LEGAL.map((kind) => (
               <Link key={kind} href={`${base}/legal/${kind}`} className="text-callout hover:text-on-navy hover:underline">
-                {title}
+                {LEGAL_PAGES[kind]}
               </Link>
             ))}
           </nav>

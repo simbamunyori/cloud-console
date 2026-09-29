@@ -192,7 +192,8 @@ export interface MarketCopy {
 
 export const MARKET_COPY: Record<string, MarketCopy> = {
   default: { testimonials: [] },
-  bw: { localHosting: "Need a copy of your data kept in Botswana? We keep one for regulated customers.", testimonials: [] },
+  // localHosting stays empty until Local data copy is offered, after our servers move to Botswana.
+  bw: { testimonials: [] },
 };
 
 export function marketCopy(code: string): MarketCopy {
@@ -201,9 +202,14 @@ export function marketCopy(code: string): MarketCopy {
 
 /** The legal pages every market has. */
 export const LEGAL_PAGES = {
-  privacy: "Privacy notice",
   terms: "Terms of service",
+  privacy: "Privacy notice",
+  refunds: "Refunds and cancellations",
+  "service-providers": "Service providers",
   "data-protection": "Data protection",
 } as const;
+
+/** The footer's legal links. Data protection is on the Security page, which the footer already links. */
+export const FOOTER_LEGAL: LegalKind[] = ["terms", "privacy", "refunds", "service-providers"];
 
 export type LegalKind = keyof typeof LEGAL_PAGES;

@@ -13,6 +13,7 @@ import { productBySlug, productOptions } from "@/server/catalogue/catalogue";
 import { productPrice } from "@/server/catalogue/price-book";
 import { DOMAIN_PRODUCT_SLUG } from "@/server/catalogue/seed-data";
 import { prisma } from "@/server/db";
+import { legalDocument, REFUNDS_CONSENT_SECTION } from "@/server/site/legal";
 import { can } from "@/server/org/access";
 import { MAX_QUANTITY } from "@/server/orders/orders";
 import { OrderForm } from "./order-form";
@@ -31,6 +32,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
   const product = await productBySlug(prisma, slug);
   if (!product || product.slug === DOMAIN_PRODUCT_SLUG) notFound();
   const price = await productPrice(prisma, product, market, monthOf(today));
+  const refunds = await legalDocument(market.code, "refunds");
   // Not offered in this account's market.
   if (!price) notFound();
 
@@ -100,6 +102,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
                 minQuantity={product.minQuantity}
                 maxQuantity={MAX_QUANTITY}
                 options={productOptions(product)}
+                refundsHref={refunds ? `/${market.code}/legal/refunds#${REFUNDS_CONSENT_SECTION}` : null}
               />
             ) : (
               <Alert tone="info">Only owners and admins can order. Ask one of them to order this for you.</Alert>
