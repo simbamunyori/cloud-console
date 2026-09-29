@@ -47,6 +47,8 @@ interface ProductSeed {
   options?: OptionSpec[];
   /** Markets it is offered in when first loaded. Every market if not set. */
   markets?: string[];
+  /** False keeps it off sale when first loaded; staff switch it on later. */
+  active?: boolean;
 }
 
 /** The product behind domain orders. It isn't shown in the product grid; domains have their own search. */
@@ -250,8 +252,9 @@ export const PRODUCTS: ProductSeed[] = [
   },
   {
     slug: "local-data-copy",
-    // The copy is kept in Botswana.
+    // The copy is kept in Botswana, so it isn't offered until our servers move there.
     markets: ["bw"],
+    active: false,
     category: "protection",
     name: "Local data copy",
     summary: "A daily copy of your cloud data kept on our own servers, for organisations with data protection duties.",
@@ -401,6 +404,7 @@ export async function seedCatalogue(db: PrismaClient, billingIds: Partial<Record
         fixedPriceCurrency: p.fixedPrice?.[1] ?? null,
         billingProductId,
         markets: p.markets ?? allMarkets,
+        active: p.active ?? true,
       },
     });
   }

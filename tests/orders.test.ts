@@ -38,7 +38,8 @@ describe.skipIf(!hasDb)("ordering", () => {
     // US$ 12.50 x 13.45, +3%, +20%, rounded up: P 208.00 (as in the pricing unit test).
     expect(standard.price).toEqual(money(20800n, "BWP"));
     expect(categories.flatMap((c) => c.products).some((p) => p.product.slug === "domain-name")).toBe(false);
-    expect(categories.flatMap((c) => c.products).some((p) => p.product.slug === "local-data-copy")).toBe(true);
+    // Local data copy isn't offered until our servers move to Botswana.
+    expect(categories.flatMap((c) => c.products).some((p) => p.product.slug === "local-data-copy")).toBe(false);
   });
 
   it("offers each market its own currency and catalogue", async () => {
@@ -63,7 +64,7 @@ describe.skipIf(!hasDb)("ordering", () => {
 
   it("places an order: invoice, pending service, staff task, audit and email", async () => {
     const o = await setUp();
-    const order = await placeOrder(o.deps(), { slug: "microsoft-365-business-standard", quantity: "5", options: { domain: "Molepolole-Mills.co.bw" } });
+    const order = await placeOrder(o.deps(), { slug: "microsoft-365-business-standard", quantity: "5", options: { domain: "Molepolole-Mills.co.bw" }, startNow: true });
     expect(order).toMatchObject({ quantity: 5, unitPriceMinor: 20800n, monthlyTotalMinor: 104000n, status: "SETTING_UP" });
     expect(order.reference).toMatch(/^ORD-[2-9A-Z]{6}$/);
     expect(order.expectedBy.getTime()).toBeGreaterThan(Date.now() + 7 * 3_600_000);
@@ -78,6 +79,15 @@ describe.skipIf(!hasDb)("ordering", () => {
     expect(task.instructions).toContain("molepolole-mills.co.bw");
     expect(await db.auditEvent.findFirst({ where: { organisationId: o.organisationId, action: "order.placed" } })).toMatchObject({ summary: `Ordered Microsoft 365 Business Standard for 5 users (${order.reference})` });
     expect(await db.outboundEmail.count({ where: { organisationId: o.organisationId, kind: "order.received" } })).toBe(1);
+  });
+
+  it("asks the customer to agree that the service starts now, and records it", async () => {
+    const o = await setUp();
+    await expect(placeOrder(o.deps(), { slug: "managed-vps-small", quantity: "1", options: { os: "Debian 12" } })).rejects.toMatchObject({ field: "startNow" });
+    await expect(registerDomain(o.deps(), `consent${Date.now().toString(36)}.co.bw`, "1")).rejects.toMatchObject({ field: "startNow" });
+    expect(await db.order.count({ where: { organisationId: o.organisationId } })).toBe(0);
+    await placeOrder(o.deps(), { slug: "managed-vps-small", quantity: "1", options: { os: "Debian 12" }, startNow: true });
+    expect(await db.auditEvent.findFirst({ where: { organisationId: o.organisationId, action: "order.placed" } })).toMatchObject({ data: { startNow: true } });
   });
 
   it("checks quantity and options, and only lets owners and admins order", async () => {
@@ -95,11 +105,11 @@ describe.skipIf(!hasDb)("ordering", () => {
 
   it("keeps this month's price when staff change the margin", async () => {
     const o = await setUp();
-    await placeOrder(o.deps(), { slug: "managed-vps-small", quantity: "1", options: { os: "Debian 12" } });
+    await placeOrder(o.deps(), { slug: "managed-vps-small", quantity: "1", options: { os: "Debian 12" }, startNow: true });
     const before = (await productPrice(db, (await productBySlug(db, "managed-vps-small"))!, bw, month))!;
     await db.productCategory.update({ where: { key: "servers" }, data: { marginBps: 9000 } });
     try {
-      const order = await placeOrder(o.deps(), { slug: "managed-vps-small", quantity: "1", options: { os: "Debian 12" } });
+      const order = await placeOrder(o.deps(), { slug: "managed-vps-small", quantity: "1", options: { os: "Debian 12" }, startNow: true });
       expect(order.unitPriceMinor).toBe(before.amountMinor);
     } finally {
       await db.productCategory.update({ where: { key: "servers" }, data: { marginBps: 4000 } });
@@ -108,7 +118,7 @@ describe.skipIf(!hasDb)("ordering", () => {
 
   it("changes the number of users, charging the part month", async () => {
     const o = await setUp();
-    const order = await placeOrder(o.deps(), { slug: "backup-microsoft-365", quantity: "5", options: {} });
+    const order = await placeOrder(o.deps(), { slug: "backup-microsoft-365", quantity: "5", options: {}, startNow: true });
     await o.stub.acceptOrder(order.billingOrderId!);
     const serviceId = order.billingServiceIds[0];
 
@@ -129,7 +139,7 @@ describe.skipIf(!hasDb)("ordering", () => {
 
   it("refuses to change a service that can't take a quantity", async () => {
     const o = await setUp();
-    const order = await placeOrder(o.deps(), { slug: "thebe", quantity: "1", options: {} });
+    const order = await placeOrder(o.deps(), { slug: "thebe", quantity: "1", options: {}, startNow: true });
     await o.stub.acceptOrder(order.billingOrderId!);
     await expect(previewQuantityChange(o.deps(), order.billingServiceIds[0], "2")).rejects.toMatchObject({ code: "invalid" });
   });
@@ -148,10 +158,10 @@ describe.skipIf(!hasDb)("ordering", () => {
     expect(results.find((r) => r.name === `${label}.co.bw`)).toMatchObject({ available: true, supported: true, price: coBw.register });
     expect((await searchDomains(o.tenant, o.billing, market, "mascom.co.bw", month))[0]).toMatchObject({ name: "mascom.co.bw", available: false });
 
-    const order = await registerDomain(o.deps(), `${label}.co.bw`, "2");
+    const order = await registerDomain(o.deps(), `${label}.co.bw`, "2", true);
     expect(order).toMatchObject({ unitPriceMinor: coBw.register.amountMinor * 2n, monthlyTotalMinor: 0n });
     expect((await o.billing.listDomains()).find((d) => d.name === `${label}.co.bw`)?.status).toBe("pending");
-    await expect(registerDomain(o.deps(), `${label}.co.bw`, "1")).rejects.toMatchObject({ code: "conflict" });
-    await expect(registerDomain(o.deps(), `${label}.xyz`, "1")).rejects.toMatchObject({ code: "invalid" });
+    await expect(registerDomain(o.deps(), `${label}.co.bw`, "1", true)).rejects.toMatchObject({ code: "conflict" });
+    await expect(registerDomain(o.deps(), `${label}.xyz`, "1", true)).rejects.toMatchObject({ code: "invalid" });
   });
 });

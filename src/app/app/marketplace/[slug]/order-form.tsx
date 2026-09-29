@@ -10,6 +10,7 @@ import { formatMoney, fromJson, times, type MoneyJson } from "@/lib/domain/money
 import type { ActionState } from "@/server/action-state";
 import type { OptionSpec } from "@/server/catalogue/seed-data";
 import { placeOrderAction } from "../actions";
+import { StartNowField } from "../start-now";
 
 export function OrderForm({
   slug,
@@ -20,6 +21,7 @@ export function OrderForm({
   maxQuantity,
   options,
   locale,
+  refundsHref,
 }: {
   slug: string;
   unitPrice: MoneyJson;
@@ -29,6 +31,8 @@ export function OrderForm({
   maxQuantity: number;
   options: OptionSpec[];
   locale: string;
+  /** Set when the market has a refunds policy: the customer confirms the service may start now. */
+  refundsHref: string | null;
 }) {
   const [state, action, pending] = useActionState<ActionState, FormData>(placeOrderAction, {});
   const [quantity, setQuantity] = useState(Math.max(minQuantity, Number(state.values?.quantity) || (quantityAllowed ? 5 : 1)));
@@ -108,6 +112,8 @@ export function OrderForm({
         <span className="text-title-2 text-ink tabular-nums">{formatMoney(total, locale)} a month</span>
         <span className="text-callout text-ink-muted">The first month is invoiced now. You can pay it by card or bank transfer.</span>
       </div>
+
+      {refundsHref ? <StartNowField id="startNow" refundsHref={refundsHref} error={fe.startNow} /> : null}
 
       <Button type="submit" size="lg" disabled={pending}>
         {pending ? "Placing your order…" : `Order for ${formatMoney(total, locale)} a month`}
