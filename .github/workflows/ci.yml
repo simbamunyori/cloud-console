@@ -50,6 +50,10 @@ jobs:
       - name: Check UI copy (no em dashes, company name)
         run: npm run copy-check
       - run: npm test
+      - name: WHMCS sync addon (signatures, replays, allowed IPs)
+        run: |
+          find whmcs -name '*.php' -print0 | xargs -0 -n1 php -l
+          npm run test:whmcs-addon
       - run: npm run build
 
   browser:
