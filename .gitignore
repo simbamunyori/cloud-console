@@ -54,3 +54,4 @@ backups/
 
 # Images uploaded in the website editor during development.
 /media/
+/backups

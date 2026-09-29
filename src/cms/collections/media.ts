@@ -1,6 +1,8 @@
 import type { CollectionConfig } from "payload";
 import { canPublishWebsite } from "@/server/staff/access";
-import { mediaDir, mediaUrl } from "../media-dir";
+import { mediaStorage } from "../storage";
+
+const storage = mediaStorage();
 
 type Sizes = Record<string, { filename?: string | null; url?: string | null }> | undefined;
 
@@ -20,7 +22,7 @@ export const Media: CollectionConfig = {
     delete: ({ req }) => canPublishWebsite(req.user?.websiteRole),
   },
   upload: {
-    staticDir: mediaDir(),
+    ...storage.upload,
     mimeTypes: ["image/png", "image/jpeg", "image/webp", "image/avif"],
     imageSizes: [
       { name: "thumbnail", width: 400, formatOptions: { format: "webp", options: { quality: 80 } } },
@@ -45,8 +47,8 @@ export const Media: CollectionConfig = {
   hooks: {
     afterRead: [
       ({ doc }) => {
-        if (doc.filename) doc.url = mediaUrl(doc.filename);
-        for (const size of Object.values((doc.sizes as Sizes) ?? {})) if (size?.filename) size.url = mediaUrl(size.filename);
+        if (doc.filename) doc.url = storage.url(doc.filename);
+        for (const size of Object.values((doc.sizes as Sizes) ?? {})) if (size?.filename) size.url = storage.url(size.filename);
         return doc;
       },
     ],

@@ -18,6 +18,7 @@ import sharp from "sharp";
 import { Media } from "./cms/collections/media";
 import { Staff } from "./cms/collections/staff";
 import { migrations } from "./cms/migrations";
+import { mediaStorage } from "./cms/storage";
 
 const dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -67,6 +68,7 @@ export default buildConfig({
     prodMigrations: migrations,
   }),
   sharp,
+  plugins: [...mediaStorage().plugins],
   graphQL: { disable: true },
   telemetry: false,
   upload: { limits: { fileSize: 10 * 1024 * 1024 } },

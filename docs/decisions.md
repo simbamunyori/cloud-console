@@ -102,7 +102,8 @@ What the console assumes, decided or leaves out, for review before launch. Each 
 60. **Cards are not saved in WHMCS.** Its AddPayMethod needs the full card number, which the console never handles; saved cards stay with the gateway.
 61. **The website editor is Payload 3, inside this app** (Change Request 02). It sits at /admin/content with its API at /admin/content-api, so the admin IP allowlist covers both. Staff sign in with their console session (a custom Payload strategy); Payload's own passwords are off, and there is no Gravatar. The public site and the editor have separate root layouts (`src/app/(frontend)`, `src/app/(payload)`), so unknown addresses use `src/app/global-not-found.tsx`.
 62. **Website roles are separate from staff roles.** An Admin gives Editor or Publisher on the Staff page, recorded in the staff audit log; Admins can always publish. The role is checked on every editor request, so a change takes effect at once.
-63. **Uploaded images are kept on the server disk** (`MEDIA_DIR`) for launch, resized to WebP at set widths, and can't be saved without alt text. Only Publishers can delete one.
+63. **Uploaded images are kept on the server disk** (`MEDIA_DIR`) for launch, resized to WebP at set widths, and can't be saved without alt text. Only Publishers can delete one. Storage goes through an adapter (`src/cms/storage`, `MEDIA_STORAGE`), so object storage can replace the disk later.
+64. **Nightly backups** (`scripts/backup.sh`, the `backup` service in `docker-compose.prod.yml`): the database and the media folder, one encrypted file a night, kept 30 days by default. Copying them off the server is part of hosting.
 
 ## Carried over from the Phase 1 go-ahead
 
