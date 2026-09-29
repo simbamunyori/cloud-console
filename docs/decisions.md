@@ -107,6 +107,6 @@ Checked for Change Request 01, section 6:
 
 - **Email adapter:** SMTP in production (`SMTP_URL`), Mailpit in `docker-compose.yml` for development. In place.
 - **Assistant data rules and tool audit:** items 45 to 47. In place; the privacy page states the AI service is hosted outside the customer's country.
-- **Security headers, CI audit, admin allowlist:** a nonce-based content security policy and security headers in `src/middleware.ts`; secure, httpOnly, SameSite session cookies with the `__Host-` prefix in production; `npm audit` on production dependencies in CI; `ADMIN_IP_ALLOWLIST`. In place.
+- **Security headers, CI audit, admin allowlist:** a nonce-based content security policy and security headers in `src/proxy.ts`; secure, httpOnly, SameSite session cookies with the `__Host-` prefix in production; `npm audit` on production dependencies in CI; `ADMIN_IP_ALLOWLIST`. In place.
 - **EFT details per market:** item 9. Added in this change.
 - **`docs/shared-with-thebe.md`:** in place. Change Request 01 copied nothing new from Thebe.

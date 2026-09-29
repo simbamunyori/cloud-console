@@ -47,7 +47,7 @@ export async function generateViewport(): Promise<Viewport> {
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   // Reading the request makes every page render per request, which the
   // content security policy needs: Next.js stamps its scripts with the
-  // nonce from src/middleware.ts.
+  // nonce from src/proxy.ts.
   await headers();
   const theme = themeAttribute(await currentTheme());
   return (

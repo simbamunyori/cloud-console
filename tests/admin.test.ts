@@ -49,7 +49,7 @@ describe.skipIf(!hasDb)("staff console", () => {
     const billing = await scopedBilling(db, stub, org.organisationId);
     const organisation = await db.organisation.findUniqueOrThrow({ where: { id: org.organisationId } });
     const deps: OrderDeps = { db: org.tenant, billing, organisation, actor: org.owner };
-    const order = await placeOrder(deps, { slug: "managed-vps-small", quantity: 1, options: { os: "Ubuntu 24.04 LTS" } });
+    const order = await placeOrder(deps, { slug: "managed-vps-small", quantity: 1, options: { os: "Ubuntu 24.04 LTS" }, startNow: true });
     const task = await db.provisioningTask.findFirstOrThrow({ where: { orderId: order.id } });
     return { ...org, billing, deps, order, task };
   }
@@ -85,7 +85,7 @@ describe.skipIf(!hasDb)("staff console", () => {
     const change = await changeQuantity(o.deps, o.order.billingServiceIds[0], 1).catch((e) => e);
     // A VPS has no seats; use Microsoft 365 for the seat change.
     expect(change).toMatchObject({ code: "invalid" });
-    const m365 = await placeOrder(o.deps, { slug: "microsoft-365-business-standard", quantity: 3, options: { domain: "serowe-stores.co.bw" } });
+    const m365 = await placeOrder(o.deps, { slug: "microsoft-365-business-standard", quantity: 3, options: { domain: "serowe-stores.co.bw" }, startNow: true });
     await completeTask({ db, adapter: stub, staff: provisioning }, (await db.provisioningTask.findFirstOrThrow({ where: { orderId: m365.id } })).id);
     const seats = await changeQuantity(o.deps, m365.billingServiceIds[0], 5);
     const seatTask = await db.provisioningTask.findFirstOrThrow({ where: { orderId: seats.order.id } });

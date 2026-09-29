@@ -1,15 +1,14 @@
 "use client";
 
 import { Menu, X } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
-import { usePathname } from "next/navigation";
+import { useEffect, useRef } from "react";
+import { usePageToggle } from "@/lib/use-page-toggle";
 import { SidebarNav, type NavItem } from "./sidebar-nav";
 
 /** The sidebar as a sheet on narrow screens. */
 export function MobileNav({ header, footer, items }: { header: React.ReactNode; footer: React.ReactNode; items: NavItem[] }) {
   const ref = useRef<HTMLDialogElement>(null);
-  const [open, setOpen] = useState(false);
-  const pathname = usePathname();
+  const [open, setOpen] = usePageToggle();
 
   useEffect(() => {
     const d = ref.current;
@@ -18,7 +17,6 @@ export function MobileNav({ header, footer, items }: { header: React.ReactNode; 
     if (!open && d.open) d.close();
   }, [open]);
 
-  useEffect(() => setOpen(false), [pathname]);
 
   return (
     <>

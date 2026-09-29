@@ -1,7 +1,7 @@
 /**
  * Matches an address against a list of exact addresses and IPv4 ranges
  * ("196.45.0.0/16"). Used to keep /admin to the office and the VPN.
- * Pure functions, so the middleware (edge runtime) can use them.
+ * Pure functions, so the proxy (src/proxy.ts) can use them.
  */
 
 function ipv4ToInt(ip: string): number | null {

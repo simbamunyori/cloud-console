@@ -1,6 +1,6 @@
 import type { NextConfig } from "next";
 
-// The content security policy is set per request in src/middleware.ts,
+// The content security policy is set per request in src/proxy.ts,
 // because it carries a fresh nonce each time.
 const securityHeaders = [
   { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains" },

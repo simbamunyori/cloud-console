@@ -10,6 +10,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { toJson } from "@/lib/domain/money";
 import { requireBilling } from "@/server/billing/context";
 import { monthOf } from "@/lib/domain/pricing";
+import { legalDocument, REFUNDS_CONSENT_SECTION } from "@/server/site/legal";
 import { can, DomainError } from "@/server/org/access";
 import { searchDomains, type DomainResult } from "@/server/orders/orders";
 import { RegisterDomainForm } from "./register-form";
@@ -30,6 +31,7 @@ export default async function DomainsPage({ searchParams }: { searchParams: Prom
     }
   }
   const canOrder = can(actor, "order");
+  const refunds = canOrder ? await legalDocument(market.code, "refunds") : null;
 
   return (
     <>
@@ -78,7 +80,7 @@ export default async function DomainsPage({ searchParams }: { searchParams: Prom
                   ) : !r.available ? (
                     <Badge tone="negative" className="self-start">Taken</Badge>
                   ) : canOrder && r.price ? (
-                    <RegisterDomainForm domain={r.name} price={toJson(r.price)} locale={locale} />
+                    <RegisterDomainForm domain={r.name} price={toJson(r.price)} locale={locale} refundsHref={refunds ? `/${market.code}/legal/refunds#${REFUNDS_CONSENT_SECTION}` : null} />
                   ) : (
                     <Badge tone="positive">Available</Badge>
                   )}

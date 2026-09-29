@@ -12,6 +12,14 @@ const OPTIONS: { value: Theme; label: string; icon: typeof Sun }[] = [
   { value: "dark", label: "Dark", icon: Moon },
 ];
 
+/** Saves the choice and switches this page to it. */
+function applyTheme(next: Theme) {
+  document.cookie = `${THEME_COOKIE}=${next}; path=/; max-age=31536000; samesite=lax${location.protocol === "https:" ? "; secure" : ""}`;
+  const attr = themeAttribute(next);
+  if (attr) document.documentElement.dataset.theme = attr;
+  else delete document.documentElement.dataset.theme;
+}
+
 /**
  * Light, dark or the device's setting. The choice is a cookie the root
  * layout reads, so the next page renders in it with no flash; this page
@@ -25,10 +33,7 @@ export function ThemeSwitch({ current, tone = "default", className }: { current:
 
   function choose(next: Theme) {
     setTheme(next);
-    document.cookie = `${THEME_COOKIE}=${next}; path=/; max-age=31536000; samesite=lax${location.protocol === "https:" ? "; secure" : ""}`;
-    const attr = themeAttribute(next);
-    if (attr) document.documentElement.dataset.theme = attr;
-    else delete document.documentElement.dataset.theme;
+    applyTheme(next);
     router.refresh();
   }
 
