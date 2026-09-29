@@ -10,9 +10,8 @@ describe("site copy", () => {
     for (const card of SERVICES) expect(card.body).not.toMatch(/data centre/i);
   });
 
-  it("keeps the local data copy line to Botswana", () => {
-    expect(marketCopy("bw").localHosting).toMatch(/Botswana/);
-    expect(marketCopy("za").localHosting).toBeUndefined();
+  it("doesn't mention local hosting until Local data copy is offered", () => {
+    for (const m of ["bw", "za", "zw", "global"]) expect(marketCopy(m).localHosting).toBeUndefined();
   });
 
   it("offers .com after the market's own domain endings, once", () => {

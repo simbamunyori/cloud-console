@@ -13,6 +13,7 @@ import type { TenantDb } from "@/server/db";
 import { queueEmail } from "@/server/email/outbox";
 import { assertCan, DomainError, type Actor } from "@/server/org/access";
 import { audit, customerAudit } from "@/server/org/audit";
+import { legalDocument } from "@/server/site/legal";
 
 /**
  * Ordering: new products, seat changes on an existing service, and domain
@@ -88,10 +89,20 @@ export async function quoteOrder(deps: OrderDeps, input: { slug: string; quantit
   return { product, quantity, unitPrice, monthlyTotal: times(unitPrice, quantity), options };
 }
 
+/**
+ * Where the market has a refunds policy, the customer confirms the service may start
+ * straight away, which ends the consumer cooling-off period (refunds policy, section 1).
+ */
+async function assertStartNow(deps: OrderDeps, startNow: boolean | undefined) {
+  if (startNow || !(await legalDocument(deps.organisation.billingMarket, "refunds"))) return;
+  throw new DomainError("invalid", "Confirm that the service can start now.", "startNow");
+}
+
 /** Places a new order. The first month is invoiced now. */
-export async function placeOrder(deps: OrderDeps, input: { slug: string; quantity: string | number; options: Record<string, string> }) {
+export async function placeOrder(deps: OrderDeps, input: { slug: string; quantity: string | number; options: Record<string, string>; startNow?: boolean }) {
   assertCan(deps.actor, "order");
   const quote = await quoteOrder(deps, input);
+  await assertStartNow(deps, input.startNow);
   const { product, quantity } = quote;
   const specs = productOptions(product);
   const labelled = Object.fromEntries(specs.filter((s) => quote.options[s.key]).map((s) => [s.label, quote.options[s.key]]));
@@ -148,6 +159,7 @@ export async function placeOrder(deps: OrderDeps, input: { slug: string; quantit
         summary: `Ordered ${product.name}${product.quantityAllowed ? ` for ${quantity} ${unitNoun(product.unitLabel, quantity)}` : ""} (${order.reference})`,
         targetType: "Order",
         targetId: order.id,
+        data: { startNow: Boolean(input.startNow) },
       }),
     );
     await queueEmail(tx, { organisationId: deps.organisation.id, to: email, kind: "order.received", payload: { orderId: order.id } });
@@ -296,7 +308,7 @@ export async function searchDomains(
   return results;
 }
 
-export async function registerDomain(deps: OrderDeps, rawName: string, rawYears: string | number) {
+export async function registerDomain(deps: OrderDeps, rawName: string, rawYears: string | number, startNow?: boolean) {
   assertCan(deps.actor, "order");
   const years = Number(rawYears);
   if (!Number.isInteger(years) || years < 1 || years > 5) throw new DomainError("invalid", "Choose between 1 and 5 years.", "years");
@@ -307,6 +319,7 @@ export async function registerDomain(deps: OrderDeps, rawName: string, rawYears:
   if (!result.available) throw new DomainError("conflict", `${result.name} is taken. Try another name or ending.`, "domain");
   const product = await productBySlug(catalogueDb(deps.db), DOMAIN_PRODUCT_SLUG);
   if (!product) throw new DomainError("unavailable", "Domains can't be ordered right now.");
+  await assertStartNow(deps, startNow);
   const price = money(result.price.amountMinor * BigInt(years), result.price.currency);
 
   const placed = await deps.billing.registerDomain({ name: result.name, years, price, paymentMethod: PAYMENT_METHODS.eft }).catch(billingFailure);
@@ -349,7 +362,7 @@ export async function registerDomain(deps: OrderDeps, rawName: string, rawYears:
       now,
     );
     const updated = await tx.order.update({ where: { id: order.id }, data: { expectedBy: connected.expectedBy } });
-    await audit(tx, customerAudit(deps.actor, deps.organisation.id, { action: "domain.ordered", summary: `Ordered ${result.name} for ${years} ${years === 1 ? "year" : "years"} (${order.reference})`, targetType: "Order", targetId: order.id }));
+    await audit(tx, customerAudit(deps.actor, deps.organisation.id, { action: "domain.ordered", summary: `Ordered ${result.name} for ${years} ${years === 1 ? "year" : "years"} (${order.reference})`, targetType: "Order", targetId: order.id, data: { startNow: Boolean(startNow) } }));
     await queueEmail(tx, { organisationId: deps.organisation.id, to: email, kind: "order.received", payload: { orderId: order.id } });
     return updated;
   });

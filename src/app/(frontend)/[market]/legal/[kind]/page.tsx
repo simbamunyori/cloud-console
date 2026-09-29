@@ -1,18 +1,20 @@
 import { FileText } from "lucide-react";
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
+import { DraftBanner, LegalBody } from "@/components/site/legal-document";
 import { AssistantNotice, PageIntro, ProseSection } from "@/components/site/prose";
 import { SitePage } from "@/components/site/site-page";
 import { Button } from "@/components/ui/button";
 import { company } from "@/config/app";
 import { LEGAL_PAGES, type LegalKind } from "@/config/site";
 import { CATCH_ALL } from "@/lib/domain/markets";
+import { legalDocument } from "@/server/site/legal";
 import { siteMarket, siteMetadata } from "@/server/site/site";
 
 type Props = { params: Promise<{ market: string; kind: string }> };
 
 /** Market.legalPages keys, by page. */
-const SETTING: Record<LegalKind, string> = { privacy: "privacy", terms: "terms", "data-protection": "dataProtection" };
+const SETTING: Record<LegalKind, string> = { privacy: "privacy", terms: "terms", refunds: "refunds", "service-providers": "serviceProviders", "data-protection": "dataProtection" };
 
 const isKind = (k: string): k is LegalKind => k in LEGAL_PAGES;
 
@@ -30,9 +32,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 /**
- * The legal pages for each market. We don't write legal text: until the
- * market's settings link a lawyer-approved document, each page says so
- * plainly. The privacy page keeps one product fact the Phase 1 go-ahead
+ * The legal pages for each market. A market's own text comes from
+ * content/legal/<market>; its data protection page is the Security page.
+ * Without text, a page shows the lawyer-approved document the market's
+ * settings link, or says plainly that it is waiting for one. The privacy page keeps one product fact the Phase 1 go-ahead
  * requires: the assistant uses an AI service hosted outside the
  * customer's country.
  */
@@ -40,6 +43,19 @@ export default async function LegalPage({ params }: Props) {
   const { market, kind } = await params;
   if (!isKind(kind)) notFound();
   const m = await siteMarket(market);
+  const written = await legalDocument(m.code, kind);
+  if (written && kind === "data-protection") redirect(`/${m.code}/security`);
+  if (written) {
+    return (
+      <SitePage code={m.code} path={`/legal/${kind}`}>
+        <article className="mx-auto flex max-w-3xl flex-col gap-8 px-4 py-12 sm:px-6 lg:py-16">
+          {written.draft ? <DraftBanner text={written.draft} /> : null}
+          <PageIntro kicker={`Legal, ${m.name}`} title={written.title || LEGAL_PAGES[kind]} />
+          <LegalBody doc={written} />
+        </article>
+      </SitePage>
+    );
+  }
   const title = LEGAL_PAGES[kind];
   const document = approvedDocument(m.legalPages, kind);
   return (
