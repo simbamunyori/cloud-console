@@ -1,4 +1,3 @@
-import { RichText } from "@payloadcms/richtext-lexical/react";
 import { Check } from "lucide-react";
 import type {
   CallToActionBlock,
@@ -9,6 +8,7 @@ import type {
   ImageTextBlock,
   LogoStripBlock,
   Page,
+  PageIntroBlock,
   PricingBlock,
   ServicesGridBlock,
   TestimonialsBlock,
@@ -19,7 +19,10 @@ import { cn } from "@/lib/cn";
 import { formatMoney } from "@/lib/domain/money";
 import { selection } from "@/server/cms/catalogue-options";
 import { lowestPrice, selected, siteMarket, sitePrices, taxNote } from "@/server/site/site";
+import { CATCH_ALL } from "@/lib/domain/markets";
 import { DomainSearch, type HomeMarket } from "../home";
+import { AssistantNotice as AssistantNoticeText, PageIntro as PageIntroHeader, ProseSection } from "../prose";
+import { fill, SiteRichText, type TextMarket } from "../rich-text";
 import {
   BlockIcon,
   captionFor,
@@ -192,25 +195,12 @@ async function Pricing({ block: b, ctx }: { block: PricingBlock; ctx: BlockConte
   );
 }
 
-/** Rich text in the site's type styles. */
-function Words({ data, dark }: { data: TextBlock["body"]; dark?: boolean }) {
-  return (
-    <RichText
-      data={data}
-      className={cn(
-        "flex max-w-3xl flex-col gap-4 text-body [&_a]:font-semibold [&_a]:underline [&_h2]:text-title-2 [&_h3]:text-headline [&_li]:ml-5 [&_ol]:list-decimal [&_ul]:list-disc",
-        dark ? "[&_a]:text-on-navy [&_h2]:text-on-navy [&_h3]:text-on-navy" : "text-ink-body [&_a]:text-link [&_h2]:text-ink [&_h3]:text-ink",
-      )}
-    />
-  );
-}
-
 function TextSection({ block: b, ctx }: { block: TextBlock; ctx: BlockContext }) {
   return (
     <Section tone={b.tone} labelledBy={`${ctx.id}-title`}>
       {b.heading ? <Heading id={`${ctx.id}-title`} tone={b.tone} heading={b.heading} /> : <span id={`${ctx.id}-title`} className="sr-only">Text</span>}
       <div className={b.heading ? "mt-6" : undefined}>
-        <Words data={b.body} dark={b.tone === "dark"} />
+        <SiteRichText data={b.body} market={ctx.market} style={b.tone === "dark" ? "block-dark" : "block"} />
       </div>
     </Section>
   );
@@ -300,7 +290,7 @@ function Faq({ block: b, ctx }: { block: FaqBlock; ctx: BlockContext }) {
           <details key={q.id ?? q.question} className={cn("group p-5", cardSurface(b.tone))}>
             <summary className="cursor-pointer text-headline text-ink">{q.question}</summary>
             <div className="mt-3">
-              <Words data={q.answer} />
+              <SiteRichText data={q.answer} market={ctx.market} style="block" />
             </div>
           </details>
         ))}
@@ -371,39 +361,127 @@ function CallToAction({ block: b, ctx }: { block: CallToActionBlock; ctx: BlockC
 
 type AnyBlock = NonNullable<Page["layout"]>[number];
 
-export function RenderBlocks({ blocks, market }: { blocks: Page["layout"]; market: HomeMarket }) {
+/** Every piece of text with the market's details filled in (see rich-text.tsx). */
+function fillDeep<T>(value: T, m: TextMarket): T {
+  if (typeof value === "string") return fill(value, m) as T;
+  if (Array.isArray(value)) return value.map((v) => fillDeep(v, m)) as T;
+  if (value && typeof value === "object") return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, k === "url" || k === "filename" ? v : fillDeep(v, m)])) as T;
+  return value;
+}
+
+export type SiteMarket = HomeMarket & { dataProtectionLaw: string | null; taxEnabled?: boolean };
+
+async function PageIntro({ block: b, ctx }: { block: PageIntroBlock; ctx: BlockContext }) {
+  const tax = b.showTaxNote ? taxNote(await siteMarket(ctx.market.code)) : null;
+  const intro = [b.intro, tax].filter(Boolean).join(" ");
+  return (
+    <div className="flex max-w-2xl flex-col gap-3">
+      {b.kicker ? <p className="label-kicker text-link">{b.kicker}</p> : null}
+      <h1 className="text-title-1 text-ink sm:text-display">{b.heading}</h1>
+      {intro ? <p className="text-body text-ink-muted">{intro}</p> : null}
+    </div>
+  );
+}
+
+function assistantCountry(market: HomeMarket) {
+  return market.code === CATCH_ALL ? "your country" : market.name;
+}
+
+function Block({ block, ctx }: { block: AnyBlock; ctx: BlockContext }) {
+  switch (block.blockType) {
+    case "pageIntro":
+      return (
+        <div className="mx-auto max-w-content px-4 pt-12 sm:px-6 lg:pt-16">
+          <PageIntro block={block} ctx={ctx} />
+        </div>
+      );
+    case "hero":
+      return <Hero block={block} ctx={ctx} />;
+    case "domainSearch":
+      return <DomainSearchSection block={block} ctx={ctx} />;
+    case "featureCards":
+      return <FeatureCards block={block} ctx={ctx} />;
+    case "servicesGrid":
+      return <ServicesGrid block={block} ctx={ctx} />;
+    case "pricing":
+      return <Pricing block={block} ctx={ctx} />;
+    case "text":
+      return <TextSection block={block} ctx={ctx} />;
+    case "imageText":
+      return <ImageText block={block} ctx={ctx} />;
+    case "faq":
+      return <Faq block={block} ctx={ctx} />;
+    case "testimonials":
+      return <Testimonials block={block} ctx={ctx} />;
+    case "logoStrip":
+      return <LogoStrip block={block} ctx={ctx} />;
+    case "callToAction":
+      return <CallToAction block={block} ctx={ctx} />;
+    case "assistantNotice":
+      return (
+        <Section tone="plain" labelledBy={`${ctx.id}-title`}>
+          <div className="flex max-w-3xl flex-col gap-3 text-body text-ink-body">
+            <h2 id={`${ctx.id}-title`} className="text-title-2 text-ink">
+              {block.heading}
+            </h2>
+            <AssistantNoticeText countryName={assistantCountry(ctx.market)} />
+          </div>
+        </Section>
+      );
+    default:
+      return null;
+  }
+}
+
+/** A document page's sections: one column of headings and text, as the Security page has always looked. */
+function DocumentBlock({ block, ctx }: { block: AnyBlock; ctx: BlockContext }) {
+  switch (block.blockType) {
+    case "pageIntro":
+      return (
+        <PageIntroHeader kicker={block.kicker ?? ""} title={block.heading}>
+          {block.intro}
+        </PageIntroHeader>
+      );
+    case "text":
+      return block.heading ? (
+        <ProseSection id={`${ctx.id}-title`} title={block.heading}>
+          <SiteRichText data={block.body} market={ctx.market} style="prose" />
+        </ProseSection>
+      ) : (
+        <SiteRichText data={block.body} market={ctx.market} style="prose" />
+      );
+    case "assistantNotice":
+      return (
+        <ProseSection id={`${ctx.id}-title`} title={block.heading}>
+          <AssistantNoticeText countryName={assistantCountry(ctx.market)} />
+        </ProseSection>
+      );
+    default:
+      return <Block block={block} ctx={ctx} />;
+  }
+}
+
+export function RenderBlocks({ blocks, market, style }: { blocks: Page["layout"]; market: SiteMarket; style?: Page["style"] }) {
+  const filled = fillDeep(blocks ?? [], market);
+  if (style === "document") {
+    return (
+      <div className="mx-auto flex max-w-3xl flex-col gap-10 px-4 py-12 sm:px-6 lg:py-16">
+        {filled.map((block, i) => (
+          <DocumentBlock key={block.id ?? i} block={block} ctx={{ market, id: `s${i + 1}` }} />
+        ))}
+      </div>
+    );
+  }
   return (
     <>
-      {(blocks ?? []).map((block: AnyBlock, i) => {
-        const ctx: BlockContext = { market, id: `s${i + 1}` };
-        const key = block.id ?? i;
-        switch (block.blockType) {
-          case "hero":
-            return <Hero key={key} block={block} ctx={ctx} />;
-          case "domainSearch":
-            return <DomainSearchSection key={key} block={block} ctx={ctx} />;
-          case "featureCards":
-            return <FeatureCards key={key} block={block} ctx={ctx} />;
-          case "servicesGrid":
-            return <ServicesGrid key={key} block={block} ctx={ctx} />;
-          case "pricing":
-            return <Pricing key={key} block={block} ctx={ctx} />;
-          case "text":
-            return <TextSection key={key} block={block} ctx={ctx} />;
-          case "imageText":
-            return <ImageText key={key} block={block} ctx={ctx} />;
-          case "faq":
-            return <Faq key={key} block={block} ctx={ctx} />;
-          case "testimonials":
-            return <Testimonials key={key} block={block} ctx={ctx} />;
-          case "logoStrip":
-            return <LogoStrip key={key} block={block} ctx={ctx} />;
-          case "callToAction":
-            return <CallToAction key={key} block={block} ctx={ctx} />;
-          default:
-            return null;
-        }
-      })}
+      {filled.map((block, i) => (
+        <Block key={block.id ?? i} block={block} ctx={{ market, id: `s${i + 1}` }} />
+      ))}
     </>
   );
+}
+
+/** The heading block of a page, for pages that draw it themselves (the pricing page, above its tables). */
+export function PageHeading({ block, market }: { block: PageIntroBlock; market: SiteMarket }) {
+  return <PageIntro block={fillDeep(block, market)} ctx={{ market, id: "intro" }} />;
 }

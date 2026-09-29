@@ -4,7 +4,10 @@ import { cookies, draftMode, headers } from "next/headers";
 import { getPayload } from "payload";
 import { cache } from "react";
 import { DEFAULT_LOCALE, isMarketLocale } from "@/cms/locales";
-import type { Page } from "@/cms/payload-types";
+import type { LegalKindValue } from "@/cms/collections/legal";
+import type { Legal, Page } from "@/cms/payload-types";
+import { DEFAULT_FOOTER, DEFAULT_HEADER } from "@/cms/seed-frame";
+import { frameContent, type FrameContent } from "@/components/site/frame-content";
 import { authDeps } from "@/server/auth/next";
 import { websiteStaffFromCookies } from "@/server/cms/staff-session";
 
@@ -39,4 +42,32 @@ export const cmsPage = cache(async (market: string, slug: string): Promise<Page 
     overrideAccess: true,
   });
   return docs[0] ?? null;
+});
+
+/** A market's legal page from the editor, or null when the market has no text of its own (never another market's). */
+export const legalPage = cache(async (market: string, kind: LegalKindValue): Promise<Legal | null> => {
+  if (!isMarketLocale(market)) return null;
+  const draft = await showingDrafts();
+  const payload = await cms();
+  const { docs } = await payload.find({
+    collection: "legal",
+    where: draft ? { kind: { equals: kind } } : { and: [{ kind: { equals: kind } }, { _status: { equals: "published" } }] },
+    locale: market,
+    fallbackLocale: false,
+    draft,
+    depth: 1,
+    limit: 1,
+    overrideAccess: true,
+  });
+  const doc = docs[0];
+  return doc?.title && doc.body ? doc : null;
+});
+
+/** The header and footer for a market: from the editor, or as they were before it while it has none. */
+export const siteFrameContent = cache(async (market: { code: string; supportEmail: string }): Promise<FrameContent> => {
+  const draft = await showingDrafts();
+  const payload = await cms();
+  const read = <S extends "header" | "footer">(slug: S) => payload.findGlobal({ slug, locale: marketLocale(market.code), fallbackLocale: DEFAULT_LOCALE, draft, depth: 0, overrideAccess: true });
+  const [header, footer] = await Promise.all([read("header"), read("footer")]);
+  return frameContent(header?.groups?.length ? header : DEFAULT_HEADER, footer?.columns?.length ? footer : DEFAULT_FOOTER, market);
 });

@@ -1,5 +1,6 @@
 import type { Block, Field } from "payload";
 import { heading, icon, image, link, richText, text, textarea, tone } from "../fields";
+import { TOKENS_HELP } from "../tokens";
 
 /**
  * The page blocks. Each is one section of a page, drawn with the brand's
@@ -128,7 +129,7 @@ export const Text: Block = {
   slug: "text",
   labels: { singular: "Text", plural: "Text" },
   interfaceName: "TextBlock",
-  fields: [text("heading", { maxLength: 140 }), richText("body", { required: true }), tone],
+  fields: [text("heading", { maxLength: 140 }), { ...richText("body", { required: true }), admin: { description: TOKENS_HELP } } as Field, tone],
 };
 
 export const ImageText: Block = {
@@ -198,4 +199,26 @@ export const CallToAction: Block = {
   fields: [text("heading", { required: true, maxLength: 140 }), textarea("body", { maxLength: 300 }), tone, link("primary", "Main button"), link("secondary", "Second button")],
 };
 
-export const PAGE_BLOCKS: Block[] = [Hero, DomainSearch, FeatureCards, ServicesGrid, Pricing, Text, ImageText, Faq, Testimonials, LogoStrip, CallToAction];
+export const PageIntro: Block = {
+  slug: "pageIntro",
+  labels: { singular: "Page heading", plural: "Page headings" },
+  interfaceName: "PageIntroBlock",
+  fields: [
+    text("kicker", { label: "Small heading above", maxLength: 60 }),
+    text("heading", { required: true, maxLength: 120, description: "The page's main heading." }),
+    textarea("intro", { label: "Introduction", maxLength: 400 }),
+    { name: "showTaxNote", label: "Say whether prices include tax", type: "checkbox", defaultValue: false },
+  ],
+};
+
+export const AssistantNotice: Block = {
+  slug: "assistantNotice",
+  labels: { singular: "Assistant notice", plural: "Assistant notices" },
+  interfaceName: "AssistantNoticeBlock",
+  admin: { disableBlockName: true },
+  fields: [
+    text("heading", { required: true, maxLength: 80, description: "The notice itself is a fixed product fact: what the support assistant is sent, and where the AI service runs." }),
+  ],
+};
+
+export const PAGE_BLOCKS: Block[] = [PageIntro, Hero, DomainSearch, FeatureCards, ServicesGrid, Pricing, Text, ImageText, Faq, Testimonials, LogoStrip, CallToAction, AssistantNotice];

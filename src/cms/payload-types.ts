@@ -68,6 +68,7 @@ export interface Config {
   blocks: {};
   collections: {
     pages: Page;
+    legal: Legal;
     media: Media;
     staff: Staff;
     'payload-kv': PayloadKv;
@@ -79,6 +80,7 @@ export interface Config {
   collectionsJoins: {};
   collectionsSelect: {
     pages: PagesSelect<false> | PagesSelect<true>;
+    legal: LegalSelect<false> | LegalSelect<true>;
     media: MediaSelect<false> | MediaSelect<true>;
     staff: StaffSelect<false> | StaffSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
@@ -92,8 +94,14 @@ export interface Config {
   };
   fallbackLocale:
     ('false' | 'none' | 'null') | false | null | ('bw' | 'za' | 'zw' | 'global') | ('bw' | 'za' | 'zw' | 'global')[];
-  globals: {};
-  globalsSelect: {};
+  globals: {
+    header: Header;
+    footer: Footer;
+  };
+  globalsSelect: {
+    header: HeaderSelect<false> | HeaderSelect<true>;
+    footer: FooterSelect<false> | FooterSelect<true>;
+  };
   locale: 'bw' | 'za' | 'zw' | 'global';
   widgets: {
     collections: CollectionsWidget;
@@ -141,11 +149,16 @@ export interface Page {
    */
   title: string;
   /**
-   * home is the market's home page. Anything else becomes /<market>/<address>, e.g. about.
+   * home is the market's home page, pricing and security are those pages. Anything else becomes /<market>/<address>, e.g. about.
    */
   slug: string;
+  /**
+   * Landing: full-width sections. Document: one column of headings and text, like the Security page.
+   */
+  style?: ('landing' | 'document') | null;
   layout?:
     | (
+        | PageIntroBlock
         | HeroBlock
         | DomainSearchBlock
         | FeatureCardsBlock
@@ -157,6 +170,7 @@ export interface Page {
         | TestimonialsBlock
         | LogoStripBlock
         | CallToActionBlock
+        | AssistantNoticeBlock
       )[]
     | null;
   seo?: {
@@ -167,6 +181,22 @@ export interface Page {
   updatedAt: string;
   createdAt: string;
   _status?: ('draft' | 'published') | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "PageIntroBlock".
+ */
+export interface PageIntroBlock {
+  kicker?: string | null;
+  /**
+   * The page's main heading.
+   */
+  heading: string;
+  intro?: string | null;
+  showTaxNote?: boolean | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'pageIntro';
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -309,6 +339,7 @@ export interface FeatureCardsBlock {
           | 'trending-up'
           | 'handshake'
           | 'globe'
+          | 'earth'
           | 'check'
           | 'receipt';
         title: string;
@@ -353,6 +384,7 @@ export interface ServicesGridBlock {
           | 'trending-up'
           | 'handshake'
           | 'globe'
+          | 'earth'
           | 'check'
           | 'receipt';
         title: string;
@@ -427,6 +459,9 @@ export interface PricingBlock {
  */
 export interface TextBlock {
   heading?: string | null;
+  /**
+   * You can write {market}, {support-email}, {data-protection-law} or {deletion-notice-days}; the market's own details appear in their place.
+   */
   body: {
     root: {
       type: string;
@@ -475,6 +510,7 @@ export interface ImageTextBlock {
           | 'trending-up'
           | 'handshake'
           | 'globe'
+          | 'earth'
           | 'check'
           | 'receipt';
         title: string;
@@ -617,6 +653,71 @@ export interface CallToActionBlock {
   blockType: 'callToAction';
 }
 /**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "AssistantNoticeBlock".
+ */
+export interface AssistantNoticeBlock {
+  /**
+   * The notice itself is a fixed product fact: what the support assistant is sent, and where the AI service runs.
+   */
+  heading: string;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'assistantNotice';
+}
+/**
+ * Each market's text is a language in the switcher at the top. A market without its own text shows a note that it is on its way, never another market's.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "legal".
+ */
+export interface Legal {
+  id: number;
+  /**
+   * Data protection shows on the Security page.
+   */
+  kind: 'terms' | 'privacy' | 'refunds' | 'service-providers' | 'data-protection';
+  title: string;
+  /**
+   * e.g. Last updated: 29 September 2026
+   */
+  updated?: string | null;
+  /**
+   * Shown at the top until the text is approved by legal.
+   */
+  draftNotice?: string | null;
+  /**
+   * Only a Publisher can tick this, once a lawyer has approved this market's text. It removes the draft banner when published.
+   */
+  approvedByLegal?: boolean | null;
+  /**
+   * You can write {market}, {support-email}, {data-protection-law} or {deletion-notice-days}; the market's own details appear in their place.
+   */
+  body: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  };
+  seo?: {
+    title?: string | null;
+    description?: string | null;
+    image?: (number | null) | Media;
+  };
+  updatedAt: string;
+  createdAt: string;
+  _status?: ('draft' | 'published') | null;
+}
+/**
  * Website roles are set on the Staff page in the staff console.
  *
  * This interface was referenced by `Config`'s JSON-Schema
@@ -753,6 +854,10 @@ export interface PayloadLockedDocument {
         value: number | Page;
       } | null)
     | ({
+        relationTo: 'legal';
+        value: number | Legal;
+      } | null)
+    | ({
         relationTo: 'media';
         value: number | Media;
       } | null)
@@ -809,9 +914,11 @@ export interface PayloadMigration {
 export interface PagesSelect<T extends boolean = true> {
   title?: T;
   slug?: T;
+  style?: T;
   layout?:
     | T
     | {
+        pageIntro?: T | PageIntroBlockSelect<T>;
         hero?: T | HeroBlockSelect<T>;
         domainSearch?: T | DomainSearchBlockSelect<T>;
         featureCards?: T | FeatureCardsBlockSelect<T>;
@@ -823,6 +930,7 @@ export interface PagesSelect<T extends boolean = true> {
         testimonials?: T | TestimonialsBlockSelect<T>;
         logoStrip?: T | LogoStripBlockSelect<T>;
         callToAction?: T | CallToActionBlockSelect<T>;
+        assistantNotice?: T | AssistantNoticeBlockSelect<T>;
       };
   seo?:
     | T
@@ -834,6 +942,18 @@ export interface PagesSelect<T extends boolean = true> {
   updatedAt?: T;
   createdAt?: T;
   _status?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "PageIntroBlock_select".
+ */
+export interface PageIntroBlockSelect<T extends boolean = true> {
+  kicker?: T;
+  heading?: T;
+  intro?: T;
+  showTaxNote?: T;
+  id?: T;
+  blockName?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -1098,6 +1218,37 @@ export interface CallToActionBlockSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "AssistantNoticeBlock_select".
+ */
+export interface AssistantNoticeBlockSelect<T extends boolean = true> {
+  heading?: T;
+  id?: T;
+  blockName?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "legal_select".
+ */
+export interface LegalSelect<T extends boolean = true> {
+  kind?: T;
+  title?: T;
+  updated?: T;
+  draftNotice?: T;
+  approvedByLegal?: T;
+  body?: T;
+  seo?:
+    | T
+    | {
+        title?: T;
+        description?: T;
+        image?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+  _status?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "media_select".
  */
 export interface MediaSelect<T extends boolean = true> {
@@ -1242,6 +1393,204 @@ export interface PayloadMigrationsSelect<T extends boolean = true> {
   createdAt?: T;
 }
 /**
+ * The menu at the top of every public page.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "header".
+ */
+export interface Header {
+  id: number;
+  /**
+   * The five service families in the Services menu. The first link is where a phone's menu goes.
+   */
+  groups?:
+    | {
+        icon:
+          | 'users'
+          | 'credit-card'
+          | 'life-buoy'
+          | 'shield-check'
+          | 'mail'
+          | 'server'
+          | 'lock'
+          | 'hard-drive'
+          | 'layout-grid'
+          | 'boxes'
+          | 'sparkles'
+          | 'graduation-cap'
+          | 'building'
+          | 'trending-up'
+          | 'handshake'
+          | 'globe'
+          | 'earth'
+          | 'check'
+          | 'receipt';
+        title: string;
+        blurb?: string | null;
+        links?:
+          | {
+              link: {
+                label: string;
+                to?: ('market' | 'site' | 'email') | null;
+                /**
+                 * Starts with /. For this market's pricing page: /pricing
+                 */
+                path?: string | null;
+                subject?: string | null;
+              };
+              id?: string | null;
+            }[]
+          | null;
+        id?: string | null;
+      }[]
+    | null;
+  menuNote?: string | null;
+  menuLink?: {
+    label?: string | null;
+    to?: ('market' | 'site' | 'email') | null;
+    /**
+     * Starts with /. For this market's pricing page: /pricing
+     */
+    path?: string | null;
+    subject?: string | null;
+  };
+  pages?:
+    | {
+        link: {
+          label: string;
+          to?: ('market' | 'site' | 'email') | null;
+          /**
+           * Starts with /. For this market's pricing page: /pricing
+           */
+          path?: string | null;
+          subject?: string | null;
+        };
+        id?: string | null;
+      }[]
+    | null;
+  _status?: ('draft' | 'published') | null;
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
+ * The links and words at the bottom of every public page.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "footer".
+ */
+export interface Footer {
+  id: number;
+  tagline?: string | null;
+  columns?:
+    | {
+        heading: string;
+        links?:
+          | {
+              link: {
+                label: string;
+                to?: ('market' | 'site' | 'email') | null;
+                /**
+                 * Starts with /. For this market's pricing page: /pricing
+                 */
+                path?: string | null;
+                subject?: string | null;
+              };
+              id?: string | null;
+            }[]
+          | null;
+        id?: string | null;
+      }[]
+    | null;
+  contactHeading?: string | null;
+  _status?: ('draft' | 'published') | null;
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "header_select".
+ */
+export interface HeaderSelect<T extends boolean = true> {
+  groups?:
+    | T
+    | {
+        icon?: T;
+        title?: T;
+        blurb?: T;
+        links?:
+          | T
+          | {
+              link?:
+                | T
+                | {
+                    label?: T;
+                    to?: T;
+                    path?: T;
+                    subject?: T;
+                  };
+              id?: T;
+            };
+        id?: T;
+      };
+  menuNote?: T;
+  menuLink?:
+    | T
+    | {
+        label?: T;
+        to?: T;
+        path?: T;
+        subject?: T;
+      };
+  pages?:
+    | T
+    | {
+        link?:
+          | T
+          | {
+              label?: T;
+              to?: T;
+              path?: T;
+              subject?: T;
+            };
+        id?: T;
+      };
+  _status?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "footer_select".
+ */
+export interface FooterSelect<T extends boolean = true> {
+  tagline?: T;
+  columns?:
+    | T
+    | {
+        heading?: T;
+        links?:
+          | T
+          | {
+              link?:
+                | T
+                | {
+                    label?: T;
+                    to?: T;
+                    path?: T;
+                    subject?: T;
+                  };
+              id?: T;
+            };
+        id?: T;
+      };
+  contactHeading?: T;
+  _status?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "collections_widget".
  */
@@ -1259,10 +1608,15 @@ export interface TaskSchedulePublish {
   input: {
     type?: ('publish' | 'unpublish') | null;
     locale?: string | null;
-    doc?: {
-      relationTo: 'pages';
-      value: number | Page;
-    } | null;
+    doc?:
+      | ({
+          relationTo: 'pages';
+          value: number | Page;
+        } | null)
+      | ({
+          relationTo: 'legal';
+          value: number | Legal;
+        } | null);
     global?: string | null;
     user?: {
       relationTo: 'staff';

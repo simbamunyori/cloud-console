@@ -16,6 +16,7 @@ export const ICON_NAMES = [
   { value: "trending-up", label: "Growth" },
   { value: "handshake", label: "Partners" },
   { value: "globe", label: "Globe" },
+  { value: "earth", label: "Earth" },
   { value: "check", label: "Tick" },
   { value: "receipt", label: "Invoice" },
 ] as const;
