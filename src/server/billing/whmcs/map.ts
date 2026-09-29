@@ -555,7 +555,7 @@ export const payMethods = (r: Json) => (Array.isArray(r.paymethods) ? (r.paymeth
 /** Parameters that name one thing, so the adapter never spells a WHMCS field. */
 export const by = {
   client: (clientId: string): Params => ({ clientid: clientId }),
-  clientDetails: (clientId: string): Params => ({ clientid: clientId, stats: "false" }),
+  clientDetails: (clientId: string): Params => ({ clientid: clientId, stats: "0" }),
   service: (serviceId: string): Params => ({ serviceid: serviceId }),
   clientService: (clientId: string, serviceId: string): Params => ({ clientid: clientId, serviceid: serviceId }),
   invoice: (invoiceId: string): Params => ({ invoiceid: invoiceId }),
@@ -610,12 +610,17 @@ export function toUpdateClient(clientId: string, patch: BillingClientPatch, curr
 
 /** AcceptOrder: set up at once and send no email. Domains go to the registrar only when asked. */
 export function toAcceptOrder(orderId: string, sendToRegistrar: boolean): Params {
-  return { orderid: orderId, autosetup: "true", sendemail: "false", sendregistrar: String(sendToRegistrar) };
+  return { orderid: orderId, autosetup: "true", sendemail: "0", sendregistrar: sendToRegistrar ? "true" : "0" };
 }
 
-/** CancelOrder, without cancelling any gateway subscription or emailing. */
+/**
+ * CancelOrder, without cancelling any gateway subscription or emailing.
+ * WHMCS reads flags the PHP way, so "false" counts as on: a flag we want
+ * off is sent as "0" (the live install tried to cancel a subscription when
+ * given cancelsub "false").
+ */
 export function toCancelOrder(orderId: string): Params {
-  return { orderid: orderId, cancelsub: "false", noemail: "true" };
+  return { orderid: orderId, cancelsub: "0", noemail: "true" };
 }
 
 /** ModuleSuspend takes the reason; the other module actions only the service. */

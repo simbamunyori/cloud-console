@@ -113,7 +113,7 @@ describe("WHMCS adapter", () => {
     });
     await adapter.acceptOrder(placed.orderId);
     expect((await adapter.listServices(clientId)).map((s) => s.status)).toEqual(["active", "active"]);
-    expect(w.calls.find((c) => c.action === "AcceptOrder")!.params).toMatchObject({ autosetup: "true", sendemail: "false", sendregistrar: "false" });
+    expect(w.calls.find((c) => c.action === "AcceptOrder")!.params).toMatchObject({ autosetup: "true", sendemail: "0", sendregistrar: "0" });
     const statusChanges = w.calls.filter((c) => c.action === "UpdateClientProduct").map((c) => c.params.serviceid);
     expect(statusChanges).toEqual([placed.serviceIds[0]]);
   });

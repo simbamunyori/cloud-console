@@ -56,7 +56,7 @@ const MODULE: Record<ModuleAction, { action: string; from: Service["status"][]; 
  * in WHMCS directly. Any other module failure is shown as it is, so WHMCS
  * never says a service is suspended when the real account isn't.
  */
-const NO_MODULE = /no module|module not (found|assigned|active)|function not supported|not supported by (the )?module/i;
+const NO_MODULE = /no module|module not (found|assigned|active)|not assigned to a module|function not supported|not supported by (the )?module/i;
 
 /**
  * BillingAdapter over the WHMCS API. Each method calls the actions named in

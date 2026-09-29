@@ -111,16 +111,24 @@ upgrade credits switched off, which is the setting to use.
   Phase 2 work in WHMCS.
 - There is no client credit balance.
 
-## To confirm on the live install
+## Checked on the live install
 
-The docs don't say, so the in-memory WHMCS assumes, and the write suite
-checks on the test install:
-- `priceoverride` with the Users option gives exactly our price (not our
-  price plus the option's).
-- A product without a module is left pending by AcceptOrder, and its
-  module actions answer with a "no module" message.
-- Paying an upgrade invoice doesn't change the recurring amount we set.
-- UpdateInvoice ignores an empty `notes`, so a cleared PO note is a space.
+The docs don't say, so these were checked on the test install (WHMCS
+9.0.9, 29 September 2026):
+- `priceoverride` with the Users option gives exactly our price, not our
+  price plus the option's. Confirmed: 3 users at P570.00 invoiced P570.00.
+- A product without a module: AcceptOrder with `autosetup` makes the
+  service Active (not pending, as assumed), and module actions answer
+  "Service not assigned to a module." The adapter still sets the status
+  itself, which does no harm.
+- Paying an upgrade invoice **does** change the recurring amount: WHMCS
+  adds the upgrade to it (P950.00 set, P200.00 upgrade paid, P1,150.00
+  after). Open: see the pull request.
+- UpdateInvoice ignores an empty `notes`, and a space clears it.
+  Confirmed.
+- WHMCS reads API flags the PHP way, so `"false"` counts as on; flags we
+  want off are sent as `"0"`.
+- AddClient needs `password2`, and a phone number is kept as digits only.
 
 ## Switching to WHMCS
 

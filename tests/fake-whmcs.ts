@@ -81,6 +81,8 @@ export function fakeWhmcs(options: FakeWhmcsOptions = {}) {
   let dropped = 0;
 
   const fail = (message: string): Answer => ({ result: "error", message });
+  // How PHP reads a flag: "false" is on, only "", "0" and nothing are off.
+  const on = (flag: string | undefined) => flag !== undefined && flag !== "" && flag !== "0";
   const code = (currencyId: string) => CURRENCIES.find((c) => c.id === currencyId)!.code;
   const clientCode = (clientId: string) => code(String(clients.get(clientId)!.currency));
   const cents = (s: unknown) => Math.round(Number(s) * 100);
@@ -288,10 +290,10 @@ export function fakeWhmcs(options: FakeWhmcsOptions = {}) {
           const s = services.get(item.relid)!;
           const product = FAKE_PRODUCTS.find((x) => x.pid === s.pid)!;
           // Assumed: without a module WHMCS leaves the service pending.
-          if (p.autosetup === "true" && product.module) s.status = "Active";
+          if (on(p.autosetup) && product.module) s.status = "Active";
         } else {
           const d = domains.get(item.relid)!;
-          if (p.sendregistrar === "true") {
+          if (on(p.sendregistrar)) {
             d.status = "Active";
             d.expirydate = addMonths(today(), 12 * Number(d.regperiod));
           }
@@ -312,6 +314,8 @@ export function fakeWhmcs(options: FakeWhmcsOptions = {}) {
       const o = orders.get(p.orderid);
       if (!o) return fail("Order ID not found");
       if (o.status !== "Pending") return fail("Order status not pending");
+      // What the live install said for a bank transfer order.
+      if (on(p.cancelsub)) return fail("Subscription Cancellation Failed - Please check the gateway log for further information.");
       o.status = "Cancelled";
       return {};
     },
@@ -329,7 +333,7 @@ export function fakeWhmcs(options: FakeWhmcsOptions = {}) {
           const s = services.get(p.serviceid);
           if (!s) return fail("Service ID not found");
           const product = FAKE_PRODUCTS.find((x) => x.pid === s.pid)!;
-          if (!product.module) return fail(options.noModuleMessage ?? "No module assigned to this product");
+          if (!product.module) return fail(options.noModuleMessage ?? "Service not assigned to a module.");
           if (options.moduleFailure) return fail(options.moduleFailure);
           s.status = { ModuleCreate: "Active", ModuleSuspend: "Suspended", ModuleUnsuspend: "Active", ModuleTerminate: "Terminated" }[action];
           s.suspensionreason = action === "ModuleSuspend" ? (p.suspendreason ?? "") : "";

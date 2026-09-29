@@ -117,11 +117,14 @@ describe.skipIf(!writes)("WHMCS, writing (test install only)", () => {
     const { clientId } = await a.createClient({ companyName: "Seat Change Check", firstName: "Thato", lastName: "Mosweu", email: `seats-${randomBytes(4).toString("hex")}@example.co.bw`, country: "BW", currency: "BWP" });
     const placed = await a.placeOrder(clientId, { paymentMethod: PAYMENT_METHODS.eft, createInvoice: true, items: [{ productId: f.productId, quantity: 3, billingCycle: "monthly", recurringPrice: P(57000n) }] });
     await a.acceptOrder(placed.orderId);
+    // Paid up, so the seat change raises a part-month invoice (with the
+    // first invoice unpaid, WHMCS raises none and nothing is checked).
+    const first = (await a.getInvoice(clientId, placed.invoiceId!))!;
+    await a.recordPayment(placed.invoiceId!, { amount: first.balance, gateway: PAYMENT_METHODS.eft, reference: `FIRST-${Date.now()}`, paidAt: new Date() });
     const done = await a.upgradeService(placed.serviceIds[0], { quantity: 5, recurringPrice: P(95000n) }, PAYMENT_METHODS.eft);
-    if (done.invoiceId) {
-      const invoice = (await a.getInvoice(clientId, done.invoiceId))!;
-      await a.recordPayment(done.invoiceId, { amount: invoice.balance, gateway: PAYMENT_METHODS.eft, reference: `CHECK-${Date.now()}`, paidAt: new Date() });
-    }
+    expect(done.invoiceId).toBeDefined();
+    const invoice = (await a.getInvoice(clientId, done.invoiceId!))!;
+    await a.recordPayment(done.invoiceId!, { amount: invoice.balance, gateway: PAYMENT_METHODS.eft, reference: `CHECK-${Date.now()}`, paidAt: new Date() });
     expect(await a.getService(clientId, placed.serviceIds[0])).toMatchObject({ quantity: 5, recurring: P(95000n) });
   });
 });
