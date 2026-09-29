@@ -45,7 +45,7 @@ export const FAKE_PRODUCTS: Product[] = [
 const optionId = (pid: string) => String(100 + Number(pid));
 const choiceId = (pid: string) => String(200 + Number(pid));
 
-const TLDS: Record<string, Record<string, string>> = {
+const START_TLDS: Record<string, Record<string, string>> = {
   "co.bw": { BWP: "250.00", ZAR: "300.00", USD: "19.00" },
   bw: { BWP: "300.00", ZAR: "360.00", USD: "23.00" },
   com: { BWP: "220.00", ZAR: "260.00", USD: "16.00" },
@@ -65,6 +65,8 @@ export interface FakeWhmcsOptions {
 
 export function fakeWhmcs(options: FakeWhmcsOptions = {}) {
   let nextId = 1000;
+  const TLDS: Record<string, Record<string, string>> = structuredClone(START_TLDS);
+  const renewals: Record<string, Record<string, string>> = structuredClone(START_TLDS);
   const id = () => String(nextId++);
   const today = () => new Date().toISOString().slice(0, 10);
   const nowStamp = () => new Date().toISOString().slice(0, 19).replace("T", " ");
@@ -427,8 +429,21 @@ export function fakeWhmcs(options: FakeWhmcsOptions = {}) {
       const year = (price: string) => ({ "1": price, "2": fmt(cents(price) * 2) });
       return {
         currency: { ...c, format: "1", rate: "1.00000" },
-        pricing: Object.fromEntries(Object.entries(TLDS).map(([tld, prices]) => [tld, { categories: ["Other"], addons: {}, group: "", register: year(prices[c.code]), transfer: year(prices[c.code]), renew: year(prices[c.code]), grace_period: null, redemption_period: null }])),
+        pricing: Object.fromEntries(
+          Object.entries(TLDS)
+            .filter(([, prices]) => prices[c.code])
+            .map(([tld, prices]) => [tld, { categories: ["Other"], addons: {}, group: "", register: year(prices[c.code]), transfer: year(prices[c.code]), renew: year(renewals[tld][c.code]), grace_period: null, redemption_period: null }]),
+        ),
       };
+    },
+
+    CreateOrUpdateTLD: (p) => {
+      if (!p.extension?.startsWith(".")) return fail("Extension must start with a dot");
+      if (!CURRENCIES.some((c) => c.code === p.currency_code)) return fail("Invalid currency code");
+      const tld = p.extension.slice(1);
+      TLDS[tld] = { ...(TLDS[tld] ?? {}), [p.currency_code]: p["register[1]"] };
+      renewals[tld] = { ...(renewals[tld] ?? {}), [p.currency_code]: p["renew[1]"] };
+      return { extension: p.extension, id: "1" };
     },
   };
 

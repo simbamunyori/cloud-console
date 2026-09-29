@@ -18,7 +18,10 @@
     "check": "npm run lint && npm run typecheck && npm run copy-check && npm test",
     "screenshots:hero": "tsx scripts/hero-screenshots.ts",
     "screenshots": "tsx scripts/screenshots.ts",
-    "test:a11y": "playwright test"
+    "test:a11y": "playwright test",
+    "test:whmcs": "vitest run tests/whmcs.integration.test.ts",
+    "test:whmcs-addon": "php whmcs/tests/run.php",
+    "whmcs:sync": "tsx --conditions=react-server scripts/whmcs-sync.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.128.0",

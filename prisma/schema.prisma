@@ -467,6 +467,20 @@ model BillingAccount {
   @@unique([provider, externalClientId])
 }
 
+/// What the price sync made in WHMCS for each console item, so a rename
+/// updates the same WHMCS product instead of making another.
+model WhmcsLink {
+  /// "group" (a product category) or "product".
+  kind      String
+  /// The category key or product slug.
+  key       String
+  whmcsId   String
+  updatedAt DateTime @updatedAt
+
+  @@id([kind, key])
+  @@unique([kind, whmcsId])
+}
+
 /// A purchase order number the customer put on one invoice, kept in the
 /// console. See docs/whmcs-mapping.md for why it lives here.
 model InvoicePoNumber {

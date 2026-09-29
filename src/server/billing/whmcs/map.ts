@@ -165,8 +165,11 @@ export function toAddOrder(clientId: string, order: NewOrder, quantityOptions: R
     params[`billingcycle[${i}]`] = CYCLE[item.billingCycle];
     params[`priceoverride[${i}]`] = toAmount(item.recurringPrice);
     if (item.domain) params[`domain[${i}]`] = item.domain;
-    // Keyed by config option id; the console sends ids as the keys.
-    const options = { ...(item.options ?? {}), ...(quantityOption ? { [quantityOption]: String(item.quantity) } : {}) };
+    // WHMCS wants configurable options by id. Choices the console keys by
+    // their label (the operating system, say) have no WHMCS option; they
+    // stay on the console's own order, where the set-up team reads them.
+    const byId = Object.fromEntries(Object.entries(item.options ?? {}).filter(([k]) => /^\d+$/.test(k)));
+    const options = { ...byId, ...(quantityOption ? { [quantityOption]: String(item.quantity) } : {}) };
     if (Object.keys(options).length) params[`configoptions[${i}]`] = Buffer.from(phpSerialize(options)).toString("base64");
   });
   return params;
@@ -634,3 +637,15 @@ export const orderStatus = (o: Json): BillingOrder["status"] => ORDER_STATUS[str
 export const orderInvoiceId = (o: Json) => (str(o.invoiceid) && str(o.invoiceid) !== "0" ? str(o.invoiceid) : undefined);
 /** GetInvoice: the status alone. */
 export const invoiceStatus = (i: Json): InvoiceStatus => INVOICE_STATUS[str(i.status)] ?? "unpaid";
+
+/**
+ * CreateOrUpdateTLD for one currency: register for 1 to 10 years, renew
+ * for 1 to 9, and a one-year transfer at the registration price.
+ */
+export function toTldPricing(tld: string, register: Money, renew: Money): Params {
+  const times = (m: Money, n: number) => toAmount(money(m.amountMinor * BigInt(n), m.currency));
+  const params: Params = { extension: tld, currency_code: register.currency, "transfer[1]": toAmount(register) };
+  for (let years = 1; years <= 10; years++) params[`register[${years}]`] = times(register, years);
+  for (let years = 1; years <= 9; years++) params[`renew[${years}]`] = times(renew, years);
+  return params;
+}
