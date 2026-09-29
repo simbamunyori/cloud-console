@@ -220,6 +220,16 @@ DPO change (pull request #3) is live.
   > System Settings > Automation Settings** shows the command and the last
   run). WHMCS raises the monthly invoices from it.
 
+- **WHOIS for .co.bw and .bw:** WHMCS has no WHOIS server for them, so
+  domain search fails without this file at
+  `resources/domains/whois.json` (owned by the web server user):
+
+  ```
+  [{"extensions": ".co.bw,.bw", "uri": "socket://whois.nic.net.bw", "available": "No Object Found"}]
+  ```
+
+  "No Object Found" is what the .bw registry answers for a free name.
+
 ## 9. Test install now, clean install at launch
 
 The install is our test environment until launch:
