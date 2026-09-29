@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { DraftBanner, LegalBody } from "@/components/site/legal-document";
 import { AssistantNotice, PageIntro, ProseSection } from "@/components/site/prose";
 import { SitePage } from "@/components/site/site-page";
 import { company, DELETION_NOTICE_DAYS } from "@/config/app";
 import { marketCopy } from "@/config/site";
 import { CATCH_ALL } from "@/lib/domain/markets";
+import { legalDocument } from "@/server/site/legal";
 import { siteMarket, siteMetadata } from "@/server/site/site";
 
 type Props = { params: Promise<{ market: string }> };
@@ -17,10 +19,29 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   });
 }
 
-/** What the product does to keep accounts and data safe, in plain words. Facts about the product, not legal text. */
+/**
+ * Security and data protection. A market with its own data protection
+ * text (content/legal/<market>/data-protection.md) shows that; others show
+ * the product facts in plain words.
+ */
 export default async function SecurityPage({ params }: Props) {
   const m = await siteMarket((await params).market);
   const where = m.code === CATCH_ALL ? "your country" : m.name;
+  const written = await legalDocument(m.code, "data-protection");
+  if (written) {
+    return (
+      <SitePage code={m.code} path="/security">
+        <article className="mx-auto flex max-w-3xl flex-col gap-8 px-4 py-12 sm:px-6 lg:py-16">
+          {written.draft ? <DraftBanner text={written.draft} /> : null}
+          <PageIntro kicker={`Legal, ${m.name}`} title={written.title} />
+          <LegalBody doc={written} />
+          <ProseSection id="assistant" title="Product notice: the assistant">
+            <AssistantNotice countryName={where} />
+          </ProseSection>
+        </article>
+      </SitePage>
+    );
+  }
   return (
     <SitePage code={m.code} path="/security">
       <div className="mx-auto flex max-w-3xl flex-col gap-10 px-4 py-12 sm:px-6 lg:py-16">
@@ -37,7 +58,7 @@ export default async function SecurityPage({ params }: Props) {
         </ProseSection>
 
         <ProseSection id="data" title="Where your data is kept">
-          <p>The Cloud Console and its database run on our servers in Botswana, with an encrypted backup copy kept off-site for 30 days. We never see your full card number: the card company handles it.</p>
+          <p>The Cloud Console and its database run on our servers in the United States, and are moving to a data centre in Botswana. An encrypted backup copy is kept off-site for 30 days. We never see your full card number: the card company handles it.</p>
           {marketCopy(m.code).localHosting ? <p>{marketCopy(m.code).localHosting}</p> : null}
           <p>Nothing you own is deleted without {DELETION_NOTICE_DAYS} days&apos; notice.</p>
         </ProseSection>

@@ -13,7 +13,8 @@ Refresh with `npm run screenshots -- --commit` against a running console with th
 | site-security | [view](site/site-security-390-light.webp) | [view](site/site-security-390-dark.webp) | [view](site/site-security-1440-light.webp) | [view](site/site-security-1440-dark.webp) |
 | site-privacy | [view](site/site-privacy-390-light.webp) | [view](site/site-privacy-390-dark.webp) | [view](site/site-privacy-1440-light.webp) | [view](site/site-privacy-1440-dark.webp) |
 | site-terms | [view](site/site-terms-390-light.webp) | [view](site/site-terms-390-dark.webp) | [view](site/site-terms-1440-light.webp) | [view](site/site-terms-1440-dark.webp) |
-| site-data-protection | [view](site/site-data-protection-390-light.webp) | [view](site/site-data-protection-390-dark.webp) | [view](site/site-data-protection-1440-light.webp) | [view](site/site-data-protection-1440-dark.webp) |
+| site-refunds | [view](site/site-refunds-390-light.webp) | [view](site/site-refunds-390-dark.webp) | [view](site/site-refunds-1440-light.webp) | [view](site/site-refunds-1440-dark.webp) |
+| site-service-providers | [view](site/site-service-providers-390-light.webp) | [view](site/site-service-providers-390-dark.webp) | [view](site/site-service-providers-1440-light.webp) | [view](site/site-service-providers-1440-dark.webp) |
 | not-found | [view](site/not-found-390-light.webp) | [view](site/not-found-390-dark.webp) | [view](site/not-found-1440-light.webp) | [view](site/not-found-1440-dark.webp) |
 | sign-in | [view](site/sign-in-390-light.webp) | [view](site/sign-in-390-dark.webp) | [view](site/sign-in-1440-light.webp) | [view](site/sign-in-1440-dark.webp) |
 | sign-up | [view](site/sign-up-390-light.webp) | [view](site/sign-up-390-dark.webp) | [view](site/sign-up-1440-light.webp) | [view](site/sign-up-1440-dark.webp) |

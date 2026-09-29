@@ -31,6 +31,8 @@ COPY --from=build /app/public ./public
 COPY --from=build --chown=console:console /app/.next/standalone ./
 COPY --from=build --chown=console:console /app/.next/static ./.next/static
 COPY --from=build /app/prisma ./prisma
+# Legal pages are read from content/legal at run time.
+COPY --from=build /app/content ./content
 COPY --from=build /app/node_modules/@prisma ./node_modules/@prisma
 COPY --from=build /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=migrate /migrate/node_modules /migrate/node_modules

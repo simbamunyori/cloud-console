@@ -1,9 +1,10 @@
 import type { MetadataRoute } from "next";
-import { LEGAL_PAGES } from "@/config/site";
+import { FOOTER_LEGAL } from "@/config/site";
 import { env } from "@/server/env";
 import { hreflang, enabledMarkets } from "@/server/site/site";
 
-const PATHS = ["", "/pricing", "/security", ...Object.keys(LEGAL_PAGES).map((k) => `/legal/${k}`)];
+// Data protection is on the Security page, so it has no entry of its own.
+const PATHS = ["", "/pricing", "/security", ...FOOTER_LEGAL.map((k) => `/legal/${k}`)];
 
 // Read per request: markets are switched on in the admin console, and APP_URL is only known at run time.
 export const dynamic = "force-dynamic";
