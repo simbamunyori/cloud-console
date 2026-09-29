@@ -1,6 +1,7 @@
-import type { PrismaClient, Product, ProductCategory } from "@prisma/client";
+import type { PrismaClient, Product, ProductCategory, ProductFamily } from "@prisma/client";
 import { DomainError } from "@/server/org/access";
 import type { OptionSpec } from "./seed-data";
+import { shownTo, type Audience } from "./visibility";
 
 /**
  * The marketplace catalogue: products and their options. Prices come from
@@ -9,13 +10,21 @@ import type { OptionSpec } from "./seed-data";
 
 type CatalogueDb = Pick<PrismaClient, "product">;
 
-export type ProductWithCategory = Product & { category: ProductCategory };
+export type ProductWithCategory = Product & { category: ProductCategory & { family: ProductFamily } };
 
 export const productOptions = (p: Product): OptionSpec[] => (Array.isArray(p.options) ? (p.options as unknown as OptionSpec[]) : []);
 
-export async function productBySlug(db: CatalogueDb, slug: string): Promise<ProductWithCategory | null> {
-  const product = await db.product.findUnique({ where: { slug }, include: { category: true } });
-  return product?.active ? product : null;
+const WITH_FAMILY = { category: { include: { family: true } } } as const;
+
+/** A product the audience may see (see visibility.ts), or null. */
+export async function productBySlug(db: CatalogueDb, slug: string, audience: Audience = "public"): Promise<ProductWithCategory | null> {
+  const product = await db.product.findUnique({ where: { slug }, include: WITH_FAMILY });
+  return product && shownTo(product, audience) ? product : null;
+}
+
+/** Any product, whatever its status: for staff previews. */
+export async function anyProductBySlug(db: CatalogueDb, slug: string): Promise<ProductWithCategory | null> {
+  return db.product.findUnique({ where: { slug }, include: WITH_FAMILY });
 }
 
 const DOMAIN = /^(?=.{1,253}$)([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/;

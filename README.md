@@ -201,6 +201,14 @@ neither, everyone lands on the default market and can switch.
   at a time, at a different amount, or all at once). Approved prices apply
   from next month; customers never see a suggestion. Products and domain
   endings are offered per market there too.
+- **Catalogue:** `/admin/catalogue`, as a staff admin. Families (each
+  fulfilled by one connector), categories and products. A new product is
+  a draft: approve its prices on the Pricing page, preview it as a
+  customer in any market would see it, then make it internal (staff and
+  our test organisations, set on a customer's page) or live. Draft and
+  internal products never reach the public site, the marketplace, search
+  or the assistant. The seed only adds what is missing, so staff edits
+  stay. Every change is in the staff audit log with before and after.
 - **Waiting list:** people from countries with no market that is on can
   leave their details at sign-up; staff see them at `/admin/waitlist`.
 

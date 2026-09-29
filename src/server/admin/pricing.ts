@@ -93,7 +93,8 @@ export async function pricingOverview(db: PrismaClient, month: string, currency:
   const [categories, settings, products, tlds, changes] = await Promise.all([
     db.productCategory.findMany({ orderBy: { sortOrder: "asc" } }),
     db.pricingSettings.findUnique({ where: { id: "global" } }),
-    db.product.findMany({ where: { active: true }, select: { costCurrency: true, fixedPriceCurrency: true, fixedPriceMinor: true } }),
+    // Drafts too: a product is priced before it goes live.
+    db.product.findMany({ select: { costCurrency: true, fixedPriceCurrency: true, fixedPriceMinor: true } }),
     db.tld.findMany({ select: { costCurrency: true } }),
     db.pricingChange.findMany({ orderBy: { createdAt: "desc" }, take: 30, include: { user: { select: { name: true } } } }),
   ]);

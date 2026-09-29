@@ -18,6 +18,7 @@ import { ROLE_LABEL } from "@/server/org/access";
 import { countryName } from "@/lib/countries";
 import { listMarkets } from "@/server/markets/markets";
 import { staffCan } from "@/server/staff/access";
+import { InternalOrganisationSwitch } from "../../catalogue/forms";
 import { ChangeMarketForm } from "../../markets/forms";
 
 export const metadata: Metadata = { title: "Customer" };
@@ -41,7 +42,11 @@ export default async function CustomerPage({ params }: { params: Promise<{ id: s
       <Link href="/admin/customers" className="mb-4 inline-flex items-center gap-1 text-callout text-link hover:underline">
         <ArrowLeft aria-hidden className="size-4" /> Customers
       </Link>
-      <PageHeader title={org.name} eyebrow={account ? `Billing client ${account.externalClientId}` : "No billing account yet"} actions={org.deletedAt ? <Badge>Closed</Badge> : null} />
+      <PageHeader
+        title={org.name}
+        eyebrow={account ? `Billing client ${account.externalClientId}` : "No billing account yet"}
+        actions={org.deletedAt ? <Badge>Closed</Badge> : org.internal ? <Badge tone="warning">Test organisation</Badge> : null}
+      />
       <div className="flex flex-col gap-6">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <Card className="flex flex-col gap-1 p-5">
@@ -71,8 +76,14 @@ export default async function CustomerPage({ params }: { params: Promise<{ id: s
                   ["VAT number", org.vatNumber ?? "None"],
                   ["Address", [org.addressLine1, org.city].filter(Boolean).join(", ") || "Not set"],
                   ["Opened", formatDay(org.createdAt, true)],
+                  ["Kind", org.internal ? "Our own test organisation: sees internal products" : "Customer"],
                 ]}
               />
+              {staffCan(staff, "manageCatalogue") && !org.deletedAt ? (
+                <div className="mt-6 border-t border-border pt-6">
+                  <InternalOrganisationSwitch organisationId={org.id} internal={org.internal} />
+                </div>
+              ) : null}
               {markets ? (
                 <div className="mt-6 border-t border-border pt-6">
                   <ChangeMarketForm organisationId={org.id} current={org.billingMarket} markets={markets.map((m) => ({ value: m.code, label: `${m.name} (${m.currency})${m.enabled ? "" : ", off"}` }))} />

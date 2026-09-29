@@ -1,7 +1,8 @@
-import { ArrowLeft, Check, Clock, X } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { ProductDetails } from "@/components/app/product-view";
 import { Alert } from "@/components/ui/alert";
 import { Amount } from "@/components/ui/amount";
 import { Card, CardBody } from "@/components/ui/card";
@@ -12,6 +13,7 @@ import { requireBilling } from "@/server/billing/context";
 import { productBySlug, productOptions } from "@/server/catalogue/catalogue";
 import { productPrice } from "@/server/catalogue/price-book";
 import { DOMAIN_PRODUCT_SLUG } from "@/server/catalogue/seed-data";
+import { audienceFor } from "@/server/catalogue/visibility";
 import { prisma } from "@/server/db";
 import { hasLegalText, REFUNDS_CONSENT_SECTION } from "@/server/cms/legal";
 import { can } from "@/server/org/access";
@@ -20,18 +22,13 @@ import { OrderForm } from "./order-form";
 
 export const metadata: Metadata = { title: "Product" };
 
-function setupTime(hours: number) {
-  if (hours <= 8) return `Usually ready within ${hours} ${hours === 1 ? "hour" : "hours"}`;
-  const days = Math.ceil(hours / 8);
-  return `Usually ready within ${days} working ${days === 1 ? "day" : "days"}`;
-}
-
 export default async function ProductPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const { actor, today, market, locale } = await requireBilling();
-  const product = await productBySlug(prisma, slug);
+  const { actor, today, market, locale, organisation } = await requireBilling();
+  const audience = audienceFor(organisation);
+  const product = await productBySlug(prisma, slug, audience);
   if (!product || product.slug === DOMAIN_PRODUCT_SLUG) notFound();
-  const price = await productPrice(prisma, product, market, monthOf(today));
+  const price = await productPrice(prisma, product, market, monthOf(today), audience);
   const refunds = await hasLegalText(market.code, "refunds");
   // Not offered in this account's market.
   if (!price) notFound();
@@ -43,45 +40,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
       </Link>
       <PageHeader eyebrow={product.category.name} title={product.name} description={product.summary} />
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_var(--layout-aside-wide)] [&>*]:min-w-0">
-        <div className="flex flex-col gap-6">
-          <Card>
-            <CardBody className="grid gap-6 sm:grid-cols-2">
-              <div className="flex flex-col gap-3">
-                <h2 className="text-headline text-ink">What&apos;s included</h2>
-                <ul className="flex flex-col gap-2">
-                  {product.includes.map((i) => (
-                    <li key={i} className="flex gap-2 text-ink-body">
-                      <Check aria-hidden className="mt-0.5 size-4 shrink-0 text-positive" />
-                      {i}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-              {product.excludes.length ? (
-                <div className="flex flex-col gap-3">
-                  <h2 className="text-headline text-ink">Not included</h2>
-                  <ul className="flex flex-col gap-2">
-                    {product.excludes.map((i) => (
-                      <li key={i} className="flex gap-2 text-ink-body">
-                        <X aria-hidden className="mt-0.5 size-4 shrink-0 text-ink-muted" />
-                        {i}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ) : null}
-            </CardBody>
-          </Card>
-          <p className="flex items-center gap-2 text-callout text-ink-muted">
-            <Clock aria-hidden className="size-4" /> {setupTime(product.setupHours)}. We&apos;ll email you when it&apos;s ready.
-          </p>
-          {product.commitmentNote ? (
-            <Alert tone="info">
-              <span className="font-semibold">Terms. </span>
-              {product.commitmentNote}
-            </Alert>
-          ) : null}
-        </div>
+        <ProductDetails product={product} />
 
         <Card aria-label="Order">
           <CardBody className="flex flex-col gap-5">

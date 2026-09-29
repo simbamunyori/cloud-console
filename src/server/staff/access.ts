@@ -26,7 +26,9 @@ export type StaffPermission =
   /** Change market settings, switch markets on and off, and move a customer to another market. */
   | "manageMarkets"
   /** Give staff a website role. */
-  | "manageStaff";
+  | "manageStaff"
+  /** Create and change product families, categories and products, and mark our own test organisations. */
+  | "manageCatalogue";
 
 const ALLOWED: Record<StaffPermission, StaffRole[]> = {
   viewCustomers: ["SUPPORT", "PROVISIONING", "FINANCE", "ADMIN"],
@@ -36,6 +38,7 @@ const ALLOWED: Record<StaffPermission, StaffRole[]> = {
   managePricing: ["ADMIN"],
   manageMarkets: ["ADMIN"],
   manageStaff: ["ADMIN"],
+  manageCatalogue: ["ADMIN"],
 };
 
 export function staffCan(actor: Pick<StaffActor, "staffRole">, permission: StaffPermission): boolean {
