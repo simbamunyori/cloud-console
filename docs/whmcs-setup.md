@@ -126,8 +126,10 @@ can't create product groups. So the console ships a small addon,
 
 - Creates and updates **product groups**: name, headline and visibility.
 - Creates and updates **products**: name, description, visibility, and
-  the monthly price in each currency. There is no set-up fee and
-  quantities are allowed.
+  the monthly price in each currency. There is no set-up fee.
+- For a product sold per user, keeps its **"Users" quantity option** and
+  that option's price per user in each currency. The product itself then
+  costs 0.00, and WHMCS works out a change in users from the option.
 
 It can't touch clients, invoices, services, orders, payments, settings or
 anything else. Every request:
@@ -149,9 +151,9 @@ To install it:
    Generation Console Sync` and select **Activate**. This creates its one
    table, which remembers recent request ids.
 3. Select **Configure** and set:
-   - **Shared secret**: a long random value, for example from
-     `openssl rand -hex 32`. Set the same value as `WHMCS_SYNC_SECRET` in
-     the console's environment.
+   - **Shared secret**: the output of `openssl rand -hex 32` (64 letters
+     and digits; the addon refuses anything under 32 characters). Set the
+     same value as `WHMCS_SYNC_SECRET` in the console's environment.
    - **Allowed IPs**: the addresses allowed to call it, one per line; a
      range like `203.0.113.0/24` works too. On the test install, add the
      address Claude reports when it first runs the sync. That address
@@ -169,6 +171,18 @@ Nothing else in the addon folder answers web requests.
 
 To change the shared secret, change it in WHMCS and in the console at the
 same time. Requests signed with the old one are refused.
+
+To run the sync from a checkout of the console with the environment set:
+- `npm run whmcs:sync` shows what would change, and changes nothing.
+- `npm run whmcs:sync -- --apply --staff you@fourthgen.co.bw` makes the
+  changes. You must be console staff allowed to manage pricing; the run is
+  written to the staff audit log with every change.
+
+It also sets each domain ending's register, renew and transfer prices
+through the API (`CreateOrUpdateTLD`). If two markets that are switched on
+share a currency (Zimbabwe and International are both USD) and approved
+different prices, it stops and says which: WHMCS holds one price per
+currency.
 
 ## 7. Payment gateways
 
@@ -231,7 +245,12 @@ With the variables set, run `npm run test:whmcs`. Without
 - it finds BWP, ZAR and USD;
 - it lists products;
 - it reads domain pricing;
-- it calls each read action in the role.
+- it calls each read action in the role;
+- with `WHMCS_SYNC_SECRET` set, it checks the addon accepts the console's
+  signature (the request it sends changes nothing).
+
+The write suite needs the price sync to have run first, so that WHMCS has
+per-user products and domain prices in BWP.
 
 A missing permission shows as WHMCS's own refusal, naming the action. The
 write actions are checked by the full suite (`WHMCS_TEST_WRITES=yes`).

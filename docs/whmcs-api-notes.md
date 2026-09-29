@@ -125,3 +125,10 @@ Index checked: https://developers.whmcs.com/api/api-index/
 - GetInvoice `transactions` can be an empty string.
 - GetInvoices has no balance field; call GetInvoice for it.
 - CancelOrder works only on Pending orders.
+
+## Rechecked 2026-09-29 (Phase 2 build)
+- **UpdateClientProduct** `configoptions` is base64 of a serialised array: `configoptionid => dropdownoptionid`, or for a quantity `configoptionid => array('optionid' => choiceId, 'qty' => n)`. There is no plain quantity field.
+- **UpgradeProduct** example response: `oldproductid, oldproductname, newproductid, newproductname, daysuntilrenewal, totaldays, newproductbillingcycle, price ("$-8.67 USD"), id, orderid, order_number, invoiceid (null when nothing is due)`. The page doesn't say whether the upgrade applies at once or when its invoice is paid.
+- **GetInvoice** example: `items: {"item": [...]}` and `transactions: ""` when empty. The console's `list()` also accepts a plain array.
+- **CreateOrUpdateTLD**: `extension` (with the dot), `currency_code` (required with pricing), `register[years]` (1 to 10), `renew[years]` (up to 9), `transfer[1]`, plus id_protection, dns_management, email_forwarding, epp_required, auto_registrar, group, grace and redemption settings, display_after. Response: `extension`, `id`.
+- Not documented, so checked by the write suite on the test install: whether `priceoverride` includes configurable option prices, what AcceptOrder does to a service with no module, what module actions answer for a product with no module, and whether UpdateInvoice ignores an empty `notes`.
