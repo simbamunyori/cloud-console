@@ -1,8 +1,11 @@
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { money } from "../src/lib/domain/money";
 import { BillingError, PAYMENT_METHODS } from "../src/server/billing/adapter";
 import { WhmcsClient } from "../src/server/billing/whmcs/client";
 import { WhmcsBillingAdapter } from "../src/server/billing/whmcs/whmcs-adapter";
+import { assertWritesAllowed } from "../src/server/billing/whmcs/write-guard";
 import { billingContract } from "./billing-contract";
 import { FAKE_CREDENTIALS, SERVICE_PASSWORD, fakeWhmcs, type FakeWhmcsOptions } from "./fake-whmcs";
 
@@ -193,4 +196,24 @@ describe("WHMCS adapter", () => {
     expect(await adapter.listInvoices(clientId)).toHaveLength(3);
     expect(w.calls.filter((c) => c.action === "GetInvoices").every((c) => c.params.limitnum === "250" && c.params.userid === clientId)).toBe(true);
   });
+});
+
+describe("WHMCS write tests guard", () => {
+  it("refuses whenever WHMCS_ENVIRONMENT is production", () => {
+    expect(() => assertWritesAllowed({ WHMCS_ENVIRONMENT: "production" })).toThrow(/Refusing to run the WHMCS write tests/);
+    expect(() => assertWritesAllowed({ WHMCS_ENVIRONMENT: " Production " })).toThrow();
+    expect(() => assertWritesAllowed({ WHMCS_ENVIRONMENT: "test" })).not.toThrow();
+    expect(() => assertWritesAllowed({})).not.toThrow();
+  });
+
+  it("stops the whole write suite before it touches WHMCS", async () => {
+    const run = promisify(execFile);
+    const env = { ...process.env, WHMCS_API_URL: "https://127.0.0.1:9/includes/api.php", WHMCS_API_IDENTIFIER: "x", WHMCS_API_SECRET: "x", WHMCS_TEST_WRITES: "yes", WHMCS_ENVIRONMENT: "production" };
+    const failed = await run("npx", ["vitest", "run", "tests/whmcs.integration.test.ts"], { env, timeout: 90_000 }).then(
+      () => null,
+      (err: { code?: number; stdout?: string; stderr?: string }) => err,
+    );
+    expect(failed?.code).toBe(1);
+    expect(`${failed?.stdout}${failed?.stderr}`).toMatch(/Refusing to run the WHMCS write tests: WHMCS_ENVIRONMENT is production/);
+  }, 120_000);
 });
