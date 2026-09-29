@@ -46,7 +46,7 @@ export async function requestCountry(): Promise<string | undefined> {
   const h = await headers();
   const fromHeader = countryFromHeader(h.get(env().GEO_COUNTRY_HEADER));
   if (fromHeader) return fromHeader;
-  // The first X-Forwarded-For entry is the client when a proxy we trust sets it (see middleware).
+  // The first X-Forwarded-For entry is the client when a proxy we trust sets it (see src/proxy.ts).
   const ip = h.get("x-forwarded-for")?.split(",")[0]?.trim() || h.get("x-real-ip");
   return countryFromAddress(ip);
 }

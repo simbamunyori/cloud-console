@@ -1,8 +1,8 @@
 "use client";
 
-import { usePathname } from "next/navigation";
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useRef } from "react";
 import { cn } from "@/lib/cn";
+import { usePageToggle } from "@/lib/use-page-toggle";
 
 /**
  * A button in the console's top bar that opens a small panel below it.
@@ -10,13 +10,11 @@ import { cn } from "@/lib/cn";
  * when a link in it is followed.
  */
 export function TopMenu({ label, icon, badge, children, className }: { label: string; icon: React.ReactNode; badge?: number; children: React.ReactNode; className?: string }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = usePageToggle();
   const root = useRef<HTMLDivElement>(null);
   const button = useRef<HTMLButtonElement>(null);
   const panelId = useId();
-  const pathname = usePathname();
 
-  useEffect(() => setOpen(false), [pathname]);
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
@@ -34,7 +32,7 @@ export function TopMenu({ label, icon, badge, children, className }: { label: st
       document.removeEventListener("keydown", onKey);
       document.removeEventListener("mousedown", onClick);
     };
-  }, [open]);
+  }, [open, setOpen]);
 
   return (
     <div ref={root} className={cn("relative", className)}>
@@ -44,7 +42,7 @@ export function TopMenu({ label, icon, badge, children, className }: { label: st
         aria-expanded={open}
         aria-controls={panelId}
         aria-label={badge ? `${label}, ${badge} new` : label}
-        onClick={() => setOpen((o) => !o)}
+        onClick={() => setOpen(!open)}
         className="relative flex size-11 items-center justify-center rounded-md text-ink hover:bg-surface-2 aria-expanded:bg-surface-2"
       >
         {icon}

@@ -31,7 +31,7 @@ export function contentSecurityPolicy(nonce: string, dev: boolean): string {
   ].join("; ");
 }
 
-export function middleware(req: NextRequest) {
+export function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
   if (pathname === "/admin" || pathname.startsWith("/admin/")) {
     const allowlist = parseAllowlist(process.env.ADMIN_IP_ALLOWLIST ?? "");

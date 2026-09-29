@@ -2,10 +2,10 @@
 
 import { Boxes, ChevronDown, Globe2, Mail, Menu, Server, ShieldCheck, X } from "lucide-react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useRef } from "react";
 import type { MenuGroup } from "@/config/site";
 import { cn } from "@/lib/cn";
+import { usePageToggle } from "@/lib/use-page-toggle";
 
 const GROUP_ICONS: Record<MenuGroup["key"], typeof Mail> = { productivity: Mail, servers: Server, security: ShieldCheck, web: Globe2, apps: Boxes };
 
@@ -17,13 +17,11 @@ const link = "rounded-md px-3 py-2 text-callout font-medium text-ink hover:bg-su
  * click outside and when a link is followed.
  */
 export function ServicesMenu({ base, groups }: { base: string; groups: MenuGroup[] }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = usePageToggle();
   const button = useRef<HTMLButtonElement>(null);
   const root = useRef<HTMLDivElement>(null);
   const panelId = useId();
-  const pathname = usePathname();
 
-  useEffect(() => setOpen(false), [pathname]);
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
@@ -41,11 +39,11 @@ export function ServicesMenu({ base, groups }: { base: string; groups: MenuGroup
       document.removeEventListener("keydown", onKey);
       document.removeEventListener("mousedown", onClick);
     };
-  }, [open]);
+  }, [open, setOpen]);
 
   return (
     <div ref={root}>
-      <button ref={button} type="button" aria-expanded={open} aria-controls={panelId} onClick={() => setOpen((o) => !o)} className={cn(link, "flex items-center gap-1 aria-expanded:bg-surface-2")}>
+      <button ref={button} type="button" aria-expanded={open} aria-controls={panelId} onClick={() => setOpen(!open)} className={cn(link, "flex items-center gap-1 aria-expanded:bg-surface-2")}>
         Services
         <ChevronDown aria-hidden className={cn("size-4 transition-transform duration-fast motion-reduce:transition-none", open && "rotate-180")} />
       </button>
@@ -94,8 +92,7 @@ export function ServicesMenu({ base, groups }: { base: string; groups: MenuGroup
  */
 export function SiteMenu({ base, groups, pages, footer }: { base: string; groups: MenuGroup[]; pages: { label: string; href: string }[]; footer: React.ReactNode }) {
   const ref = useRef<HTMLDialogElement>(null);
-  const [open, setOpen] = useState(false);
-  const pathname = usePathname();
+  const [open, setOpen] = usePageToggle();
 
   useEffect(() => {
     const d = ref.current;
@@ -103,7 +100,6 @@ export function SiteMenu({ base, groups, pages, footer }: { base: string; groups
     if (open && !d.open) d.showModal();
     if (!open && d.open) d.close();
   }, [open]);
-  useEffect(() => setOpen(false), [pathname]);
 
   return (
     <>

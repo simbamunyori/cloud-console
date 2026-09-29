@@ -42,9 +42,12 @@ export function InviteForm({ roles }: { roles: RoleOption[] }) {
 export function MemberActions({ membershipId, name, role, roles }: { membershipId: string; name: string; role: string; roles: RoleOption[] }) {
   const [open, setOpen] = useState(false);
   const [state, action, pending] = useActionState<ActionState, FormData>(updateMemberAction, {});
-  useEffect(() => {
+  // Close once a change is saved.
+  const [handled, setHandled] = useState(state);
+  if (state !== handled) {
+    setHandled(state);
     if (state.ok) setOpen(false);
-  }, [state]);
+  }
   return (
     <>
       <Button variant="secondary" size="sm" onClick={() => setOpen(true)}>
