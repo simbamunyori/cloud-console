@@ -131,7 +131,7 @@ const id = (value: string, what: string) => {
   return Number(value);
 };
 
-const DOMAIN_PATTERN = /^(?=.{1,253}$)([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/;
+export const DOMAIN_PATTERN = /^(?=.{1,253}$)([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/;
 
 export class StubBillingAdapter implements BillingAdapter {
   readonly provider = "STUB" as const;

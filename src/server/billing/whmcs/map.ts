@@ -2,7 +2,10 @@ import { currencyInfo, money, parseMoney, type Money } from "@/lib/domain/money"
 import { parseDateOnly } from "@/lib/dates";
 import type {
   BillingClient,
+  BillingClientPatch,
   BillingCycle,
+  BillingOrder,
+  DomainRequest,
   BillingProduct,
   Domain,
   DomainStatus,
@@ -54,8 +57,9 @@ function requiredDate(value: unknown, what: string): Date {
   return d;
 }
 
-/** Unwraps {"invoices":{"invoice":[...]}}, tolerating "" and a single object. */
+/** Unwraps {"invoices":{"invoice":[...]}}, tolerating "", a single object and a plain array. */
 export function list(container: unknown, key: string): Json[] {
+  if (Array.isArray(container)) return container as Json[];
   if (!container || typeof container !== "object") return [];
   const inner = (container as Json)[key];
   if (Array.isArray(inner)) return inner as Json[];
@@ -141,8 +145,12 @@ export function fromProduct(p: Json): BillingProduct {
 
 const CYCLE: Record<BillingCycle, string> = { monthly: "monthly", annually: "annually" };
 
-/** AddOrder. Arrays are sent as name[0], name[1] and so on. */
-export function toAddOrder(clientId: string, order: NewOrder): Params {
+/**
+ * AddOrder. Arrays are sent as name[0], name[1] and so on. A product sold
+ * per user has a "Users" quantity option (see quantityOptionId); its
+ * quantity goes there and the service itself is one unit.
+ */
+export function toAddOrder(clientId: string, order: NewOrder, quantityOptions: Record<string, string> = {}): Params {
   const params: Params = {
     clientid: clientId,
     paymentmethod: order.paymentMethod,
@@ -151,15 +159,15 @@ export function toAddOrder(clientId: string, order: NewOrder): Params {
     ...(order.createInvoice ? {} : { noinvoice: "true" }),
   };
   order.items.forEach((item, i) => {
+    const quantityOption = quantityOptions[item.productId];
     params[`pid[${i}]`] = item.productId;
-    params[`qty[${i}]`] = String(item.quantity);
+    params[`qty[${i}]`] = quantityOption ? "1" : String(item.quantity);
     params[`billingcycle[${i}]`] = CYCLE[item.billingCycle];
     params[`priceoverride[${i}]`] = toAmount(item.recurringPrice);
     if (item.domain) params[`domain[${i}]`] = item.domain;
-    if (item.options && Object.keys(item.options).length) {
-      // Keyed by config option id in real use; the console sends ids as the keys.
-      params[`configoptions[${i}]`] = Buffer.from(phpSerialize(item.options)).toString("base64");
-    }
+    // Keyed by config option id; the console sends ids as the keys.
+    const options = { ...(item.options ?? {}), ...(quantityOption ? { [quantityOption]: String(item.quantity) } : {}) };
+    if (Object.keys(options).length) params[`configoptions[${i}]`] = Buffer.from(phpSerialize(options)).toString("base64");
   });
   return params;
 }
@@ -207,7 +215,9 @@ export function fromService(p: Json, currency: string): Service {
   const bw = Number(str(p.bwusage));
   const bwLimit = Number(str(p.bwlimit));
   if (bwLimit > 0) usage.push({ label: "Bandwidth", used: bw, limit: bwLimit, unit: "MB" });
-  const resources = list(p.configoptions, "configoption").map((o) => ({ label: str(o.option), value: str(o.value) }));
+  const resources = list(p.configoptions, "configoption")
+    .filter((o) => !isQuantityOption(o))
+    .map((o) => ({ label: str(o.option), value: str(o.value) }));
   return {
     serviceId: str(p.id),
     productId: str(p.pid),
@@ -216,7 +226,7 @@ export function fromService(p: Json, currency: string): Service {
     groupName: str(p.groupname),
     domain: str(p.domain) || undefined,
     status: SERVICE_STATUS[str(p.status)] ?? "pending",
-    quantity: Number(str(p.qty)) || 1,
+    quantity: serviceQuantity(p),
     recurring: amount(p.recurringamount, currency),
     billingCycle: str(p.billingcycle).toLowerCase() === "annually" ? "annually" : "monthly",
     registeredOn: requiredDate(p.regdate, "registration date"),
@@ -280,7 +290,7 @@ export function fromInvoice(i: Json, currency: string): Invoice {
       taxed: str(l.taxed) === "1" || l.taxed === true,
     })),
     payments: list(i.transactions, "transaction").map((t) => fromTransaction(t, currency)),
-    notes: str(i.notes) || undefined,
+    notes: str(i.notes).trim() || undefined,
   };
 }
 
@@ -361,8 +371,8 @@ export function fromDomain(d: Json, currency: string): Domain {
 }
 
 /** GetTLDPricing: pricing keyed by TLD without the dot, one-year prices under "1". */
-export function fromTldPricing(r: Json): TldPrice[] {
-  const currency = str((r.currency as Json | undefined)?.code);
+export function fromTldPricing(r: Json, askedFor?: string): TldPrice[] {
+  const currency = str((r.currency as Json | undefined)?.code).toUpperCase() || askedFor || "";
   const pricing = (r.pricing ?? {}) as Record<string, Json>;
   return Object.entries(pricing)
     .map(([tld, p]) => ({
@@ -373,3 +383,254 @@ export function fromTldPricing(r: Json): TldPrice[] {
     }))
     .sort((a, b) => a.tld.localeCompare(b.tld));
 }
+
+// ─── Currencies ───────────────────────────────────────────────────────
+
+/** GetCurrencies.currencies.currency[]: WHMCS's own id for each code. */
+export function fromCurrencies(r: Json): { id: string; code: string }[] {
+  return list(r.currencies, "currency").map((c) => ({ id: str(c.id), code: str(c.code).toUpperCase() }));
+}
+
+// ─── Per-user quantity ────────────────────────────────────────────────
+
+/** The configurable option that holds the number of users (type 4 is WHMCS's Quantity type). */
+export const QUANTITY_OPTION_NAME = "Users";
+
+function isQuantityOption(o: Json) {
+  const type = str(o.type).toLowerCase();
+  return type === "4" || type === "quantity" || str(o.option ?? o.name) === QUANTITY_OPTION_NAME;
+}
+
+export interface QuantityOption {
+  optionId: string;
+  /** The option's one choice; UpdateClientProduct needs it beside the quantity. */
+  choiceId: string;
+}
+
+/** GetProducts.products.product[]: its "Users" quantity option, if it is sold per user. */
+export function quantityOption(p: Json): QuantityOption | undefined {
+  const option = list(p.configoptions, "configoption").find(isQuantityOption);
+  if (!option) return undefined;
+  const choice = list(option.options, "option")[0];
+  return { optionId: str(option.id), choiceId: choice ? str(choice.id) : "0" };
+}
+
+/** A service's quantity: its "Users" option when it has one, otherwise WHMCS's own qty. */
+function serviceQuantity(p: Json): number {
+  const option = list(p.configoptions, "configoption").find(isQuantityOption);
+  return Number(str(option ? option.value : p.qty)) || 1;
+}
+
+// ─── Upgrades ─────────────────────────────────────────────────────────
+
+/** UpgradeProduct for a new number of users, or for another product. `calconly` only works out the charge. */
+export function toUpgrade(serviceId: string, change: { quantityOptionId?: string; quantity?: number; productId?: string; billingCycle: BillingCycle }, paymentMethod: string, calcOnly: boolean): Params {
+  const params: Params = { serviceid: serviceId, paymentmethod: paymentMethod, ...(calcOnly ? { calconly: "true" } : {}) };
+  if (change.productId) {
+    Object.assign(params, { type: "product", newproductid: change.productId, newproductbillingcycle: CYCLE[change.billingCycle] });
+  } else {
+    // UpgradeProduct takes configoptions as a plain array, not base64 as AddOrder does.
+    Object.assign(params, { type: "configoptions", [`configoptions[${change.quantityOptionId}]`]: String(change.quantity) });
+  }
+  return params;
+}
+
+/** UpgradeProduct with calconly: the days left in the period, when WHMCS gives them. */
+export function fromUpgradeDays(r: Json): { daysLeft?: number; daysInPeriod?: number } {
+  const n = (v: unknown) => (str(v) === "" || !Number.isFinite(Number(str(v))) ? undefined : Number(str(v)));
+  return { daysLeft: n(r.daysuntilrenewal), daysInPeriod: n(r.totaldays) };
+}
+
+/** UpgradeProduct's order and invoice ids (invoiceid is null when nothing is due). */
+export function fromUpgradeOrder(r: Json) {
+  const invoiceId = str(r.invoiceid);
+  return { orderId: str(r.orderid), invoiceId: invoiceId && invoiceId !== "0" ? invoiceId : undefined };
+}
+
+/**
+ * UpdateClientProduct: sets the "Users" quantity now. Unlike UpgradeProduct,
+ * this takes configoptions base64 serialised, with a quantity as
+ * {optionid, qty}.
+ */
+export function toServiceQuantity(serviceId: string, option: QuantityOption, quantity: number): Params {
+  const serialized = `a:1:{i:${Number(option.optionId)};a:2:{s:8:"optionid";i:${Number(option.choiceId)};s:3:"qty";i:${quantity};}}`;
+  return { serviceid: serviceId, configoptions: Buffer.from(serialized).toString("base64") };
+}
+
+/** UpgradeProduct's "price" is formatted ("P120.00 BWP", "$-8.67 USD"); this reads the number out of it. */
+export function fromUpgradePrice(r: Json, currency: string): Money {
+  const m = /-?\d[\d,]*(?:\.\d+)?/.exec(str(r.price));
+  return amount(m ? m[0].replace(/,/g, "") : "0", currency);
+}
+
+/** UpdateClientProduct: the recurring price for the whole service per cycle. */
+export function toRecurring(serviceId: string, recurring: Money): Params {
+  return { serviceid: serviceId, recurringamount: toAmount(recurring) };
+}
+
+/** UpdateClientProduct: a status change made without a module (suspend reason kept). */
+export function toServiceStatus(serviceId: string, status: ServiceStatus, reason?: string): Params {
+  const name = Object.entries(SERVICE_STATUS).find(([, v]) => v === status)![0];
+  return { serviceid: serviceId, status: name, ...(reason ? { suspendreason: reason } : {}) };
+}
+
+// ─── Orders list ──────────────────────────────────────────────────────
+
+export const ORDER_STATUS: Record<string, BillingOrder["status"]> = { Pending: "pending", Active: "active", Cancelled: "cancelled", Fraud: "fraud" };
+
+/** GetOrders.orders.order[]. The amount is in the client's currency. */
+export function fromOrder(o: Json, currency: string): BillingOrder {
+  const invoiceId = str(o.invoiceid);
+  return {
+    orderId: str(o.id),
+    placedAt: new Date(`${str(o.date).replace(" ", "T")}Z`),
+    status: ORDER_STATUS[str(o.status)] ?? "pending",
+    invoiceId: invoiceId && invoiceId !== "0" ? invoiceId : undefined,
+    total: amount(o.amount, currency),
+  };
+}
+
+/** GetOrders.orders.order[].lineitems: the services and domains it created. */
+export function orderItems(o: Json): { serviceIds: string[]; domainIds: string[] } {
+  const items = list(o.lineitems, "lineitem");
+  return {
+    serviceIds: items.filter((l) => str(l.type).toLowerCase() === "product").map((l) => str(l.relid)),
+    domainIds: items.filter((l) => str(l.type).toLowerCase() === "domain").map((l) => str(l.relid)),
+  };
+}
+
+// ─── Invoices list ────────────────────────────────────────────────────
+
+/** GetInvoices filters: userid, and WHMCS's own status name. */
+export function toGetInvoices(clientId: string, status: InvoiceStatus | undefined, start: number, limit: number): Params {
+  const name = status ? Object.entries(INVOICE_STATUS).find(([, v]) => v === status)?.[0] : undefined;
+  return { userid: clientId, limitstart: String(start), limitnum: String(limit), orderby: "date", order: "desc", ...(name ? { status: name } : {}) };
+}
+
+/** UpdateInvoice: WHMCS's own status name. */
+export function toInvoiceStatus(invoiceId: string, status: InvoiceStatus): Params {
+  return { invoiceid: invoiceId, status: Object.entries(INVOICE_STATUS).find(([, v]) => v === status)![0] };
+}
+
+/** GetInvoice.userid: whose invoice it is. */
+export const invoiceClientId = (i: Json) => str(i.userid);
+/** GetClientsProducts.products.product[].clientid. */
+export const serviceClientId = (p: Json) => str(p.clientid);
+/** GetClientsDetails.client: WHMCS's currency id and, in newer versions, its code. */
+export const clientCurrency = (c: Json) => ({ id: str(c.currency), code: str(c.currency_code).toUpperCase() || undefined });
+
+// ─── Domains ordering ─────────────────────────────────────────────────
+
+/** AddOrder for one domain registration or transfer, at our price. */
+export function toDomainOrder(clientId: string, request: DomainRequest & { authCode?: string }, type: "register" | "transfer"): Params {
+  return {
+    clientid: clientId,
+    paymentmethod: request.paymentMethod,
+    noemail: "true",
+    noinvoiceemail: "true",
+    "domain[0]": request.name,
+    "domaintype[0]": type,
+    "regperiod[0]": String(request.years),
+    "domainpriceoverride[0]": toAmount(request.price),
+    ...(type === "transfer" && request.authCode ? { "eppcode[0]": request.authCode } : {}),
+  };
+}
+
+/** AddOrder renewing one domain for `years`. */
+export function toDomainRenewal(clientId: string, domainId: string, years: number, paymentMethod: string): Params {
+  return { clientid: clientId, paymentmethod: paymentMethod, noemail: "true", noinvoiceemail: "true", [`domainrenewals[${domainId}]`]: String(years) };
+}
+
+/** DomainWhois: "available" or "unavailable". */
+export const whoisAvailable = (r: Json) => str(r.status).toLowerCase() === "available";
+
+/** GetClientsDetails.client.billingcid? WHMCS marks no default pay method in GetPayMethods, so the first one is. */
+export const payMethods = (r: Json) => (Array.isArray(r.paymethods) ? (r.paymethods as Json[]) : list(r.paymethods, "paymethod"));
+
+// ─── Request builders and response lists ─────────────────────────────
+
+/** Parameters that name one thing, so the adapter never spells a WHMCS field. */
+export const by = {
+  client: (clientId: string): Params => ({ clientid: clientId }),
+  clientDetails: (clientId: string): Params => ({ clientid: clientId, stats: "false" }),
+  service: (serviceId: string): Params => ({ serviceid: serviceId }),
+  clientService: (clientId: string, serviceId: string): Params => ({ clientid: clientId, serviceid: serviceId }),
+  invoice: (invoiceId: string): Params => ({ invoiceid: invoiceId }),
+  /** GetOrders filters by "id"; the other order actions take "orderid". */
+  orderLookup: (orderId: string): Params => ({ id: orderId }),
+  clientOrders: (clientId: string): Params => ({ userid: clientId }),
+  product: (productId: string): Params => ({ pid: productId }),
+  group: (groupId: string): Params => ({ gid: groupId }),
+  domainName: (name: string): Params => ({ domain: name }),
+  clientDomain: (clientId: string, domainId: string): Params => ({ clientid: clientId, domainid: domainId }),
+  currency: (currencyId: string): Params => ({ currencyid: currencyId }),
+  page: (start: number, limit: number): Params => ({ limitstart: String(start), limitnum: String(limit) }),
+};
+
+/** How many a paged list holds in all, when WHMCS says. */
+export const totalResults = (r: Json) => (str(r.totalresults) === "" ? undefined : Number(str(r.totalresults)));
+
+export const clientsProducts = (r: Json) => list(r.products, "product");
+export const productsList = (r: Json) => list(r.products, "product");
+export const ordersList = (r: Json) => list(r.orders, "order");
+export const invoicesList = (r: Json) => list(r.invoices, "invoice");
+export const domainsList = (r: Json) => list(r.domains, "domain");
+export const transactionsList = (r: Json) => list(r.transactions, "transaction");
+/** GetClientsDetails: the client, nested under "client" in current versions. */
+export const clientRecord = (r: Json) => ((r.client && typeof r.client === "object" ? r.client : r) as Json);
+/** GetTransactions rows carry the client as userid. */
+export const transactionClientId = (t: Json) => str(t.userid);
+/** GetClientsDomains rows: the client the domain belongs to. */
+export const domainClientId = (d: Json) => str(d.userid ?? d.clientid);
+export const newClientId = (r: Json) => str(r.clientid);
+export const newPayMethodId = (r: Json) => str(r.paymethodid);
+
+/** UpdateClient. Only the fields in the patch are sent. */
+export function toUpdateClient(clientId: string, patch: BillingClientPatch, currencyId?: string): Params {
+  const fields: [keyof BillingClientPatch, string][] = [
+    ["companyName", "companyname"],
+    ["firstName", "firstname"],
+    ["lastName", "lastname"],
+    ["email", "email"],
+    ["country", "country"],
+    ["address1", "address1"],
+    ["city", "city"],
+    ["phone", "phonenumber"],
+    ["taxId", "tax_id"],
+  ];
+  const params: Params = { clientid: clientId, skipvalidation: "true" };
+  for (const [ours, theirs] of fields) if (patch[ours] !== undefined) params[theirs] = String(patch[ours]);
+  if (patch.status) params.status = Object.entries(CLIENT_STATUS).find(([, v]) => v === patch.status)![0];
+  if (currencyId) params.currency = currencyId;
+  return params;
+}
+
+/** AcceptOrder: set up at once and send no email. Domains go to the registrar only when asked. */
+export function toAcceptOrder(orderId: string, sendToRegistrar: boolean): Params {
+  return { orderid: orderId, autosetup: "true", sendemail: "false", sendregistrar: String(sendToRegistrar) };
+}
+
+/** CancelOrder, without cancelling any gateway subscription or emailing. */
+export function toCancelOrder(orderId: string): Params {
+  return { orderid: orderId, cancelsub: "false", noemail: "true" };
+}
+
+/** ModuleSuspend takes the reason; the other module actions only the service. */
+export function toModuleAction(serviceId: string, reason?: string): Params {
+  return { serviceid: serviceId, ...(reason ? { suspendreason: reason } : {}) };
+}
+
+/** UpdateInvoice: the whole notes text. An empty value would be ignored, so a blank line clears it. */
+export function toInvoiceNotes(invoiceId: string, notes: string | null): Params {
+  return { invoiceid: invoiceId, notes: notes ?? " " };
+}
+
+/** GetClientsDomains rows: just the name, id and status, for look-ups. */
+export const fromDomainName = (d: Json) => str(d.domainname).toLowerCase();
+export const fromDomainId = (d: Json) => str(d.id);
+export const fromDomainStatus = (d: Json): DomainStatus => DOMAIN_STATUS[str(d.status)] ?? "pending";
+/** GetOrders rows: the status and invoice, without amounts. */
+export const orderStatus = (o: Json): BillingOrder["status"] => ORDER_STATUS[str(o.status)] ?? "pending";
+export const orderInvoiceId = (o: Json) => (str(o.invoiceid) && str(o.invoiceid) !== "0" ? str(o.invoiceid) : undefined);
+/** GetInvoice: the status alone. */
+export const invoiceStatus = (i: Json): InvoiceStatus => INVOICE_STATUS[str(i.status)] ?? "unpaid";

@@ -17,6 +17,17 @@ export interface ContractFixtures {
   tld: string;
   takenDomain: string;
   unsupportedDomain: string;
+  /**
+   * False where the engine can't save a card from a gateway token. WHMCS
+   * only saves cards with the full number, which the console never holds.
+   */
+  savesCards?: boolean;
+  /**
+   * False where no registrar is connected, so an accepted domain stays
+   * pending and a renewal doesn't move the expiry date (the WHMCS test
+   * install). The orders and invoices are still checked.
+   */
+  domainsGoLive?: boolean;
 }
 
 let counter = 0;
@@ -227,6 +238,7 @@ export function billingContract(name: string, adapter: () => BillingAdapter, fix
       let domain = (await a.listDomains(clientId)).find((d) => d.name === name)!;
       expect(domain.status).toBe("pending");
       await a.acceptOrder(placed.orderId);
+      if (f.domainsGoLive === false) return;
       domain = (await a.listDomains(clientId)).find((d) => d.name === name)!;
       expect(domain.status).toBe("active");
 
@@ -246,7 +258,12 @@ export function billingContract(name: string, adapter: () => BillingAdapter, fix
     });
 
     it("saves a card from the gateway without the card number", async () => {
-      const { a, clientId } = await setUp();
+      const { a, f, clientId } = await setUp();
+      if (f.savesCards === false) {
+        await expect(a.addPayMethod(clientId, { gateway: "stubcard", gatewayToken: "tok_123", cardBrand: "Visa", lastFour: "4242", expiry: "08/29", setDefault: false })).rejects.toMatchObject({ code: "invalid" });
+        expect(await a.listPayMethods(clientId)).toEqual([]);
+        return;
+      }
       await a.addPayMethod(clientId, { gateway: "stubcard", gatewayToken: "tok_123", cardBrand: "Visa", lastFour: "4242", expiry: "08/29", setDefault: false });
       const methods = await a.listPayMethods(clientId);
       expect(methods).toHaveLength(1);
