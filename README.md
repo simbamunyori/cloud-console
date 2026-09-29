@@ -129,7 +129,10 @@ the UI and never sent to the assistant.
 | --- | --- | --- |
 | `DATABASE_URL` | Yes | PostgreSQL connection |
 | `PAYLOAD_SECRET` | Yes | Secret for the website editor's own tokens (staff never get an editor password) |
+| `MEDIA_STORAGE` | No | Where uploaded images are stored; only `disk` for now |
 | `MEDIA_DIR` | No | Where images uploaded in the website editor are kept; defaults to `media/` |
+| `BACKUP_PASSPHRASE` | Production | Encrypts the nightly backups; keep a copy off the server |
+| `BACKUP_AT`, `BACKUP_KEEP_DAYS` | No | When the nightly backup runs (UTC, default 23:00) and how many days are kept (default 30) |
 | `APP_URL` | Yes in production | Public address, used in email links |
 | `CONSOLE_NAME` | No | What customers see the console called (default "Cloud Console") |
 | `TOTP_ENCRYPTION_KEY` | Yes, secret | 32 random bytes, base64. Encrypts authenticator secrets. Losing it means everyone sets up their authenticator again |
@@ -264,8 +267,25 @@ through /preview, which turns on draft mode only for website staff.
 The home page is `home`; any other page is /<market>/<address>. While
 the editor has no home page, the site shows the built-in one.
 
-Uploaded images go to `MEDIA_DIR` (a volume in `docker-compose.prod.yml`;
-back it up with the database) and are served at /media.
+Uploaded images go to `MEDIA_DIR` (a volume in `docker-compose.prod.yml`)
+and are served at /media. Storage sits behind `src/cms/storage`, so object
+storage can be added later without changing pages or the editor.
+
+### Backups
+
+In production the `backup` service writes the database and the uploaded
+images to `./backups` every night, encrypted with `BACKUP_PASSPHRASE`, and
+deletes backups older than `BACKUP_KEEP_DAYS`. Copy that folder off the
+server too. To take one now: `docker compose -f docker-compose.prod.yml run --rm backup /backup.sh`.
+
+To restore one:
+
+```sh
+mkdir restore && openssl enc -d -aes-256-cbc -pbkdf2 -pass env:BACKUP_PASSPHRASE \
+  -in backups/console-<time>.tar.enc | tar -C restore -xf -
+pg_restore --clean --if-exists --no-owner -d "$DATABASE_URL" restore/console.dump
+tar -C <media volume> -xzf restore/media.tar.gz
+```
 
 ## Where things are
 

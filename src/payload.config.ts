@@ -22,6 +22,7 @@ import { Staff } from "./cms/collections/staff";
 import { Footer, Header } from "./cms/globals/site-frame";
 import { DEFAULT_LOCALE, MARKET_LOCALES } from "./cms/locales";
 import { migrations } from "./cms/migrations";
+import { mediaStorage } from "./cms/storage";
 import { canPublishWebsite } from "./server/staff/access";
 
 const dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -103,6 +104,7 @@ export default buildConfig({
     prodMigrations: migrations,
   }),
   sharp,
+  plugins: [...mediaStorage().plugins],
   graphQL: { disable: true },
   telemetry: false,
   upload: { limits: { fileSize: 10 * 1024 * 1024 } },
