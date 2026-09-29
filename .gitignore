@@ -51,3 +51,7 @@ backups/
 /playwright-report/
 /.lighthouseci/
 /screenshots-full/
+
+# Images uploaded in the website editor during development.
+/media/
+/backups

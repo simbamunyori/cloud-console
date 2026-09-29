@@ -193,7 +193,7 @@ export const TOOLS: Tool[] = [
       const categories = await marketplace(ctx.db as unknown as PrismaClient, { code: ctx.organisation.billingMarket, currency: ctx.organisation.currency }, monthOf(todayIn(ctx.organisation.timeZone, ctx.now)));
       return {
         auditSummary: "Assistant looked up our prices",
-        result: categories.flatMap((c) => c.products.map((p) => ({ product: p.product.name, category: c.category.name, price: `${formatMoney(p.price, ctx.organisation.locale)} ${p.product.unitLabel} a month` }))),
+        result: categories.flatMap((c) => c.products.map((p) => ({ product: p.product.name, category: c.category.name, price: p.price ? `${formatMoney(p.price, ctx.organisation.locale)} ${p.product.unitLabel} a month` : "priced by quote" }))),
       };
     },
   },

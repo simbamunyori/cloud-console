@@ -1,9 +1,11 @@
 "use client";
 
 import {
+  Boxes,
   Globe,
   Hourglass,
   Building2,
+  FileText,
   ClipboardList,
   House,
   LayoutDashboard,
@@ -15,6 +17,8 @@ import {
   ShieldCheck,
   ShoppingBag,
   SlidersHorizontal,
+  SquarePen,
+  UserCog,
   Users,
   Wallet,
 } from "lucide-react";
@@ -38,8 +42,12 @@ const ICONS = {
   overview: LayoutDashboard,
   orders: Package,
   pricing: Percent,
+  catalogue: Boxes,
   markets: Globe,
   waitlist: Hourglass,
+  quotes: FileText,
+  website: SquarePen,
+  staff: UserCog,
 };
 
 export interface NavItem {

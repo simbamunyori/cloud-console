@@ -8,12 +8,13 @@ import type { ScopedBilling } from "@/server/billing/scoped";
 import { approvedPrice, productItem, productPrice, tldOffers } from "@/server/catalogue/price-book";
 import { productBySlug, productOptions, validateOptions, type ProductWithCategory } from "@/server/catalogue/catalogue";
 import { DOMAIN_PRODUCT_SLUG } from "@/server/catalogue/seed-data";
+import { audienceFor } from "@/server/catalogue/visibility";
 import { connectorFor } from "@/server/connectors/registry";
 import type { TenantDb } from "@/server/db";
 import { queueEmail } from "@/server/email/outbox";
 import { assertCan, DomainError, type Actor } from "@/server/org/access";
 import { audit, customerAudit } from "@/server/org/audit";
-import { legalDocument } from "@/server/site/legal";
+import { hasLegalText } from "@/server/cms/legal";
 
 /**
  * Ordering: new products, seat changes on an existing service, and domain
@@ -26,7 +27,7 @@ import { legalDocument } from "@/server/site/legal";
 export interface OrderDeps {
   db: TenantDb;
   billing: ScopedBilling;
-  organisation: { id: string; name: string; currency: string; timeZone: string; billingMarket: string };
+  organisation: { id: string; name: string; currency: string; timeZone: string; billingMarket: string; /** Our own test organisation: can order internal products. */ internal?: boolean };
   actor: Actor;
   now?: Date;
 }
@@ -42,7 +43,7 @@ export function newReference(prefix = "ORD"): string {
 const catalogueDb = (db: TenantDb) => db as unknown as PrismaClient;
 const marketOf = (deps: Pick<OrderDeps, "organisation">) => ({ code: deps.organisation.billingMarket, currency: deps.organisation.currency });
 
-function billingFailure(e: unknown): never {
+export function billingFailure(e: unknown): never {
   if (e instanceof BillingError) {
     if (e.code === "invalid" || e.code === "conflict") throw new DomainError("invalid", e.message);
     throw new DomainError("unavailable", "Billing is not answering right now, so nothing was ordered. Try again in a few minutes.");
@@ -70,7 +71,7 @@ async function placerEmail(db: TenantDb, userId: string) {
 }
 
 export interface OrderQuote {
-  product: ProductWithCategory;
+  product: ProductWithCategory & { billingProductId: string };
   quantity: number;
   unitPrice: Money;
   monthlyTotal: Money;
@@ -79,22 +80,26 @@ export interface OrderQuote {
 
 /** Works out what an order would cost, checking everything the customer chose. */
 export async function quoteOrder(deps: OrderDeps, input: { slug: string; quantity: string | number; options: Record<string, string> }): Promise<OrderQuote> {
-  const product = await productBySlug(catalogueDb(deps.db), input.slug);
+  const audience = audienceFor(deps.organisation);
+  const product = await productBySlug(catalogueDb(deps.db), input.slug, audience);
   if (!product || product.slug === DOMAIN_PRODUCT_SLUG) throw new DomainError("not-found", "That product isn't on sale.");
+  if (product.fulfilment === "QUOTE") throw new DomainError("invalid", "This is sold by quote. Ask us for a quote instead of ordering it.");
+  const { billingProductId } = product;
+  if (!billingProductId) throw new DomainError("unavailable", "This can't be ordered yet. Contact support and we'll set it up for you.");
   const quantity = parseQuantity(product, input.quantity);
   const options = validateOptions(productOptions(product), input.options);
   const month = monthOf(todayIn(deps.organisation.timeZone, deps.now));
-  const unitPrice = await productPrice(catalogueDb(deps.db), product, marketOf(deps), month);
+  const unitPrice = await productPrice(catalogueDb(deps.db), product, marketOf(deps), month, audience);
   if (!unitPrice) throw new DomainError("not-found", "That product isn't on sale.");
-  return { product, quantity, unitPrice, monthlyTotal: times(unitPrice, quantity), options };
+  return { product: { ...product, billingProductId }, quantity, unitPrice, monthlyTotal: times(unitPrice, quantity), options };
 }
 
 /**
  * Where the market has a refunds policy, the customer confirms the service may start
  * straight away, which ends the consumer cooling-off period (refunds policy, section 1).
  */
-async function assertStartNow(deps: OrderDeps, startNow: boolean | undefined) {
-  if (startNow || !(await legalDocument(deps.organisation.billingMarket, "refunds"))) return;
+export async function assertStartNow(deps: OrderDeps, startNow: boolean | undefined) {
+  if (startNow || !(await hasLegalText(deps.organisation.billingMarket, "refunds"))) return;
   throw new DomainError("invalid", "Confirm that the service can start now.", "startNow");
 }
 
@@ -135,7 +140,7 @@ export async function placeOrder(deps: OrderDeps, input: { slug: string; quantit
         billingInvoiceId: placed.invoiceId ?? null,
       },
     });
-    const result = await connectorFor(product.category.family).request(
+    const result = await connectorFor(product.category.family.connector).request(
       tx,
       {
         organisationId: deps.organisation.id,
@@ -182,7 +187,7 @@ async function quantityChange(deps: OrderDeps, serviceId: string, rawQuantity: s
   const service = await deps.billing.getService(serviceId);
   if (!service) throw new DomainError("not-found", "That service isn't on your account.");
   if (service.status !== "active") throw new DomainError("conflict", "Only an active service can be changed.");
-  const product = await catalogueDb(deps.db).product.findFirst({ where: { billingProductId: service.productId }, include: { category: true } });
+  const product = await catalogueDb(deps.db).product.findFirst({ where: { billingProductId: service.productId }, include: { category: { include: { family: true } } } });
   if (!product || !product.quantityAllowed) throw new DomainError("invalid", "The number of users can't be changed for this service. Contact support to change it.");
   const to = parseQuantity(product, rawQuantity);
   if (to === service.quantity) throw new DomainError("invalid", `It already has ${to}.`, "quantity");
@@ -233,7 +238,7 @@ export async function changeQuantity(deps: OrderDeps, serviceId: string, quantit
         changesServiceId: serviceId,
       },
     });
-    const result = await connectorFor(change.product.category.family).request(
+    const result = await connectorFor(change.product.category.family.connector).request(
       tx,
       {
         organisationId: deps.organisation.id,

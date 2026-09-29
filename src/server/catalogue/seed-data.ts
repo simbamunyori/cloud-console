@@ -1,5 +1,6 @@
 import type { ConnectorFamily, PrismaClient } from "@prisma/client";
 import type { StubProductKey } from "@/server/billing/stub/catalogue";
+import { DomainError } from "@/server/org/access";
 import { bookRows } from "./price-book";
 
 /**
@@ -20,11 +21,22 @@ export interface OptionSpec {
   format?: "domain";
 }
 
+interface FamilySeed {
+  key: string;
+  name: string;
+  description: string;
+  connector: ConnectorFamily;
+  sortOrder: number;
+  /** Live unless said otherwise. */
+  status?: "DRAFT";
+  fulfilment?: "QUOTE";
+}
+
 interface CategorySeed {
   key: string;
   name: string;
   description: string;
-  family: ConnectorFamily;
+  familyKey: string;
   marginBps: number;
   sortOrder: number;
 }
@@ -47,8 +59,8 @@ interface ProductSeed {
   options?: OptionSpec[];
   /** Markets it is offered in when first loaded. Every market if not set. */
   markets?: string[];
-  /** False keeps it off sale when first loaded; staff switch it on later. */
-  active?: boolean;
+  /** Draft keeps it off sale when first loaded; staff put it live later. Live if not set. */
+  status?: "DRAFT" | "INTERNAL" | "LIVE";
 }
 
 /** The product behind domain orders. It isn't shown in the product grid; domains have their own search. */
@@ -65,14 +77,27 @@ const EMAIL_DOMAIN: OptionSpec = {
 
 const SEAT_TERMS = "Billed monthly. Add users at any time; the part month is charged on your next invoice. Reduce users from your next renewal date.";
 
+/** The families as the migration made them, one per connector (prisma/migrations/20260930090000_catalogue_admin). */
+export const FAMILIES: FamilySeed[] = [
+  { key: "productivity", name: "Productivity", description: "Microsoft 365 and Google Workspace.", connector: "PRODUCTIVITY", sortOrder: 1 },
+  { key: "servers", name: "Servers", description: "Managed servers.", connector: "SERVERS", sortOrder: 2 },
+  { key: "web-and-domains", name: "Web and domains", description: "Hosting, business email and domain names.", connector: "WEB_AND_DOMAINS", sortOrder: 3 },
+  { key: "protection", name: "Protection", description: "Backups, recovery and security monitoring.", connector: "PROTECTION", sortOrder: 4 },
+  { key: "public-cloud", name: "Public cloud", description: "Microsoft Azure.", connector: "PUBLIC_CLOUD", sortOrder: 5 },
+  { key: "our-software", name: "Our software", description: "Software we build and run.", connector: "OUR_SOFTWARE", sortOrder: 6 },
+  { key: "services", name: "Services", description: "Help from our team.", connector: "SERVICES", sortOrder: 7 },
+  // Sold by quote and hidden until an Admin sets it live; no products yet.
+  { key: "connectivity", name: "Connectivity", description: "Links between your sites and to the cloud, designed and priced for you.", connector: "CONNECTIVITY", sortOrder: 8, status: "DRAFT", fulfilment: "QUOTE" },
+];
+
 export const CATEGORIES: CategorySeed[] = [
-  { key: "productivity", name: "Productivity", description: "Email, documents and meetings for your team.", family: "PRODUCTIVITY", marginBps: 2000, sortOrder: 1 },
-  { key: "servers", name: "Servers", description: "Managed servers, monitored and backed up.", family: "SERVERS", marginBps: 4000, sortOrder: 2 },
-  { key: "web", name: "Web and domains", description: "Websites, business email and domain names.", family: "WEB_AND_DOMAINS", marginBps: 4000, sortOrder: 3 },
-  { key: "protection", name: "Protection", description: "Backups, recovery and security monitoring.", family: "PROTECTION", marginBps: 3500, sortOrder: 4 },
-  { key: "public-cloud", name: "Public cloud", description: "Microsoft Azure, set up and looked after by us.", family: "PUBLIC_CLOUD", marginBps: 1500, sortOrder: 5 },
-  { key: "our-software", name: "Our software", description: "Software we build and run on our own platform.", family: "OUR_SOFTWARE", marginBps: 0, sortOrder: 6 },
-  { key: "services", name: "Services", description: "Help from our team, every month.", family: "SERVICES", marginBps: 0, sortOrder: 7 },
+  { key: "productivity", name: "Productivity", description: "Email, documents and meetings for your team.", familyKey: "productivity", marginBps: 2000, sortOrder: 1 },
+  { key: "servers", name: "Servers", description: "Managed servers, monitored and backed up.", familyKey: "servers", marginBps: 4000, sortOrder: 2 },
+  { key: "web", name: "Web and domains", description: "Websites, business email and domain names.", familyKey: "web-and-domains", marginBps: 4000, sortOrder: 3 },
+  { key: "protection", name: "Protection", description: "Backups, recovery and security monitoring.", familyKey: "protection", marginBps: 3500, sortOrder: 4 },
+  { key: "public-cloud", name: "Public cloud", description: "Microsoft Azure, set up and looked after by us.", familyKey: "public-cloud", marginBps: 1500, sortOrder: 5 },
+  { key: "our-software", name: "Our software", description: "Software we build and run on our own platform.", familyKey: "our-software", marginBps: 0, sortOrder: 6 },
+  { key: "services", name: "Services", description: "Help from our team, every month.", familyKey: "services", marginBps: 0, sortOrder: 7 },
 ];
 
 const m365 = (slug: string, name: string, cost: bigint, billing: StubProductKey, summary: string, includes: string[]): ProductSeed => ({
@@ -254,7 +279,7 @@ export const PRODUCTS: ProductSeed[] = [
     slug: "local-data-copy",
     // The copy is kept in Botswana, so it isn't offered until our servers move there.
     markets: ["bw"],
-    active: false,
+    status: "DRAFT",
     category: "protection",
     name: "Local data copy",
     summary: "A daily copy of your cloud data kept on our own servers, for organisations with data protection duties.",
@@ -364,47 +389,47 @@ export const PLACEHOLDER_RATES: { base: string; quote: string; rateMicros: bigin
 ];
 
 /**
- * Loads the catalogue. Leaves existing categories' margins, products'
- * prices and where they're offered alone (staff may have changed them);
- * adds what is missing. `billingIds` maps the stub's product keys to
- * billing product ids. Then fills any empty price book with the
+ * Loads the catalogue. Only adds what is missing: once staff edit the
+ * catalogue in the admin console, a family, category or product that
+ * exists is never changed here. `billingIds` maps the stub's product keys
+ * to billing product ids. Then fills any empty price book with the
  * suggestions for the first month given, as if approved.
  */
 export async function seedCatalogue(db: PrismaClient, billingIds: Partial<Record<StubProductKey, string>>, months: string[]) {
   const allMarkets = (await db.market.findMany({ orderBy: { sortOrder: "asc" }, select: { code: true } })).map((m) => m.code);
+  for (const f of FAMILIES) {
+    await db.productFamily.upsert({ where: { key: f.key }, update: {}, create: { ...f, status: f.status ?? "LIVE" } });
+  }
   for (const c of CATEGORIES) {
-    await db.productCategory.upsert({ where: { key: c.key }, update: { name: c.name, description: c.description, family: c.family, sortOrder: c.sortOrder }, create: c });
+    await db.productCategory.upsert({ where: { key: c.key }, update: {}, create: c });
   }
   for (const [i, p] of PRODUCTS.entries()) {
     const billingProductId = billingIds[p.billing];
     if (!billingProductId) throw new Error(`No billing product for ${p.slug}.`);
-    const data = {
-      categoryKey: p.category,
-      name: p.name,
-      summary: p.summary,
-      includes: p.includes,
-      excludes: p.excludes,
-      unitLabel: p.unitLabel,
-      quantityAllowed: p.quantityAllowed ?? false,
-      minQuantity: p.minQuantity ?? 1,
-      setupHours: p.setupHours,
-      commitmentNote: p.commitmentNote ?? null,
-      options: (p.options ?? []) as unknown as object,
-      sortOrder: i,
-    };
     await db.product.upsert({
       where: { slug: p.slug },
-      update: data,
+      update: {},
       create: {
-        ...data,
         slug: p.slug,
+        categoryKey: p.category,
+        name: p.name,
+        summary: p.summary,
+        includes: p.includes,
+        excludes: p.excludes,
+        unitLabel: p.unitLabel,
+        quantityAllowed: p.quantityAllowed ?? false,
+        minQuantity: p.minQuantity ?? 1,
+        setupHours: p.setupHours,
+        commitmentNote: p.commitmentNote ?? null,
+        options: (p.options ?? []) as unknown as object,
+        sortOrder: i,
         costMinor: p.cost[0],
         costCurrency: p.cost[1],
         fixedPriceMinor: p.fixedPrice?.[0] ?? null,
         fixedPriceCurrency: p.fixedPrice?.[1] ?? null,
         billingProductId,
         markets: p.markets ?? allMarkets,
-        active: p.active ?? true,
+        status: p.status ?? "LIVE",
       },
     });
   }
@@ -422,7 +447,15 @@ export async function seedCatalogue(db: PrismaClient, billingIds: Partial<Record
     }
   }
   const first = [...months].sort()[0];
-  if (first) for (const code of allMarkets) await seedPriceBook(db, code, first);
+  if (!first) return;
+  for (const code of allMarkets) {
+    try {
+      await seedPriceBook(db, code, first);
+    } catch (e) {
+      // A market removed while the seed runs has no price book to fill.
+      if (!(e instanceof DomainError && e.code === "not-found")) throw e;
+    }
+  }
 }
 
 /** Prices everything without a price in a market from the month's suggestions, marked as seeded (no approver). */

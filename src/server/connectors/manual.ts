@@ -50,6 +50,15 @@ const STEPS: Record<ConnectorFamily, Record<ConnectorRequest["work"], (r: Connec
     change_quantity: (r) => [`Update ${r.productName} to ${r.quantity}.`],
     cancel: (r) => [`End ${r.productName} after the notice period.`],
   },
+  CONNECTIVITY: {
+    provision: (r) => [
+      `Check the quote ${r.options.Quote ?? ""} for ${r.organisationName} and book the site survey.`.replace("  ", " "),
+      "Order the link from the carrier and add the expected date to the task notes.",
+      "Install and test it with the customer, record the handover in the task notes, and mark this done.",
+    ],
+    change_quantity: (r) => [`Change ${r.productName} from ${r.previousQuantity} to ${r.quantity} as quoted.`],
+    cancel: (r) => [`Give the carrier notice for ${r.productName} and collect our equipment at the end of the term.`],
+  },
 };
 
 const TITLES: Record<ConnectorRequest["work"], (r: ConnectorRequest) => string> = {
@@ -60,6 +69,7 @@ const TITLES: Record<ConnectorRequest["work"], (r: ConnectorRequest) => string> 
 
 /** The Phase 1 connector: a task for staff, done by hand. */
 export class ManualConnector implements ProductConnector {
+  readonly automatic = false;
   constructor(readonly family: ConnectorFamily) {}
 
   async request(tx: ConnectorTx, r: ConnectorRequest, now: Date): Promise<ConnectorResult> {

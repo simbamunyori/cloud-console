@@ -21,6 +21,8 @@ Refresh with `npm run screenshots -- --commit` against a running console with th
 | forgot-password | [view](site/forgot-password-390-light.webp) | [view](site/forgot-password-390-dark.webp) | [view](site/forgot-password-1440-light.webp) | [view](site/forgot-password-1440-dark.webp) |
 | reset-link-expired | [view](site/reset-link-expired-390-light.webp) | [view](site/reset-link-expired-390-dark.webp) | [view](site/reset-link-expired-1440-light.webp) | [view](site/reset-link-expired-1440-dark.webp) |
 | staff-sign-in | [view](site/staff-sign-in-390-light.webp) | [view](site/staff-sign-in-390-dark.webp) | [view](site/staff-sign-in-1440-light.webp) | [view](site/staff-sign-in-1440-dark.webp) |
+| site-quote | [view](site/site-quote-390-light.webp) | [view](site/site-quote-390-dark.webp) | [view](site/site-quote-1440-light.webp) | [view](site/site-quote-1440-dark.webp) |
+| quote-link | [view](site/quote-link-390-light.webp) | [view](site/quote-link-390-dark.webp) | [view](site/quote-link-1440-light.webp) | [view](site/quote-link-1440-dark.webp) |
 
 ## Customer console
 
@@ -30,6 +32,9 @@ Refresh with `npm run screenshots -- --commit` against a running console with th
 | search | [view](customer/search-390-light.webp) | [view](customer/search-390-dark.webp) | [view](customer/search-1440-light.webp) | [view](customer/search-1440-dark.webp) |
 | marketplace | [view](customer/marketplace-390-light.webp) | [view](customer/marketplace-390-dark.webp) | [view](customer/marketplace-1440-light.webp) | [view](customer/marketplace-1440-dark.webp) |
 | product | [view](customer/product-390-light.webp) | [view](customer/product-390-dark.webp) | [view](customer/product-1440-light.webp) | [view](customer/product-1440-dark.webp) |
+| quotes | [view](customer/quotes-390-light.webp) | [view](customer/quotes-390-dark.webp) | [view](customer/quotes-1440-light.webp) | [view](customer/quotes-1440-dark.webp) |
+| quote | [view](customer/quote-390-light.webp) | [view](customer/quote-390-dark.webp) | [view](customer/quote-1440-light.webp) | [view](customer/quote-1440-dark.webp) |
+| new-quote | [view](customer/new-quote-390-light.webp) | [view](customer/new-quote-390-dark.webp) | [view](customer/new-quote-1440-light.webp) | [view](customer/new-quote-1440-dark.webp) |
 | domains | [view](customer/domains-390-light.webp) | [view](customer/domains-390-dark.webp) | [view](customer/domains-1440-light.webp) | [view](customer/domains-1440-dark.webp) |
 | services | [view](customer/services-390-light.webp) | [view](customer/services-390-dark.webp) | [view](customer/services-1440-light.webp) | [view](customer/services-1440-dark.webp) |
 | service | [view](customer/service-390-light.webp) | [view](customer/service-390-dark.webp) | [view](customer/service-1440-light.webp) | [view](customer/service-1440-dark.webp) |
@@ -57,8 +62,17 @@ Refresh with `npm run screenshots -- --commit` against a running console with th
 | admin-tickets | [view](staff/admin-tickets-390-light.webp) | [view](staff/admin-tickets-390-dark.webp) | [view](staff/admin-tickets-1440-light.webp) | [view](staff/admin-tickets-1440-dark.webp) |
 | admin-ticket | [view](staff/admin-ticket-390-light.webp) | [view](staff/admin-ticket-390-dark.webp) | [view](staff/admin-ticket-1440-light.webp) | [view](staff/admin-ticket-1440-dark.webp) |
 | admin-orders | [view](staff/admin-orders-390-light.webp) | [view](staff/admin-orders-390-dark.webp) | [view](staff/admin-orders-1440-light.webp) | [view](staff/admin-orders-1440-dark.webp) |
+| admin-quotes | [view](staff/admin-quotes-390-light.webp) | [view](staff/admin-quotes-390-dark.webp) | [view](staff/admin-quotes-1440-light.webp) | [view](staff/admin-quotes-1440-dark.webp) |
+| admin-quote | [view](staff/admin-quote-390-light.webp) | [view](staff/admin-quote-390-dark.webp) | [view](staff/admin-quote-1440-light.webp) | [view](staff/admin-quote-1440-dark.webp) |
 | admin-payments | [view](staff/admin-payments-390-light.webp) | [view](staff/admin-payments-390-dark.webp) | [view](staff/admin-payments-1440-light.webp) | [view](staff/admin-payments-1440-dark.webp) |
+| admin-catalogue | [view](staff/admin-catalogue-390-light.webp) | [view](staff/admin-catalogue-390-dark.webp) | [view](staff/admin-catalogue-1440-light.webp) | [view](staff/admin-catalogue-1440-dark.webp) |
+| admin-catalogue-product | [view](staff/admin-catalogue-product-390-light.webp) | [view](staff/admin-catalogue-product-390-dark.webp) | [view](staff/admin-catalogue-product-1440-light.webp) | [view](staff/admin-catalogue-product-1440-dark.webp) |
+| admin-catalogue-new-product | [view](staff/admin-catalogue-new-product-390-light.webp) | [view](staff/admin-catalogue-new-product-390-dark.webp) | [view](staff/admin-catalogue-new-product-1440-light.webp) | [view](staff/admin-catalogue-new-product-1440-dark.webp) |
+| admin-catalogue-preview | [view](staff/admin-catalogue-preview-390-light.webp) | [view](staff/admin-catalogue-preview-390-dark.webp) | [view](staff/admin-catalogue-preview-1440-light.webp) | [view](staff/admin-catalogue-preview-1440-dark.webp) |
+| admin-catalogue-family | [view](staff/admin-catalogue-family-390-light.webp) | [view](staff/admin-catalogue-family-390-dark.webp) | [view](staff/admin-catalogue-family-1440-light.webp) | [view](staff/admin-catalogue-family-1440-dark.webp) |
 | admin-pricing | [view](staff/admin-pricing-390-light.webp) | [view](staff/admin-pricing-390-dark.webp) | [view](staff/admin-pricing-1440-light.webp) | [view](staff/admin-pricing-1440-dark.webp) |
 | admin-markets | [view](staff/admin-markets-390-light.webp) | [view](staff/admin-markets-390-dark.webp) | [view](staff/admin-markets-1440-light.webp) | [view](staff/admin-markets-1440-dark.webp) |
 | admin-market | [view](staff/admin-market-390-light.webp) | [view](staff/admin-market-390-dark.webp) | [view](staff/admin-market-1440-light.webp) | [view](staff/admin-market-1440-dark.webp) |
 | admin-waitlist | [view](staff/admin-waitlist-390-light.webp) | [view](staff/admin-waitlist-390-dark.webp) | [view](staff/admin-waitlist-1440-light.webp) | [view](staff/admin-waitlist-1440-dark.webp) |
+| admin-staff | [view](staff/admin-staff-390-light.webp) | [view](staff/admin-staff-390-dark.webp) | [view](staff/admin-staff-1440-light.webp) | [view](staff/admin-staff-1440-dark.webp) |
+| admin-website-access | [view](staff/admin-website-access-390-light.webp) | [view](staff/admin-website-access-390-dark.webp) | [view](staff/admin-website-access-1440-light.webp) | [view](staff/admin-website-access-1440-dark.webp) |

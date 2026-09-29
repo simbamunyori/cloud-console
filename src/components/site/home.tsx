@@ -36,7 +36,7 @@ const NARROW = "(max-width: 1023px)";
  * screens, in the chosen theme (for "match device", the browser picks by
  * prefers-color-scheme).
  */
-async function HeroShot() {
+export async function HeroShot() {
   const theme = await currentTheme();
   const schemes = theme === "system" ? (["dark", "light"] as const) : ([theme] as const);
   const fallback = theme === "dark" ? "dark" : "light";
@@ -62,14 +62,14 @@ async function HeroShot() {
 }
 
 /** "Find your domain": a name and the market's popular endings, into the console's domain search. */
-function DomainSearch({ tlds }: { tlds: string[] }) {
+export function DomainSearch({ tlds, heading = "Find your domain", intro = "Search for a name. Renewals go on your monthly invoice." }: { tlds: string[]; heading?: string; intro?: string }) {
   return (
     <form action="/find-domain" method="get" role="search" aria-labelledby="domain-title" className="flex flex-col gap-5 rounded-lg bg-navy p-6 text-on-navy shadow-elevation-3 sm:p-8">
       <div className="flex flex-col gap-1">
         <h2 id="domain-title" className="text-title-1 text-on-navy">
-          Find your domain
+          {heading}
         </h2>
-        <p className="text-callout text-ink-on-dark">Search for a name. Renewals go on your monthly invoice.</p>
+        {intro ? <p className="text-callout text-ink-on-dark">{intro}</p> : null}
       </div>
       <div className="flex flex-col gap-3 sm:flex-row">
         <label htmlFor="domain-q" className="sr-only">
@@ -103,7 +103,7 @@ function DomainSearch({ tlds }: { tlds: string[] }) {
 }
 
 /** A lower-page screenshot in the visitor's theme, loaded lazily. */
-async function ThemedShot({ name, alt, width, height }: { name: string; alt: string; width: number; height: number }) {
+export async function ThemedShot({ name, alt, width, height }: { name: string; alt: string; width: number; height: number }) {
   const theme = await currentTheme();
   const set = (scheme: "light" | "dark") => [640, 960, 1280].map((w) => `/site/${name}-${scheme}-${w}.webp ${w}w`).join(", ");
   const sizes = "(min-width: 1024px) 560px, calc(100vw - 32px)";
@@ -121,7 +121,7 @@ async function ThemedShot({ name, alt, width, height }: { name: string; alt: str
  * screenshot of Thebe with demo data yet). Amounts are in the market's
  * currency.
  */
-function ThebeIllustration({ currency, locale }: { currency: string; locale: string }) {
+export function ThebeIllustration({ currency, locale }: { currency: string; locale: string }) {
   const rows: { what: string; who: string; amount: bigint; signed: number; tone: "positive" | "warning" }[] = [
     { what: "Supplier payment", who: "Kgale Hill Logistics", amount: 1_840_000n, signed: 2, tone: "positive" },
     { what: "Office rent, October", who: "Kgale Hill Properties", amount: 4_200_000n, signed: 1, tone: "warning" },
@@ -151,7 +151,7 @@ function ThebeIllustration({ currency, locale }: { currency: string; locale: str
   );
 }
 
-function SectionHeading({ id, kicker, title, children }: { id: string; kicker?: string; title: string; children?: React.ReactNode }) {
+export function SectionHeading({ id, kicker, title, children }: { id: string; kicker?: string; title: string; children?: React.ReactNode }) {
   return (
     <div className="flex max-w-2xl flex-col gap-3">
       {kicker ? <p className="label-kicker text-link">{kicker}</p> : null}

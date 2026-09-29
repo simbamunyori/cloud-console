@@ -411,6 +411,9 @@ export function fakeWhmcs(options: FakeWhmcsOptions = {}) {
       if (p.status) inv.status = p.status;
       // Assumed: like most WHMCS fields, an empty value is ignored.
       if (p.notes) inv.notes = p.notes;
+      for (let n = 0; p[`newitemdescription[${n}]`] !== undefined; n++) {
+        inv.items.push({ type: "", relid: "0", description: p[`newitemdescription[${n}]`], amount: p[`newitemamount[${n}]`] ?? "0.00", taxed: on(p[`newitemtaxed[${n}]`]) ? 1 : 0 });
+      }
       return { invoiceid: p.invoiceid };
     },
 

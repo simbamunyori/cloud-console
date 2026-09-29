@@ -26,6 +26,8 @@ jobs:
     env:
       DATABASE_URL: postgresql://console:console@localhost:5432/console
       NEXT_TELEMETRY_DISABLED: 1
+      # A throwaway value: the website editor won't start without one.
+      PAYLOAD_SECRET: ci-only-website-editor-secret
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -43,6 +45,11 @@ jobs:
           npx prisma migrate diff --from-migrations prisma/migrations --to-schema-datamodel prisma/schema.prisma \
             --shadow-database-url postgresql://console:console@localhost:5432/console_shadow --exit-code
       - run: npx prisma migrate deploy
+      - name: Website editor migrations, and a check that they match its config
+        run: |
+          npx payload migrate
+          npx payload migrate:create drift-check --skip-empty
+          git status --porcelain src/cms/migrations | grep . && { echo "The website editor's config changed without a migration: run npx payload migrate:create"; exit 1; } || true
       - name: Seed the demo data (twice, to prove it is safe to rerun)
         run: npm run db:seed && npm run db:seed
       - run: npm run lint
@@ -80,6 +87,7 @@ jobs:
       # A demo server: it runs on the seeded placeholders on purpose.
       ALLOW_PLACEHOLDERS: "yes"
       STATUS_PAGE_URL: https://status.example.com
+      PAYLOAD_SECRET: ci-only-website-editor-secret
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -90,7 +98,7 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - name: A throwaway key for two-step login secrets
         run: echo "TOTP_ENCRYPTION_KEY=$(openssl rand -base64 32)" >> "$GITHUB_ENV"
-      - run: npx prisma generate && npx prisma migrate deploy && npm run db:seed
+      - run: npx prisma generate && npx prisma migrate deploy && npx payload migrate && npm run db:seed
       - run: npm run build
       - name: Production refuses to start on placeholder values
         run: scripts/check-placeholder-refusal.sh

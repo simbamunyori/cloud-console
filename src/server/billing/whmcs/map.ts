@@ -493,6 +493,29 @@ export function toPartMonthInvoice(clientId: string, line: { description: string
   };
 }
 
+/** UpdateInvoice: one-off lines added to an order's invoice. */
+export function toNewInvoiceItems(invoiceId: string, lines: { description: string; amount: Money }[]): Params {
+  const params: Params = { invoiceid: invoiceId };
+  lines.forEach((l, i) => {
+    params[`newitemdescription[${i}]`] = l.description;
+    params[`newitemamount[${i}]`] = toAmount(l.amount);
+    params[`newitemtaxed[${i}]`] = "1";
+  });
+  return params;
+}
+
+/** CreateInvoice for one-off lines when the order itself raised no invoice (nothing to pay monthly). */
+export function toOneOffInvoice(clientId: string, lines: { description: string; amount: Money }[], paymentMethod: string, today: Date): Params {
+  const date = dateOnly(today);
+  const params: Params = { userid: clientId, status: "Unpaid", sendinvoice: "0", paymentmethod: paymentMethod, date, duedate: date, autoapplycredit: "0" };
+  lines.forEach((l, i) => {
+    params[`itemdescription${i + 1}`] = l.description;
+    params[`itemamount${i + 1}`] = toAmount(l.amount);
+    params[`itemtaxed${i + 1}`] = "1";
+  });
+  return params;
+}
+
 export const newInvoiceId = (r: Json) => str(r.invoiceid);
 
 /** YYYY-MM-DD in UTC, as WHMCS takes dates. */

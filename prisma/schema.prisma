@@ -34,20 +34,20 @@ enum TaxDisplay {
 /// Everything else is the same everywhere. Edited in /admin/markets.
 model Market {
   /// "bw", "za", "zw", "global". Also the public site's path.
-  code                  String     @id
-  name                  String
+  code      String   @id
+  name      String
   /// ISO 3166-1 alpha-2 countries this market serves. Empty for the
   /// market that serves every other country.
-  countries             String[]
+  countries String[]
   /// ISO 4217. Data, not code: a new currency is a new row.
-  currency              String
+  currency  String
   /// BCP 47, for formatting money and dates, e.g. "en-ZA".
-  locale                String
-  timeZone              String
-  enabled               Boolean    @default(false)
+  locale    String
+  timeZone  String
+  enabled   Boolean  @default(false)
   /// Where visitors go when their market can't be told. Exactly one.
-  isDefault             Boolean    @default(false)
-  sortOrder             Int        @default(0)
+  isDefault Boolean  @default(false)
+  sortOrder Int      @default(0)
 
   taxEnabled            Boolean    @default(false)
   /// Basis points: 1,400 is 14%.
@@ -66,25 +66,25 @@ model Market {
   ownDataCentre             Boolean @default(false)
 
   /// "card", "eft".
-  paymentMethods        String[]
-  eftBankName           String?
-  eftAccountName        String?
-  eftAccountNumber      String?
-  eftBranchCode         String?
-  eftSwiftCode          String?
+  paymentMethods   String[]
+  eftBankName      String?
+  eftAccountName   String?
+  eftAccountNumber String?
+  eftBranchCode    String?
+  eftSwiftCode     String?
 
-  supportEmail          String
-  supportPhone          String?
+  supportEmail      String
+  supportPhone      String?
   /// Plain words, e.g. "Monday to Friday, 8:00 to 17:00".
-  supportHours          String
+  supportHours      String
   /// Domain endings shown first, e.g. [".bw", ".co.bw"].
-  highlightedTlds       String[]
+  highlightedTlds   String[]
   /// The data protection law named on the security page, if any.
-  dataProtectionLaw     String?
+  dataProtectionLaw String?
   /// Links to lawyer-approved legal pages by kind ("privacy", "terms",
   /// "dataProtection"). Missing kinds show the placeholder page.
-  legalPages            Json       @default("{}")
-  updatedAt             DateTime   @updatedAt
+  legalPages        Json     @default("{}")
+  updatedAt         DateTime @updatedAt
 
   organisations Organisation[]
   changes       MarketChange[]
@@ -151,16 +151,19 @@ model Organisation {
   postcode           String?
   /// Put on every new invoice, for customers whose finance team needs one.
   defaultPoNumber    String?
+  /// Our own test organisation: its members also see internal products.
+  internal           Boolean   @default(false)
   deletedAt          DateTime?
   purgeAfter         DateTime?
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
 
-  market            Market       @relation(fields: [billingMarket], references: [code], onDelete: Restrict)
+  market            Market                  @relation(fields: [billingMarket], references: [code], onDelete: Restrict)
   memberships       Membership[]
   invitations       Invitation[]
   billingAccount    BillingAccount?
   orders            Order[]
+  quotes            Quote[]
   tasks             ProvisioningTask[]
   eftPayments       EftPayment[]
   cardPayments      CardPayment[]
@@ -182,28 +185,30 @@ enum UserKind {
 }
 
 model User {
-  id              String     @id @default(cuid())
-  kind            UserKind   @default(CUSTOMER)
+  id              String       @id @default(cuid())
+  kind            UserKind     @default(CUSTOMER)
   /// Stored lower-cased.
-  email           String     @unique
+  email           String       @unique
   name            String
   /// scrypt hash; see src/server/auth/password.ts.
   passwordHash    String
   emailVerifiedAt DateTime?
   /// AES-256-GCM encrypted TOTP secret; null until the authenticator is set up.
   totpSecret      String?
-  totpEnabled     Boolean    @default(false)
+  totpEnabled     Boolean      @default(false)
   /// Last accepted TOTP time step, so a code can never be used twice.
   totpLastStep    Int?
   totpEnabledAt   DateTime?
-  failedAttempts  Int        @default(0)
+  failedAttempts  Int          @default(0)
   lockedUntil     DateTime?
   lastLoginAt     DateTime?
   /// Staff only.
   staffRole       StaffRole?
+  /// Staff only: what they may do in the website editor. Admins can always publish.
+  websiteRole     WebsiteRole?
   deactivatedAt   DateTime?
-  createdAt       DateTime   @default(now())
-  updatedAt       DateTime   @updatedAt
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
 
   memberships     Membership[]
   sessions        Session[]
@@ -217,6 +222,13 @@ model User {
   settingsChanged PricingChange[]
   marketChanges   MarketChange[]
   pricesApproved  PriceBookEntry[]
+}
+
+enum WebsiteRole {
+  /// Drafts website changes.
+  EDITOR
+  /// Drafts, publishes, schedules, restores and approves legal text.
+  PUBLISHER
 }
 
 enum StaffRole {
@@ -276,13 +288,13 @@ model RecoveryCode {
 /// A "forgot password" request. The link's token is made when the email is
 /// sent and only its SHA-256 hash is kept; it works once, for 30 minutes.
 model PasswordReset {
-  id          String    @id @default(cuid())
-  userId      String
-  tokenHash   String?   @unique
-  expiresAt   DateTime
-  usedAt      DateTime?
-  ipAddress   String?
-  createdAt   DateTime  @default(now())
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String?   @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  ipAddress String?
+  createdAt DateTime  @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -506,23 +518,62 @@ enum ConnectorFamily {
   PROTECTION
   OUR_SOFTWARE
   SERVICES
+  CONNECTIVITY
 }
 
-model ProductCategory {
+/// Where a family, or a product, can be seen. Draft is hidden everywhere
+/// but the staff catalogue; internal shows to staff and to our own test
+/// organisations, so they can order it; live is on sale.
+enum CatalogueStatus {
+  DRAFT
+  INTERNAL
+  LIVE
+}
+
+/// How an order for a product is carried out.
+enum Fulfilment {
+  /// By the family's connector, with no one involved.
+  AUTOMATIC
+  /// A task for our staff.
+  MANUAL
+  /// The customer asks for a quote instead of ordering.
+  QUOTE
+}
+
+/// A group of categories fulfilled by one connector, e.g. Productivity.
+model ProductFamily {
   key         String          @id
   name        String
   description String
-  family      ConnectorFamily
+  /// The connector that fulfils its products.
+  connector   ConnectorFamily
+  /// A draft or internal family hides its products at least as much.
+  status      CatalogueStatus @default(DRAFT)
+  /// When set, every product in the family is sold this way (Connectivity: by quote).
+  fulfilment  Fulfilment?
+  sortOrder   Int             @default(0)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  categories ProductCategory[]
+}
+
+model ProductCategory {
+  key         String @id
+  name        String
+  description String
+  familyKey   String
   /// Margin on cost in basis points (10,000 = 100%). Set in the admin console.
   marginBps   Int
-  sortOrder   Int             @default(0)
+  sortOrder   Int    @default(0)
 
+  family   ProductFamily @relation(fields: [familyKey], references: [key], onDelete: Restrict)
   products Product[]
 }
 
 model Product {
-  id                 String   @id @default(cuid())
-  slug               String   @unique
+  id                 String          @id @default(cuid())
+  slug               String          @unique
   categoryKey        String
   name               String
   summary            String
@@ -531,8 +582,8 @@ model Product {
   /// "per user", "per server", "per site", "per domain".
   unitLabel          String
   /// Whether the customer chooses a quantity (seats) or buys one.
-  quantityAllowed    Boolean  @default(false)
-  minQuantity        Int      @default(1)
+  quantityAllowed    Boolean         @default(false)
+  minQuantity        Int             @default(1)
   /// What it costs us each month, in costCurrency, in minor units.
   costMinor          BigInt
   costCurrency       String
@@ -541,22 +592,27 @@ model Product {
   fixedPriceCurrency String?
   /// How long setup takes when done by hand. Shown as "expected by".
   setupHours         Int
+  /// The shortest commitment in months; 1 is month to month.
+  minTermMonths      Int             @default(1)
   /// Plain words on commitment, shown before ordering, e.g. annual terms.
   commitmentNote     String?
-  /// The product's id in the billing engine.
-  billingProductId   String
+  /// The product's id in the billing engine. Empty until the product is
+  /// first sent to billing (the WHMCS product sync fills it in).
+  billingProductId   String?
   /// Options the customer picks when ordering, e.g. operating system.
   options            Json?
-  active             Boolean  @default(true)
+  status             CatalogueStatus @default(DRAFT)
+  fulfilment         Fulfilment      @default(MANUAL)
   /// Market codes it is offered in. Local data copy is "bw" only, because
   /// the copy is kept in Botswana.
   markets            String[]
-  sortOrder          Int      @default(0)
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  sortOrder          Int             @default(0)
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
 
   category ProductCategory @relation(fields: [categoryKey], references: [key], onDelete: Restrict)
   orders   Order[]
+  quotes   Quote[]
 }
 
 /// A domain ending we sell, with what the registrar charges us.
@@ -672,6 +728,82 @@ model Order {
   tasks        ProvisioningTask[]
 
   @@index([organisationId, createdAt])
+}
+
+enum QuoteStatus {
+  /// A request staff haven't priced yet.
+  NEW
+  /// Priced and emailed. Past its validity date it can't be accepted.
+  SENT
+  ACCEPTED
+  DECLINED
+  /// Staff closed it without a sale, e.g. a duplicate or spam.
+  CLOSED
+}
+
+enum QuoteLineKind {
+  MONTHLY
+  ONE_OFF
+}
+
+/// A request for a quote, from the public site or the console, and the
+/// quote staff write for it. Anyone can ask; accepting needs an account
+/// and places an ordinary order at the quoted price.
+model Quote {
+  id             String      @id @default(cuid())
+  /// Short reference people can read out, e.g. "QUO-7K2M9Q".
+  reference      String      @unique
+  status         QuoteStatus @default(NEW)
+  /// Set when asked from the console, or when the quote is opened from its
+  /// link and taken into an account.
+  organisationId String?
+  requestedById  String?
+  name           String
+  company        String?
+  email          String
+  phone          String?
+  /// ISO 3166-1 alpha-2.
+  country        String
+  need           String
+  /// The market it is priced in; its currency is the quote's currency.
+  market         String
+  /// The product asked about, and the one the order is placed for.
+  productId      String?
+  /// Plain words to the customer, shown above the lines.
+  message        String?
+  /// The last day it can be accepted, in the market's time zone.
+  validUntil     DateTime?   @db.Date
+  /// Only the newest emailed link works; made when the email is sent.
+  tokenHash      String?     @unique
+  sentAt         DateTime?
+  sentByName     String?
+  decidedAt      DateTime?
+  decidedByName  String?
+  declineReason  String?
+  orderId        String?     @unique
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  organisation Organisation? @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  product      Product?      @relation(fields: [productId], references: [id], onDelete: Restrict)
+  lines        QuoteLine[]
+
+  @@index([status, createdAt])
+  @@index([organisationId, createdAt])
+}
+
+model QuoteLine {
+  id             String        @id @default(cuid())
+  quoteId        String
+  kind           QuoteLineKind
+  description    String
+  quantity       Int           @default(1)
+  unitPriceMinor BigInt
+  sortOrder      Int           @default(0)
+
+  quote Quote @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+
+  @@index([quoteId])
 }
 
 enum TaskStatus {

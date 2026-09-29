@@ -46,7 +46,7 @@ describe.skipIf(!hasDb)("ordering", () => {
     const za = await marketplace(db, { code: "za", currency: "ZAR" }, month);
     const products = za.flatMap((c) => c.products);
     expect(products.length).toBeGreaterThan(0);
-    expect(products.every((p) => p.price.currency === "ZAR")).toBe(true);
+    expect(products.every((p) => p.price?.currency === "ZAR")).toBe(true);
     // Local data copy is kept in Botswana, so it's only offered there.
     expect(products.some((p) => p.product.slug === "local-data-copy")).toBe(false);
     const tlds = await tldOffers(db, { code: "za", currency: "ZAR", highlightedTlds: [".co.za"] }, month);

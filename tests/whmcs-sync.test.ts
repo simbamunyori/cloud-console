@@ -9,16 +9,17 @@ const ADMIN: StaffActor = { userId: "staff-1", name: "Kabo Admin", staffRole: "A
 const SECRET = "test-secret-that-is-at-least-32-chars";
 
 /** An in-memory stand-in for the tables the sync reads and writes. */
-function fakeDb(over: { zwEnabled?: boolean; zwPrice?: bigint } = {}) {
+function fakeDb(over: { zwEnabled?: boolean; zwPrice?: bigint; status?: Record<string, "DRAFT" | "INTERNAL" | "LIVE"> } = {}) {
   const markets = [
     { code: "bw", name: "Botswana", currency: "BWP", timeZone: "Africa/Gaborone", enabled: true, sortOrder: 1 },
     { code: "zw", name: "Zimbabwe", currency: "USD", timeZone: "Africa/Harare", enabled: over.zwEnabled ?? false, sortOrder: 2 },
     { code: "global", name: "International", currency: "USD", timeZone: "UTC", enabled: over.zwEnabled ?? false, sortOrder: 3 },
   ];
-  const product = (slug: string, name: string, perUser: boolean, markets: string[]) => ({ slug, name, summary: `${name}, managed by us.`, quantityAllowed: perUser, markets, active: true });
+  const product = (slug: string, name: string, perUser: boolean, markets: string[]) => ({ slug, name, summary: `${name}, managed by us.`, quantityAllowed: perUser, markets, status: over.status?.[slug] ?? ("LIVE" as const) });
+  const family = { status: "LIVE" as const };
   const categories = [
-    { key: "productivity", name: "Productivity", description: "Email, Office and Teams", products: [product("m365-standard", "Microsoft 365 Business Standard", true, ["bw", "zw", "global"]), product("m365-copilot", "Microsoft 365 Copilot", true, [])] },
-    { key: "servers", name: "Servers", description: "Managed servers", products: [product("vps-medium", "Managed VPS, medium", false, ["bw"])] },
+    { key: "productivity", name: "Productivity", description: "Email, Office and Teams", family, products: [product("m365-standard", "Microsoft 365 Business Standard", true, ["bw", "zw", "global"]), product("m365-copilot", "Microsoft 365 Copilot", true, [])] },
+    { key: "servers", name: "Servers", description: "Managed servers", family, products: [product("vps-medium", "Managed VPS, medium", false, ["bw"])] },
   ];
   const entry = (marketCode: string, item: string, currency: string, amountMinor: bigint, renewMinor: bigint | null = null) => ({ marketCode, item, month: "2026-09", currency, amountMinor, renewMinor });
   const book = [
@@ -147,6 +148,17 @@ describe("WHMCS price sync", () => {
     links.push({ kind: "group", key: "productivity", whmcsId: "7" }, { kind: "product", key: "m365-copilot", whmcsId: "8" });
     const plan = await planSync(db, NOW);
     expect(plan.operations.find((o) => o.ref === "product:m365-copilot")).toMatchObject({ id: "8", group: "7", hidden: true, prices: {} });
+  });
+
+  it("sends live products shown, internal ones hidden, and never a draft that was never sent", async () => {
+    const plan = await planSync(fakeDb({ status: { "m365-standard": "INTERNAL", "vps-medium": "DRAFT" } }).db, NOW);
+    expect(plan.operations.find((o) => o.ref === "product:m365-standard")).toMatchObject({ hidden: true, prices: { BWP: "190.00" } });
+    expect(plan.operations.find((o) => o.ref === "product:vps-medium")).toBeUndefined();
+    expect(plan.operations.find((o) => o.ref === "category:servers")).toBeUndefined();
+
+    const { db, links } = fakeDb({ status: { "vps-medium": "DRAFT" } });
+    links.push({ kind: "product", key: "vps-medium", whmcsId: "9" });
+    expect((await planSync(db, NOW)).operations.find((o) => o.ref === "product:vps-medium")).toMatchObject({ id: "9", hidden: true, prices: {} });
   });
 
   it("only lets staff who manage pricing apply it", async () => {
