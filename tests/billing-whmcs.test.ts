@@ -149,18 +149,24 @@ describe("WHMCS adapter", () => {
     await expect(adapter.cancelOrder("424242")).rejects.toMatchObject({ code: "not-found" });
   });
 
-  it("previews a seat change with WHMCS's own part-month charge, then sets users and price at once", async () => {
+  it("previews a seat change with WHMCS's own part-month charge, then sets users and price at once and bills it on a plain invoice", async () => {
     const { w, adapter, clientId, P } = await withClient();
     const placed = await adapter.placeOrder(clientId, { paymentMethod: PAYMENT_METHODS.eft, createInvoice: true, items: [{ productId: "1", quantity: 3, billingCycle: "monthly", recurringPrice: P(57000n) }] });
     await adapter.acceptOrder(placed.orderId);
     const id = placed.serviceIds[0];
     const preview = await adapter.previewUpgrade(id, { quantity: 5, recurringPrice: P(95000n) });
-    expect(preview).toEqual({ currentRecurring: P(57000n), newRecurring: P(95000n), dueNow: P(19000n), daysLeft: 15, daysInPeriod: 30 });
+    // The live install gives no days for a configoptions change, so they come from the service's period.
+    expect(preview).toMatchObject({ currentRecurring: P(57000n), newRecurring: P(95000n), dueNow: P(19000n) });
+    expect(preview.daysLeft).toBeLessThanOrEqual(preview.daysInPeriod);
     expect(w.calls.at(-1)).toMatchObject({ action: "UpgradeProduct", params: { calconly: "true", type: "configoptions", "configoptions[101]": "5" } });
 
     const done = await adapter.upgradeService(id, { quantity: 5, recurringPrice: P(95000n) }, PAYMENT_METHODS.eft);
     expect(done.invoiceId).toBeDefined();
     expect(await adapter.getService(clientId, id)).toMatchObject({ quantity: 5, recurring: P(95000n) });
+    // No WHMCS upgrade order: paying one would add to the recurring price.
+    expect(w.calls.filter((c) => c.action === "UpgradeProduct" && !c.params.calconly)).toEqual([]);
+    const created = w.calls.find((c) => c.action === "CreateInvoice")!;
+    expect(created.params).toMatchObject({ userid: clientId, itemamount1: "190.00", sendinvoice: "0" });
 
     // A price-only change raises no WHMCS order.
     const priceOnly = await adapter.upgradeService(id, { recurringPrice: P(90000n) }, PAYMENT_METHODS.eft);

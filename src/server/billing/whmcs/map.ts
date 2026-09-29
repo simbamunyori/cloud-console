@@ -460,13 +460,44 @@ export function toServiceQuantity(serviceId: string, option: QuantityOption, qua
   return { serviceid: serviceId, configoptions: Buffer.from(serialized).toString("base64") };
 }
 
-/** UpgradeProduct's "price" is formatted ("P120.00 BWP", "$-8.67 USD"); this reads the number out of it. */
+/**
+ * UpgradeProduct's amount is formatted ("P120.00 BWP", "$-8.67 USD"); this
+ * reads the number out of it. A configoptions change answers with `total`
+ * (checked on the live install), a product change with `price`.
+ */
 export function fromUpgradePrice(r: Json, currency: string): Money {
-  const m = /-?\d[\d,]*(?:\.\d+)?/.exec(str(r.price));
+  const m = /-?\d[\d,]*(?:\.\d+)?/.exec(str(r.total ?? r.price));
   return amount(m ? m[0].replace(/,/g, "") : "0", currency);
 }
 
 /** UpdateClientProduct: the recurring price for the whole service per cycle. */
+/** UpdateClientProduct: move a service to another product. */
+export function toServiceProduct(serviceId: string, productId: string, billingCycle: BillingCycle): Params {
+  return { serviceid: serviceId, pid: productId, billingcycle: CYCLE[billingCycle] };
+}
+
+/** CreateInvoice with one line: a part-month charge, due today, not emailed (the console tells the customer). */
+export function toPartMonthInvoice(clientId: string, line: { description: string; amount: Money; taxed: boolean; paymentMethod: string; today: Date }): Params {
+  const today = dateOnly(line.today);
+  return {
+    userid: clientId,
+    status: "Unpaid",
+    sendinvoice: "0",
+    paymentmethod: line.paymentMethod,
+    date: today,
+    duedate: today,
+    itemdescription1: line.description,
+    itemamount1: toAmount(line.amount),
+    itemtaxed1: line.taxed ? "1" : "0",
+    autoapplycredit: "0",
+  };
+}
+
+export const newInvoiceId = (r: Json) => str(r.invoiceid);
+
+/** YYYY-MM-DD in UTC, as WHMCS takes dates. */
+export const dateOnly = (d: Date) => d.toISOString().slice(0, 10);
+
 export function toRecurring(serviceId: string, recurring: Money): Params {
   return { serviceid: serviceId, recurringamount: toAmount(recurring) };
 }

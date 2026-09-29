@@ -325,45 +325,63 @@ export class WhmcsBillingAdapter implements BillingAdapter {
   }
 
   async previewUpgrade(serviceId: string, change: ServiceChange): Promise<UpgradePreview> {
-    const { service, option, quantity } = await this.upgradeRequest(serviceId, change);
+    return (await this.upgradePlan(serviceId, change)).preview;
+  }
+
+  /** The upgrade request plus what it costs now, which WHMCS works out without raising anything. */
+  private async upgradePlan(serviceId: string, change: ServiceChange) {
+    const request = await this.upgradeRequest(serviceId, change);
+    const { service, option, quantity } = request;
     const period = periodOf(service, this.now());
     const base = { currentRecurring: service.recurring, newRecurring: change.recurringPrice };
     // Without a product change or a "Users" option, WHMCS has nothing to
     // work out: the new price starts with the next period.
-    if (!change.productId && !(option && quantity)) return { ...base, dueNow: money(0n, service.recurring.currency), ...period };
+    if (!change.productId && !(option && quantity)) return { ...request, preview: { ...base, dueNow: money(0n, service.recurring.currency), ...period } };
     const r = await this.write(
       "UpgradeProduct",
       map.toUpgrade(serviceId, { quantityOptionId: option?.optionId, quantity, productId: change.productId, billingCycle: service.billingCycle }, PAYMENT_METHODS.eft, true),
     );
     const days = map.fromUpgradeDays(r);
-    return {
+    const preview: UpgradePreview = {
       ...base,
       dueNow: map.fromUpgradePrice(r, service.recurring.currency),
       daysLeft: days.daysLeft ?? period.daysLeft,
       daysInPeriod: days.daysInPeriod ?? period.daysInPeriod,
     };
+    return { ...request, preview };
   }
 
   /**
-   * UpgradeProduct raises the order and any part-month invoice. The new
-   * quantity and our recurring price are then set at once with
-   * UpdateClientProduct, as the console provisions the change straight away.
+   * Sets the new product or users and our recurring price at once, as the
+   * console provisions the change straight away, and bills the part-month
+   * WHMCS worked out on an ordinary invoice. WHMCS's own upgrade order is
+   * not used: once its invoice is paid, WHMCS adds the upgrade to the
+   * recurring amount (checked on the live install), overwriting our price.
    */
   async upgradeService(serviceId: string, change: ServiceChange, paymentMethod: string) {
-    const { service, option, quantity } = await this.upgradeRequest(serviceId, change);
-    let placed: { orderId: string; invoiceId?: string } = { orderId: "" };
-    if (change.productId || (option && quantity)) {
-      placed = map.fromUpgradeOrder(
-        await this.write(
-          "UpgradeProduct",
-          map.toUpgrade(serviceId, { quantityOptionId: option?.optionId, quantity, productId: change.productId, billingCycle: service.billingCycle }, paymentMethod, false),
-        ),
-      );
-    }
+    const { service, option, quantity, preview } = await this.upgradePlan(serviceId, change);
+    const { clientId } = await this.requireService(serviceId);
+    if (change.productId) await this.write("UpdateClientProduct", map.toServiceProduct(serviceId, change.productId, service.billingCycle));
     if (option && quantity) await this.write("UpdateClientProduct", map.toServiceQuantity(serviceId, option, quantity));
     await this.write("UpdateClientProduct", map.toRecurring(serviceId, change.recurringPrice));
-    // A price-only change has no WHMCS order; the service id stands in for one.
-    return { orderId: placed.orderId || `service-${serviceId}`, invoiceId: placed.invoiceId };
+    let invoiceId: string | undefined;
+    if (preview.dueNow.amountMinor > 0n) {
+      const taxed = await this.serviceIsTaxed(clientId, serviceId);
+      const what = quantity ? `${service.name}, ${service.quantity} to ${quantity} users` : `${service.name}, changed plan`;
+      const description = `${what}, ${preview.daysLeft} of ${preview.daysInPeriod} days to ${map.dateOnly(service.nextDueOn)}`;
+      invoiceId = map.newInvoiceId(await this.write("CreateInvoice", map.toPartMonthInvoice(clientId, { description, amount: preview.dueNow, taxed, paymentMethod, today: this.now() })));
+    }
+    // There is no WHMCS order; the service id stands in for one.
+    return { orderId: `service-${serviceId}`, invoiceId };
+  }
+
+  /** Whether the service's own invoice lines are taxed, from its most recent invoices; taxed if none is found. */
+  private async serviceIsTaxed(clientId: string, serviceId: string) {
+    for (const summary of (await this.listInvoices(clientId)).slice(0, 5)) {
+      const line = (await this.getInvoice(clientId, summary.invoiceId))?.lines.find((l) => l.relatedId === serviceId && l.kind === "service");
+      if (line) return line.taxed;
+    }
+    return true;
   }
 
   // ─── Invoices and payments ──────────────────────────────────────────

@@ -52,8 +52,8 @@ audit event for each action.
 | `cancelOrder` | GetOrders, CancelOrder, then UpdateClientProduct and UpdateInvoice | Pending orders only. CancelOrder doesn't document what it does to services and the invoice, so the adapter cancels them itself |
 | `listServices`, `getService` | GetClientsProducts | The response includes the service password; `map.ts` drops it and responses are never logged |
 | `runModuleAction` | ModuleCreate, ModuleSuspend, ModuleUnsuspend, ModuleTerminate | Staff only. When WHMCS says the product has no module (licences we set up by hand), the status is set with UpdateClientProduct instead. Any other module failure is shown, never papered over |
-| `previewUpgrade` | UpgradeProduct `type=configoptions` with `calconly` | The part-month charge is WHMCS's own, from the Users option price; its `price` is a formatted string. A change of price alone costs nothing now |
-| `upgradeService` | UpgradeProduct, then UpdateClientProduct `configoptions` and `recurringamount` | The upgrade order raises the part-month invoice; the new number of users and our price are set at once, because the console provisions the change straight away |
+| `previewUpgrade` | UpgradeProduct `type=configoptions` with `calconly` | The part-month charge is WHMCS's own, from the Users option price: a formatted string in `total` (`price` for a product change). The live install gives no days, so they come from the service's period. A change of price alone costs nothing now |
+| `upgradeService` | UpdateClientProduct (`pid`, `configoptions`, `recurringamount`), then CreateInvoice | The new product or number of users and our price are set at once, because the console provisions the change straight away. The part-month charge goes on an ordinary one-line invoice, taxed like the service. No WHMCS upgrade order: once its invoice is paid WHMCS adds the upgrade to the recurring amount, overwriting our price. The line isn't linked to the service, since CreateInvoice can't say which |
 | `listInvoices` | GetInvoices | No balance in the list. Paged |
 | `getInvoice` | GetInvoice | `transactions` can be an empty string |
 | `setPurchaseOrder` | GetInvoice, then UpdateInvoice `notes` | See Purchase order numbers below |
@@ -123,7 +123,8 @@ The docs don't say, so these were checked on the test install (WHMCS
   itself, which does no harm.
 - Paying an upgrade invoice **does** change the recurring amount: WHMCS
   adds the upgrade to it (P950.00 set, P200.00 upgrade paid, P1,150.00
-  after). Open: see the pull request.
+  after). So seat changes no longer use WHMCS upgrade orders (see
+  `upgradeService` above).
 - UpdateInvoice ignores an empty `notes`, and a space clears it.
   Confirmed.
 - WHMCS reads API flags the PHP way, so `"false"` counts as on; flags we

@@ -52,11 +52,11 @@ Create API Role.**
 | Client | `GetClientsDetails`, `AddClient`, `UpdateClient`, `GetClientsProducts`, `GetClientsDomains` | A customer's billing account, services and domains |
 | Orders | `GetProducts`, `AddOrder`, `AcceptOrder`, `GetOrders`, `CancelOrder` | Ordering from the marketplace; staff accepting set-up orders |
 | Service | `ModuleCreate`, `ModuleSuspend`, `ModuleUnsuspend`, `ModuleTerminate`, `UpgradeProduct`, `UpdateClientProduct` | Staff actions on services; changing the number of users |
-| Billing | `GetInvoices`, `GetInvoice`, `UpdateInvoice`, `AddInvoicePayment`, `GetTransactions`, `GetPayMethods`, `AddPayMethod` | Invoices, purchase order notes, recording card and bank payments, statements |
+| Billing | `GetInvoices`, `GetInvoice`, `CreateInvoice`, `UpdateInvoice`, `AddInvoicePayment`, `GetTransactions`, `GetPayMethods`, `AddPayMethod` | Invoices, part-month charges for seat changes, purchase order notes, recording card and bank payments, statements |
 | Domains | `DomainWhois`, `GetTLDPricing`, `CreateOrUpdateTLD` | Domain search, and syncing domain prices from our price books |
 | System | `GetCurrencies` | Finding the BWP, ZAR and USD currency ids |
 
-That is 26 actions. Leave everything else unticked. In particular, the
+That is 27 actions. Leave everything else unticked. In particular, the
 console never needs:
 - anything under Support, Tickets, Users, Authentication or Affiliates;
 - `DeleteClient`, `DeleteOrder` or `AddProduct`. Products are created by the

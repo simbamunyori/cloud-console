@@ -182,7 +182,7 @@ export function billingContract(name: string, adapter: () => BillingAdapter, fix
       expect(await a.getService(clientId, serviceId)).toMatchObject({ quantity: 5, recurring: P(95000n) });
       if (preview.dueNow.amountMinor > 0n) {
         const invoice = (await a.getInvoice(clientId, done.invoiceId!))!;
-        expect(invoice.lines.some((l) => l.kind === "upgrade" && l.amount.amountMinor === preview.dueNow.amountMinor)).toBe(true);
+        expect(invoice.lines.some((l) => (l.kind === "upgrade" || l.kind === "item") && l.amount.amountMinor === preview.dueNow.amountMinor)).toBe(true);
       }
     });
 

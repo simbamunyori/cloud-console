@@ -356,7 +356,9 @@ export function fakeWhmcs(options: FakeWhmcsOptions = {}) {
       const daysuntilrenewal = 15;
       const priceCents = Math.round((((newQty - oldQty) * cents(product.monthly[currency])) * daysuntilrenewal) / totaldays);
       const c = CURRENCIES.find((x) => x.code === currency)!;
-      const answer: Answer = { oldproductid: product.pid, oldproductname: product.name, newproductid: product.pid, newproductname: product.name, daysuntilrenewal, totaldays, newproductbillingcycle: "monthly", price: `${c.prefix}${fmt(priceCents)}${c.suffix}` };
+      const formatted = `${c.prefix}${fmt(priceCents)}${c.suffix}`;
+      // The shape the live install gives for a configoptions change: no "price", no days.
+      const answer: Answer = { configname1: "Users", originalvalue1: oldQty, newvalue1: `${newQty} x User`, price1: formatted, subtotal: formatted, discount: `${c.prefix}0.00${c.suffix}`, total: formatted, upgradeinprogress: 0 };
       if (p.calconly === "true") return answer;
       const orderid = id();
       // WHMCS applies the upgrade itself once the invoice is paid; the fake leaves it.
@@ -365,9 +367,19 @@ export function fakeWhmcs(options: FakeWhmcsOptions = {}) {
       return { ...answer, id: id(), orderid: Number(orderid), order_number: "", invoiceid };
     },
 
+    CreateInvoice: (p) => {
+      if (!clients.has(p.userid)) return fail("Client ID Not Found");
+      const items: Row[] = [];
+      for (let n = 1; p[`itemdescription${n}`] !== undefined; n++) items.push({ type: "", relid: "0", description: p[`itemdescription${n}`], amount: p[`itemamount${n}`] ?? "0.00", taxed: on(p[`itemtaxed${n}`]) ? 1 : 0 });
+      const invoiceid = newInvoice(p.userid, items, p.paymentmethod ?? "");
+      return { invoiceid: Number(invoiceid), status: p.status ?? "Unpaid" };
+    },
+
     UpdateClientProduct: (p) => {
       const s = services.get(p.serviceid);
       if (!s) return fail("Service ID Not Found");
+      if (p.pid) s.pid = p.pid;
+      if (p.billingcycle) s.billingcycle = p.billingcycle;
       if (p.status) s.status = p.status;
       if (p.suspendreason !== undefined) s.suspensionreason = p.suspendreason;
       if (p.recurringamount) s.recurringamount = p.recurringamount;
