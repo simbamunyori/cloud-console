@@ -1,5 +1,6 @@
 import type { ConnectorFamily, PrismaClient } from "@prisma/client";
 import type { StubProductKey } from "@/server/billing/stub/catalogue";
+import { DomainError } from "@/server/org/access";
 import { bookRows } from "./price-book";
 
 /**
@@ -422,7 +423,15 @@ export async function seedCatalogue(db: PrismaClient, billingIds: Partial<Record
     }
   }
   const first = [...months].sort()[0];
-  if (first) for (const code of allMarkets) await seedPriceBook(db, code, first);
+  if (!first) return;
+  for (const code of allMarkets) {
+    try {
+      await seedPriceBook(db, code, first);
+    } catch (e) {
+      // A market removed while the seed runs has no price book to fill.
+      if (!(e instanceof DomainError && e.code === "not-found")) throw e;
+    }
+  }
 }
 
 /** Prices everything without a price in a market from the month's suggestions, marked as seeded (no approver). */
