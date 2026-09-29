@@ -218,7 +218,20 @@ export class WhmcsBillingAdapter implements BillingAdapter {
       const option = await this.quantityOptionFor(item.productId);
       if (option) quantityOptions[item.productId] = option.optionId;
     }
-    return map.fromAddOrder(await this.write("AddOrder", map.toAddOrder(clientId, order, quantityOptions)));
+    const oneOff = order.oneOffLines ?? [];
+    if (oneOff.length && !order.createInvoice) throw new BillingError("invalid", "One-off charges need an invoice.");
+    for (const line of oneOff) {
+      if (line.amount.currency !== currency) throw new BillingError("invalid", `This client is billed in ${currency}.`);
+      if (line.amount.amountMinor < 0n) throw new BillingError("invalid", "A price can't be negative.");
+    }
+    const placed = map.fromAddOrder(await this.write("AddOrder", map.toAddOrder(clientId, order, quantityOptions)));
+    if (oneOff.length) {
+      // AddOrder has no one-off charges of its own, so they join the order's
+      // invoice, or get one when the order raised none (nothing monthly to pay).
+      if (placed.invoiceId) await this.write("UpdateInvoice", map.toNewInvoiceItems(placed.invoiceId, oneOff));
+      else placed.invoiceId = map.newInvoiceId(await this.write("CreateInvoice", map.toOneOffInvoice(clientId, oneOff, order.paymentMethod, this.now())));
+    }
+    return placed;
   }
 
   /** The order as WHMCS has it, with the services and domains it made. */

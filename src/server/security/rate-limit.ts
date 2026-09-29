@@ -22,6 +22,8 @@ export const LIMITS = {
   resetPerIp: { max: 10, windowMs: 60 * 60_000 },
   /** "Forgot password?" emails to one account. */
   resetPerEmail: { max: 3, windowMs: 60 * 60_000 },
+  /** Quote requests from one address. */
+  quotePerIp: { max: 5, windowMs: 60 * 60_000 },
   /** Waiting list sign-ups from one address. */
   waitlistPerIp: { max: 10, windowMs: 60 * 60_000 },
   /** Questions to the assistant from one person. */

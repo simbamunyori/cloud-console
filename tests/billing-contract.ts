@@ -96,6 +96,23 @@ export function billingContract(name: string, adapter: () => BillingAdapter, fix
       expect((await a.listInvoices(clientId, { status: "paid" })).map((i) => i.invoiceId)).not.toContain(placed.invoiceId);
     });
 
+    it("adds one-off charges to the order's invoice", async () => {
+      const { a, f, clientId, P } = await setUp();
+      const placed = await a.placeOrder(clientId, {
+        paymentMethod: PAYMENT_METHODS.eft,
+        createInvoice: true,
+        items: [{ productId: f.productId, quantity: 1, billingCycle: "monthly", recurringPrice: P(45000n) }],
+        oneOffLines: [{ description: "Installation at your office", amount: P(250000n) }],
+      });
+      const invoice = (await a.getInvoice(clientId, placed.invoiceId!))!;
+      expect(invoice.lines.some((l) => l.kind === "service" && l.amount.amountMinor === 45000n)).toBe(true);
+      expect(invoice.lines.find((l) => l.description === "Installation at your office")?.amount).toEqual(P(250000n));
+      expect(invoice.subtotal.amountMinor).toBe(invoice.lines.reduce((t, l) => t + l.amount.amountMinor, 0n));
+      await expect(
+        a.placeOrder(clientId, { paymentMethod: PAYMENT_METHODS.eft, createInvoice: false, items: [{ productId: f.productId, quantity: 1, billingCycle: "monthly", recurringPrice: P(45000n) }], oneOffLines: [{ description: "x", amount: P(1n) }] }),
+      ).rejects.toBeInstanceOf(BillingError);
+    });
+
     it("can order without an invoice, to bill on the next monthly invoice", async () => {
       const { order } = await setUp();
       const placed = await order(1, 19000n, false);

@@ -43,7 +43,7 @@ export function newReference(prefix = "ORD"): string {
 const catalogueDb = (db: TenantDb) => db as unknown as PrismaClient;
 const marketOf = (deps: Pick<OrderDeps, "organisation">) => ({ code: deps.organisation.billingMarket, currency: deps.organisation.currency });
 
-function billingFailure(e: unknown): never {
+export function billingFailure(e: unknown): never {
   if (e instanceof BillingError) {
     if (e.code === "invalid" || e.code === "conflict") throw new DomainError("invalid", e.message);
     throw new DomainError("unavailable", "Billing is not answering right now, so nothing was ordered. Try again in a few minutes.");
@@ -98,7 +98,7 @@ export async function quoteOrder(deps: OrderDeps, input: { slug: string; quantit
  * Where the market has a refunds policy, the customer confirms the service may start
  * straight away, which ends the consumer cooling-off period (refunds policy, section 1).
  */
-async function assertStartNow(deps: OrderDeps, startNow: boolean | undefined) {
+export async function assertStartNow(deps: OrderDeps, startNow: boolean | undefined) {
   if (startNow || !(await hasLegalText(deps.organisation.billingMarket, "refunds"))) return;
   throw new DomainError("invalid", "Confirm that the service can start now.", "startNow");
 }

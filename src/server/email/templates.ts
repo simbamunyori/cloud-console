@@ -1,5 +1,5 @@
 import type { PrismaClient } from "@prisma/client";
-import { formatMoment } from "@/lib/dates";
+import { formatLongDate, formatMoment } from "@/lib/dates";
 import { formatMoney, fromJson, type MoneyJson } from "@/lib/domain/money";
 import { company } from "@/config/app";
 import { newToken, hashToken } from "@/server/auth/tokens";
@@ -171,6 +171,92 @@ export const TEMPLATES: Record<string, Template> = {
           "If this wasn't you, your password may be known to someone else. Your account is still protected by your authenticator code.",
         ],
         facts: [["Paused until", formatMoment(new Date(str(p.until)), ctx.timeZone)]],
+      },
+    };
+  },
+
+  async "quote.requested"(p, ctx) {
+    const quote = await ctx.db.quote.findUnique({ where: { id: str(p.quoteId) }, include: { product: { select: { name: true } } } });
+    if (!quote) return null;
+    return {
+      subject: `We've got your request for a quote (${quote.reference})`,
+      body: {
+        heading: `Thanks, ${quote.name.split(" ")[0]}`,
+        paragraphs: [
+          `We'll look at what you need and email you a quote. If anything is unclear we'll call you on ${quote.phone ?? "the number you gave"}.`,
+          `You don't need an account to ask. You'll only need one to accept the quote.`,
+        ],
+        facts: [
+          ["Reference", quote.reference],
+          ...(quote.product ? ([["About", quote.product.name]] as [string, string][]) : []),
+          ["What you need", quote.need],
+        ],
+        footnote: "Reply to this email if you'd like to add anything.",
+      },
+    };
+  },
+
+  /** To the market's support address, so a new request is seen. */
+  async "quote.new_request"(p, ctx) {
+    const quote = await ctx.db.quote.findUnique({ where: { id: str(p.quoteId) }, include: { product: { select: { name: true } }, organisation: { select: { name: true } } } });
+    if (!quote) return null;
+    return {
+      subject: `New quote request from ${quote.company ?? quote.name} (${quote.reference})`,
+      body: {
+        heading: "A new quote request",
+        paragraphs: [`${quote.name}${quote.company ? ` of ${quote.company}` : ""} asked for a quote. Price it in the Quotes queue.`],
+        facts: [
+          ["Reference", quote.reference],
+          ["Email", quote.email],
+          ["Phone", quote.phone ?? "None"],
+          ["Country", quote.country],
+          ...(quote.organisation ? ([["Account", quote.organisation.name]] as [string, string][]) : []),
+          ...(quote.product ? ([["About", quote.product.name]] as [string, string][]) : []),
+          ["What they need", quote.need],
+        ],
+        button: { label: "Open the quote", url: `${ctx.appUrl}/admin/quotes/${encodeURIComponent(quote.reference)}` },
+      },
+    };
+  },
+
+  /** Like invitations, the link is made now and only its hash is kept, so only the newest email's link works. */
+  async "quote.sent"(p, ctx) {
+    const quote = await ctx.db.quote.findUnique({ where: { id: str(p.quoteId) }, include: { lines: { orderBy: { sortOrder: "asc" } } } });
+    if (!quote || quote.status !== "SENT" || !quote.validUntil) return null;
+    const market = await ctx.db.market.findUnique({ where: { code: quote.market } });
+    if (!market) return null;
+    const token = newToken();
+    await ctx.db.quote.update({ where: { id: quote.id }, data: { tokenHash: hashToken(token) } });
+    const fmt = (minor: bigint) => formatMoney({ amountMinor: minor, currency: market.currency }, market.locale);
+    let monthly = 0n;
+    let once = 0n;
+    for (const l of quote.lines) {
+      const amount = l.unitPriceMinor * BigInt(l.quantity);
+      if (l.kind === "MONTHLY") monthly += amount;
+      else once += amount;
+    }
+    const lines = quote.lines.map((l): [string, string] => [
+      `${l.description}${l.quantity > 1 ? ` (${l.quantity})` : ""}`,
+      `${fmt(l.unitPriceMinor * BigInt(l.quantity))}${l.kind === "MONTHLY" ? " a month" : " once"}`,
+    ]);
+    const until = formatLongDate(quote.validUntil);
+    return {
+      subject: `Your quote from ${company.name} (${quote.reference})`,
+      body: {
+        heading: `Your quote, ${quote.name.split(" ")[0]}`,
+        paragraphs: [
+          ...(quote.message ? [quote.message] : []),
+          `Open the quote to accept it. You'll sign in, or open an account if you don't have one yet, and accepting places the order at these prices.`,
+        ],
+        facts: [
+          ["Reference", quote.reference],
+          ...lines,
+          ...(monthly > 0n ? ([["Total a month", fmt(monthly)]] as [string, string][]) : []),
+          ...(once > 0n ? ([["Total once", fmt(once)]] as [string, string][]) : []),
+          ["Holds until", until],
+        ],
+        button: { label: "Open the quote", url: `${ctx.appUrl}/quote/${encodeURIComponent(token)}` },
+        footnote: `Prices are in ${market.currency}${market.taxEnabled ? `, before ${market.taxLabel}` : ""}. The quote can be accepted until the end of ${until}. Reply to this email with any questions.`,
       },
     };
   },

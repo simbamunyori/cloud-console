@@ -67,9 +67,15 @@ export default async function PricingPage({ params }: Props) {
                       <h3 className="text-headline text-ink">{product.name}</h3>
                       <p className="text-callout text-ink-muted">{product.summary}</p>
                     </div>
-                    <p className="shrink-0 text-callout text-ink sm:text-right">
-                      <span className="text-headline tabular-nums">{formatMoney(price, m.locale)}</span> {product.unitLabel} a month
-                    </p>
+                    {price ? (
+                      <p className="shrink-0 text-callout text-ink sm:text-right">
+                        <span className="text-headline tabular-nums">{formatMoney(price, m.locale)}</span> {product.unitLabel} a month
+                      </p>
+                    ) : (
+                      <Link href={`/${m.code}/quote?product=${product.slug}`} className="shrink-0 text-callout font-semibold text-link hover:underline sm:text-right">
+                        Priced by quote. Ask for one
+                      </Link>
+                    )}
                   </li>
                 ))}
               </ul>
@@ -124,7 +130,7 @@ export default async function PricingPage({ params }: Props) {
                 <Link href="/sign-up">Get started</Link>
               </Button>
               <Button asChild size="lg" variant="secondary">
-                <a href={`mailto:${m.supportEmail}?subject=${encodeURIComponent("Book a call")}`}>Book a call</a>
+                <Link href={`/${m.code}/quote`}>Ask for a quote</Link>
               </Button>
             </div>
           </div>

@@ -25,9 +25,13 @@ const NAV: NavItem[] = [
   { href: "/app/settings", label: "Settings", icon: "settings" },
 ];
 
+const QUOTES: NavItem = { href: "/app/quotes", label: "Quotes", icon: "quotes" };
+
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
-  const { actor, organisation } = await requireMember();
-  const memberships = await organisationsFor(prisma, actor.userId);
+  const { actor, organisation, db } = await requireMember();
+  const [memberships, quotes] = await Promise.all([organisationsFor(prisma, actor.userId), db.quote.count()]);
+  // Quotes shows once the account has asked for or taken one.
+  const nav = quotes ? [...NAV.slice(0, 2), QUOTES, ...NAV.slice(2)] : NAV;
   const org = (up?: boolean) => (
     <OrgSwitcher
       up={up}
@@ -54,7 +58,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             <Logo />
           </Link>
           {org()}
-          <SidebarNav items={NAV} />
+          <SidebarNav items={nav} />
           <div className="mt-auto flex flex-col gap-4">
             {themeSwitch}
             {user}
@@ -70,7 +74,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         </Link>
         <TopActions />
         <MobileNav
-          items={NAV}
+          items={nav}
           header={<LogoMark size={32} />}
           footer={
             <div className="flex flex-col gap-4">

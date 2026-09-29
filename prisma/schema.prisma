@@ -163,6 +163,7 @@ model Organisation {
   invitations       Invitation[]
   billingAccount    BillingAccount?
   orders            Order[]
+  quotes            Quote[]
   tasks             ProvisioningTask[]
   eftPayments       EftPayment[]
   cardPayments      CardPayment[]
@@ -608,6 +609,7 @@ model Product {
 
   category ProductCategory @relation(fields: [categoryKey], references: [key], onDelete: Restrict)
   orders   Order[]
+  quotes   Quote[]
 }
 
 /// A domain ending we sell, with what the registrar charges us.
@@ -723,6 +725,82 @@ model Order {
   tasks        ProvisioningTask[]
 
   @@index([organisationId, createdAt])
+}
+
+enum QuoteStatus {
+  /// A request staff haven't priced yet.
+  NEW
+  /// Priced and emailed. Past its validity date it can't be accepted.
+  SENT
+  ACCEPTED
+  DECLINED
+  /// Staff closed it without a sale, e.g. a duplicate or spam.
+  CLOSED
+}
+
+enum QuoteLineKind {
+  MONTHLY
+  ONE_OFF
+}
+
+/// A request for a quote, from the public site or the console, and the
+/// quote staff write for it. Anyone can ask; accepting needs an account
+/// and places an ordinary order at the quoted price.
+model Quote {
+  id             String      @id @default(cuid())
+  /// Short reference people can read out, e.g. "QUO-7K2M9Q".
+  reference      String      @unique
+  status         QuoteStatus @default(NEW)
+  /// Set when asked from the console, or when the quote is opened from its
+  /// link and taken into an account.
+  organisationId String?
+  requestedById  String?
+  name           String
+  company        String?
+  email          String
+  phone          String?
+  /// ISO 3166-1 alpha-2.
+  country        String
+  need           String
+  /// The market it is priced in; its currency is the quote's currency.
+  market         String
+  /// The product asked about, and the one the order is placed for.
+  productId      String?
+  /// Plain words to the customer, shown above the lines.
+  message        String?
+  /// The last day it can be accepted, in the market's time zone.
+  validUntil     DateTime?   @db.Date
+  /// Only the newest emailed link works; made when the email is sent.
+  tokenHash      String?     @unique
+  sentAt         DateTime?
+  sentByName     String?
+  decidedAt      DateTime?
+  decidedByName  String?
+  declineReason  String?
+  orderId        String?     @unique
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  organisation Organisation? @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  product      Product?      @relation(fields: [productId], references: [id], onDelete: Restrict)
+  lines        QuoteLine[]
+
+  @@index([status, createdAt])
+  @@index([organisationId, createdAt])
+}
+
+model QuoteLine {
+  id             String        @id @default(cuid())
+  quoteId        String
+  kind           QuoteLineKind
+  description    String
+  quantity       Int           @default(1)
+  unitPriceMinor BigInt
+  sortOrder      Int           @default(0)
+
+  quote Quote @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+
+  @@index([quoteId])
 }
 
 enum TaskStatus {

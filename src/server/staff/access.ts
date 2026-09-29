@@ -28,7 +28,9 @@ export type StaffPermission =
   /** Give staff a website role. */
   | "manageStaff"
   /** Create and change product families, categories and products, and mark our own test organisations. */
-  | "manageCatalogue";
+  | "manageCatalogue"
+  /** Work the Quotes queue: price requests, send quotes and close them. */
+  | "manageQuotes";
 
 const ALLOWED: Record<StaffPermission, StaffRole[]> = {
   viewCustomers: ["SUPPORT", "PROVISIONING", "FINANCE", "ADMIN"],
@@ -39,6 +41,7 @@ const ALLOWED: Record<StaffPermission, StaffRole[]> = {
   manageMarkets: ["ADMIN"],
   manageStaff: ["ADMIN"],
   manageCatalogue: ["ADMIN"],
+  manageQuotes: ["SUPPORT", "ADMIN"],
 };
 
 export function staffCan(actor: Pick<StaffActor, "staffRole">, permission: StaffPermission): boolean {

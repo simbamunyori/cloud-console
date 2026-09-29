@@ -267,8 +267,14 @@ export class StubBillingAdapter implements BillingAdapter {
 
   async placeOrder(clientId: string, order: NewOrder): Promise<PlacedOrder> {
     if (order.items.length === 0) throw new BillingError("invalid", "An order needs at least one item.");
+    const oneOff = order.oneOffLines ?? [];
+    if (oneOff.length && !order.createInvoice) throw new BillingError("invalid", "One-off charges need an invoice.");
     return this.db.$transaction(async (tx) => {
       const client = await this.client(tx, clientId);
+      for (const line of oneOff) {
+        if (line.amount.currency !== client.currency) throw new BillingError("invalid", `This client is billed in ${client.currency}.`);
+        if (line.amount.amountMinor < 0n) throw new BillingError("invalid", "A price can't be negative.");
+      }
       const today = this.today();
       const products = await tx.stubProduct.findMany({ where: { id: { in: order.items.map((i) => id(i.productId, "product")) } } });
       const records: OrderItemRecord[] = [];
@@ -317,6 +323,7 @@ export class StubBillingAdapter implements BillingAdapter {
           if (setup && BigInt(setup) > 0n) lines.push({ type: "Setup", relId: service.id, description: `Setup: ${product.name}`, amount: BigInt(setup) });
         }
       }
+      for (const line of oneOff) lines.push({ type: "Item", description: line.description, amount: line.amount.amountMinor });
       let invoiceId: number | undefined;
       if (order.createInvoice) {
         invoiceId = await this.createInvoice(tx, client.id, client.currency, lines, { dueDate: today });

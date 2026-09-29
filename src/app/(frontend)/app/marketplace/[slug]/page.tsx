@@ -5,13 +5,14 @@ import { notFound } from "next/navigation";
 import { ProductDetails } from "@/components/app/product-view";
 import { Alert } from "@/components/ui/alert";
 import { Amount } from "@/components/ui/amount";
+import { Button } from "@/components/ui/button";
 import { Card, CardBody } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
 import { toJson } from "@/lib/domain/money";
 import { monthOf } from "@/lib/domain/pricing";
 import { requireBilling } from "@/server/billing/context";
 import { productBySlug, productOptions } from "@/server/catalogue/catalogue";
-import { productPrice } from "@/server/catalogue/price-book";
+import { offeredIn, productPrice } from "@/server/catalogue/price-book";
 import { DOMAIN_PRODUCT_SLUG } from "@/server/catalogue/seed-data";
 import { audienceFor } from "@/server/catalogue/visibility";
 import { prisma } from "@/server/db";
@@ -28,10 +29,11 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
   const audience = audienceFor(organisation);
   const product = await productBySlug(prisma, slug, audience);
   if (!product || product.slug === DOMAIN_PRODUCT_SLUG) notFound();
-  const price = await productPrice(prisma, product, market, monthOf(today), audience);
+  const byQuote = product.fulfilment === "QUOTE";
+  const price = byQuote ? null : await productPrice(prisma, product, market, monthOf(today), audience);
   const refunds = await hasLegalText(market.code, "refunds");
   // Not offered in this account's market.
-  if (!price) notFound();
+  if (byQuote ? !offeredIn(product, market.code, audience) : !price) notFound();
 
   return (
     <>
@@ -49,7 +51,15 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
                 <Amount locale={locale} value={price} size="title-1" className="text-ink" /> {product.unitLabel} a month
               </p>
             ) : null}
-            {!price ? (
+            {byQuote ? (
+              <>
+                <p className="text-headline text-ink">Priced by quote</p>
+                <p className="text-callout text-ink-muted">Every setup is different, so we price this for you. Tell us what you need and we&apos;ll email a quote you can accept here.</p>
+                <Button asChild size="lg">
+                  <Link href={`/app/quotes/new?product=${product.slug}`}>Ask for a quote</Link>
+                </Button>
+              </>
+            ) : !price ? (
               <p className="text-ink-muted">This can&apos;t be ordered online yet. Contact support and we&apos;ll set it up for you.</p>
             ) : can(actor, "order") ? (
               <OrderForm

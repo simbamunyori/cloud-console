@@ -28,7 +28,7 @@ export function ProductCard({ product, price, locale, href }: { product: Product
             <Amount locale={locale} value={price} size="headline" className="text-ink" /> {product.unitLabel} a month
           </>
         ) : (
-          "Ask us for a price"
+          "Priced by quote"
         )}
       </span>
     </>
