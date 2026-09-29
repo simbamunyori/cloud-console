@@ -21,17 +21,24 @@ const EMAIL = /[\w.+-]+@[\w-]+(?:\.[\w-]+)*\.[a-z]{2,}/g;
 const element = (type: string, children: LexicalNode[], extra: Record<string, unknown> = {}): LexicalNode => ({ type, format: "", indent: 0, version: 1, direction: "ltr", children, ...extra });
 const textNode = (text: string, bold = false): LexicalNode => ({ type: "text", text, format: bold ? 1 : 0, detail: 0, mode: "normal", style: "", version: 1 });
 
-/** A run of text: **bold** and email addresses (as mailto links). */
+const linkNode = (children: LexicalNode[], url: string): LexicalNode => element("link", children, { version: 3, fields: { linkType: "custom", url, newTab: false } });
+
+/** A run of text: **bold**, [links](/path) and email addresses (as mailto links). */
 export function inline(text: string): LexicalNode[] {
   const out: LexicalNode[] = [];
-  for (const [i, part] of text.split(/(\*\*[^*]+\*\*)/).entries()) {
+  for (const [i, part] of text.split(/(\*\*[^*]+\*\*|\[[^\]]+\]\([^)\s]+\))/).entries()) {
+    const md = i % 2 === 1 && part.match(/^\[([^\]]+)\]\(([^)\s]+)\)$/);
+    if (md) {
+      out.push(linkNode(inline(md[1]), md[2]));
+      continue;
+    }
     if (!part) continue;
     const bold = i % 2 === 1;
     const words = bold ? part.slice(2, -2) : part;
     let last = 0;
     for (const m of words.matchAll(EMAIL)) {
       if (m.index > last) out.push(textNode(words.slice(last, m.index), bold));
-      out.push(element("link", [textNode(m[0], bold)], { version: 3, fields: { linkType: "custom", url: `mailto:${m[0]}`, newTab: false } }));
+      out.push(linkNode([textNode(m[0], bold)], `mailto:${m[0]}`));
       last = m.index + m[0].length;
     }
     if (last < words.length) out.push(textNode(words.slice(last), bold));
@@ -90,3 +97,6 @@ export function legalFromMarkdown(source: string): SeedLegal {
   }
   return doc;
 }
+
+/** Rich text for a block, from the same small Markdown. */
+export const richFromMarkdown = (source: string): SeedLegal["body"] => legalFromMarkdown(source).body;

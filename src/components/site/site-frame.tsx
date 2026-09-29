@@ -17,6 +17,12 @@ export interface FrameMarket extends SwitcherMarket {
   paymentMethods: string[];
 }
 
+/** The header's pages for the phone menu, less any a service family above them already links to. */
+const phonePages = (content: FrameContent) => {
+  const inGroups = new Set(content.groups.flatMap((g) => g.links.map((l) => l.href)));
+  return content.pages.filter((p) => !inGroups.has(p.href));
+};
+
 const PAYMENT_WORDS: Record<string, string> = { card: "card", eft: "bank transfer" };
 
 /**
@@ -87,7 +93,7 @@ export function SiteFrame({
             <div className="lg:hidden">
               <SiteMenu
                 groups={content.groups}
-                pages={[...content.pages, ...(signedIn ? [] : [{ label: "Sign in", href: "/sign-in" }])]}
+                pages={[...phonePages(content), ...(signedIn ? [] : [{ label: "Sign in", href: "/sign-in" }])]}
                 footer={
                   <>
                     <MarketSwitcher markets={markets} current={market} path={path} align="start" up />
