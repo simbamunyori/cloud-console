@@ -50,8 +50,15 @@ export interface FamilyValues {
   description: string;
   connector: string;
   status: string;
+  fulfilment: string;
   sortOrder: string;
 }
+
+const FAMILY_FULFILMENT: Option[] = [
+  { value: "", label: "Each product chooses" },
+  { value: "MANUAL", label: "All set up by our team" },
+  { value: "QUOTE", label: "All by quote" },
+];
 
 export function FamilyForm({ family, connectors, existing }: { family: FamilyValues; connectors: Option[]; existing?: string }) {
   const [state, action, pending] = useActionState<ActionState, FormData>(saveFamilyAction, {});
@@ -67,6 +74,7 @@ export function FamilyForm({ family, connectors, existing }: { family: FamilyVal
         <TextField id="description" label="Description" defaultValue={v.description} error={fe.description} className="sm:col-span-2" />
         <SelectField id="connector" label="Fulfilled by" options={connectors} defaultValue={v.connector} error={fe.connector} hint="The connector that sets up its products." />
         <SelectField id="status" label="Status" options={STATUS_OPTIONS} defaultValue={v.status} error={fe.status} hint="A draft or internal family hides all its products as well." />
+        <SelectField id="fulfilment" label="How its products are sold" options={FAMILY_FULFILMENT} defaultValue={v.fulfilment} error={fe.fulfilment} />
         <TextField id="sortOrder" label="Position" inputMode="numeric" defaultValue={v.sortOrder} error={fe.sortOrder} hint="Lower numbers come first." />
       </div>
       <div>

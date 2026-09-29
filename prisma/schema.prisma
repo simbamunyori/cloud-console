@@ -518,6 +518,7 @@ enum ConnectorFamily {
   PROTECTION
   OUR_SOFTWARE
   SERVICES
+  CONNECTIVITY
 }
 
 /// Where a family, or a product, can be seen. Draft is hidden everywhere
@@ -548,6 +549,8 @@ model ProductFamily {
   connector   ConnectorFamily
   /// A draft or internal family hides its products at least as much.
   status      CatalogueStatus @default(DRAFT)
+  /// When set, every product in the family is sold this way (Connectivity: by quote).
+  fulfilment  Fulfilment?
   sortOrder   Int             @default(0)
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt

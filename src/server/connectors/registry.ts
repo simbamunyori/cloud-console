@@ -11,6 +11,7 @@ const CONNECTORS: Record<ConnectorFamily, ProductConnector> = {
   PROTECTION: new ManualConnector("PROTECTION"),
   OUR_SOFTWARE: new ManualConnector("OUR_SOFTWARE"),
   SERVICES: new ManualConnector("SERVICES"),
+  CONNECTIVITY: new ManualConnector("CONNECTIVITY"),
 };
 
 export function connectorFor(family: ConnectorFamily): ProductConnector {

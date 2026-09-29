@@ -207,7 +207,8 @@ neither, everyone lands on the default market and can switch.
   customer in any market would see it, then make it internal (staff and
   our test organisations, set on a customer's page) or live. Draft and
   internal products never reach the public site, the marketplace, search
-  or the assistant. The seed only adds what is missing, so staff edits
+  or the assistant. Connectivity is a draft family sold only by quote,
+  with no products yet. The seed only adds what is missing, so staff edits
   stay. Every change is in the staff audit log with before and after.
 - **Quotes:** anyone can ask at `/<market>/quote` (no account), or in the
   console at `/app/quotes/new`; products sold by quote link there. Staff

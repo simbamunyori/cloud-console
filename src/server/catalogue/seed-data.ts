@@ -26,6 +26,9 @@ interface FamilySeed {
   description: string;
   connector: ConnectorFamily;
   sortOrder: number;
+  /** Live unless said otherwise. */
+  status?: "DRAFT";
+  fulfilment?: "QUOTE";
 }
 
 interface CategorySeed {
@@ -82,6 +85,8 @@ export const FAMILIES: FamilySeed[] = [
   { key: "public-cloud", name: "Public cloud", description: "Microsoft Azure.", connector: "PUBLIC_CLOUD", sortOrder: 5 },
   { key: "our-software", name: "Our software", description: "Software we build and run.", connector: "OUR_SOFTWARE", sortOrder: 6 },
   { key: "services", name: "Services", description: "Help from our team.", connector: "SERVICES", sortOrder: 7 },
+  // Sold by quote and hidden until an Admin sets it live; no products yet.
+  { key: "connectivity", name: "Connectivity", description: "Links between your sites and to the cloud, designed and priced for you.", connector: "CONNECTIVITY", sortOrder: 8, status: "DRAFT", fulfilment: "QUOTE" },
 ];
 
 export const CATEGORIES: CategorySeed[] = [
@@ -392,7 +397,7 @@ export const PLACEHOLDER_RATES: { base: string; quote: string; rateMicros: bigin
 export async function seedCatalogue(db: PrismaClient, billingIds: Partial<Record<StubProductKey, string>>, months: string[]) {
   const allMarkets = (await db.market.findMany({ orderBy: { sortOrder: "asc" }, select: { code: true } })).map((m) => m.code);
   for (const f of FAMILIES) {
-    await db.productFamily.upsert({ where: { key: f.key }, update: {}, create: { ...f, status: "LIVE" } });
+    await db.productFamily.upsert({ where: { key: f.key }, update: {}, create: { ...f, status: f.status ?? "LIVE" } });
   }
   for (const c of CATEGORIES) {
     await db.productCategory.upsert({ where: { key: c.key }, update: {}, create: c });
