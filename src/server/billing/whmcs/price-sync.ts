@@ -5,6 +5,7 @@ import { money, type Money } from "@/lib/domain/money";
 import { monthOf } from "@/lib/domain/pricing";
 import { bookFor, offeredIn, productItem, tldItem } from "@/server/catalogue/price-book";
 import { DOMAIN_PRODUCT_SLUG } from "@/server/catalogue/seed-data";
+import { effectiveStatus } from "@/server/catalogue/visibility";
 import { assertStaffCan, staffLabel, type StaffActor } from "@/server/staff/access";
 import type { WhmcsClient } from "./client";
 import * as map from "./map";
@@ -85,7 +86,7 @@ const groupRef = (key: string) => `category:${key}`;
 export async function planSync(db: Db, now = new Date()): Promise<SyncPlan> {
   const [markets, categories, links, tlds] = await Promise.all([
     db.market.findMany({ where: { enabled: true }, orderBy: { sortOrder: "asc" } }),
-    db.productCategory.findMany({ orderBy: { sortOrder: "asc" }, include: { products: { where: { slug: { not: DOMAIN_PRODUCT_SLUG } }, orderBy: { sortOrder: "asc" } } } }),
+    db.productCategory.findMany({ orderBy: [{ family: { sortOrder: "asc" } }, { sortOrder: "asc" }], include: { family: true, products: { where: { slug: { not: DOMAIN_PRODUCT_SLUG } }, orderBy: { sortOrder: "asc" } } } }),
     db.whmcsLink.findMany(),
     db.tld.findMany({ orderBy: { sortOrder: "asc" } }),
   ]);
@@ -116,7 +117,12 @@ export async function planSync(db: Db, now = new Date()): Promise<SyncPlan> {
     const products: ProductOperation[] = [];
     for (const product of category.products) {
       const productId = linked("product", product.slug);
-      const prices = perCurrency(productItem(product.slug), product.name, (code) => offeredIn(product, code), (e) => e.amountMinor);
+      // Live products are shown in WHMCS and internal ones hidden (staff can
+      // still order them); drafts aren't sent, and one sent before is hidden.
+      const status = effectiveStatus(product, category.family);
+      if (status === "DRAFT" && !productId) continue;
+      const withFamily = { ...product, category };
+      const prices = status === "DRAFT" ? new Map<string, Money>() : perCurrency(productItem(product.slug), product.name, (code) => offeredIn(withFamily, code, "internal"), (e) => e.amountMinor);
       // Never offered and never synced: nothing to put in WHMCS yet.
       if (!prices.size && !productId) continue;
       products.push({
@@ -126,7 +132,7 @@ export async function planSync(db: Db, now = new Date()): Promise<SyncPlan> {
         group: groupId ?? `@${groupRef(category.key)}`,
         name: product.name,
         description: product.summary,
-        hidden: !prices.size,
+        hidden: status !== "LIVE" || !prices.size,
         perUser: product.quantityAllowed,
         prices: Object.fromEntries([...prices].map(([currency, m]) => [currency, map.toAmount(m)])),
       });

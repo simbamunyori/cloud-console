@@ -40,6 +40,8 @@ export type ConnectorTx = { provisioningTask: { create: (args: { data: Prisma.Pr
 
 export interface ProductConnector {
   readonly family: ConnectorFamily;
+  /** Whether it can set a product up with no one involved. */
+  readonly automatic: boolean;
   /** Called inside the order's transaction. */
   request(tx: ConnectorTx, request: ConnectorRequest, now: Date): Promise<ConnectorResult>;
 }

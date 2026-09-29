@@ -9,6 +9,7 @@ import { formatDay } from "@/lib/dates";
 import { monthOf } from "@/lib/domain/pricing";
 import { requireBilling } from "@/server/billing/context";
 import { marketplace } from "@/server/catalogue/price-book";
+import { audienceFor } from "@/server/catalogue/visibility";
 import { prisma } from "@/server/db";
 
 export const metadata: Metadata = { title: "Search" };
@@ -37,13 +38,13 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
   const groups: { title: string; hits: Hit[] }[] = [];
 
   if (needle) {
-    const { billing, db, market, today } = await requireBilling();
+    const { billing, db, market, today, organisation } = await requireBilling();
     const [services, domains, invoices, tickets, catalogue] = await Promise.all([
       billing.listServices(),
       billing.listDomains(),
       billing.listInvoices(),
       db.ticket.findMany({ where: { deletedAt: null, subject: { contains: q, mode: "insensitive" } }, orderBy: { updatedAt: "desc" }, take: 8 }),
-      marketplace(prisma, market, monthOf(today)),
+      marketplace(prisma, market, monthOf(today), audienceFor(organisation)),
     ]);
     groups.push(
       { title: "Services", hits: services.filter((s) => has(s.name, s.groupName, s.domain)).map((s) => ({ key: s.serviceId, label: s.name, detail: [s.groupName, s.domain].filter(Boolean).join(", "), href: `/app/services/${s.serviceId}` })) },
