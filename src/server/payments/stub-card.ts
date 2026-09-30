@@ -3,6 +3,7 @@ import { money } from "@/lib/domain/money";
 import { PAYMENT_METHODS } from "@/server/billing/adapter";
 import { DomainError } from "@/server/org/access";
 import type { CardCharge, PaymentAdapter, PaymentOutcome } from "./adapter";
+import { cardPaymentsOn } from "./live";
 
 /**
  * A pretend card company for development and demos. Its "hosted payment
@@ -23,6 +24,7 @@ export class StubCardGateway implements PaymentAdapter {
   constructor(private readonly db: StubDb) {}
 
   async startCardPayment(charge: CardCharge) {
+    if (!cardPaymentsOn()) throw new DomainError("unavailable", "Card payments aren't available yet. Please pay by bank transfer.");
     await this.db.stubCardCharge.create({
       data: { id: charge.paymentRef, amountMinor: charge.amount.amountMinor, currency: charge.amount.currency, description: charge.description, returnUrl: charge.returnUrl },
     });

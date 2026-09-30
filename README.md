@@ -155,7 +155,9 @@ the UI and never sent to the assistant.
 | `POSTGRES_PASSWORD`, `DOMAIN` | Production compose | Database password, and the domain Caddy gets a certificate for |
 | `SEED_DEMO` | No | `yes` lets the seed run in production. Don't |
 | `STATUS_PAGE_URL` | Recommended | The service status page linked from the site footer. The link is hidden while unset |
-| `ALLOW_PLACEHOLDERS` | Demo servers only | In production the server refuses to start while a development placeholder is set: a `support@localhost` market email, the demo bank details, seeded exchange rates, the demo accounts, or a localhost `APP_URL` or `MAIL_FROM`. It lists each one and where to fix it. `yes` starts anyway with a warning, for demo and CI servers. CI proves the refusal on every run with `scripts/check-placeholder-refusal.sh` |
+| `SUPPORT_EMAIL` | Production set-up | Filled into every market still on the development support address when a release starts |
+| `OFFSITE_S3_ENDPOINT`, `OFFSITE_S3_BUCKET`, `OFFSITE_S3_ACCESS_KEY_ID`, `OFFSITE_S3_SECRET_ACCESS_KEY`, `OFFSITE_S3_PROVIDER` | Production | Where the nightly backups are copied off the server (Cloudflare R2 or any S3-compatible storage) |
+| `ALLOW_PLACEHOLDERS` | Demo servers only | In production the server refuses to start while a development placeholder is set: no real `SMTP_URL`, a `support@localhost` market email, the demo bank details, seeded exchange rates, the demo accounts, or a localhost `APP_URL` or `MAIL_FROM`. It lists each one and where to fix it. `yes` starts anyway with a warning, for demo and CI servers. CI proves the refusal on every run with `scripts/check-placeholder-refusal.sh` |
 
 The company name and legal name live in `src/config/app.ts`. Support
 contacts, bank details for EFT, tax and legal page links are per market,
@@ -164,15 +166,15 @@ edited at `/admin/markets`. The site's words are in `src/config/site.ts`. Every 
 
 ## Deploy
 
-```sh
-cp .env.example .env    # fill it in
-docker compose -f docker-compose.prod.yml up -d
-```
+Production runs on the Contabo server beside WHMCS, behind its Apache, and
+every push to main that passes CI deploys itself. docs/deploy.md has the
+set-up, how a deploy and its rollback work, backups and restores.
 
-This runs the app, PostgreSQL and Caddy (automatic HTTPS for `DOMAIN`). The
-app runs `prisma migrate deploy` on start. Background jobs (email delivery,
-the stub's nightly billing run, default PO numbers) run inside the app
-through pg-boss, in the same database.
+For any other server, `docker compose -p console -f docker-compose.prod.yml --profile caddy up -d`
+runs the app, PostgreSQL, the backup and Caddy (automatic HTTPS for `DOMAIN`).
+The app applies database migrations on start. Background jobs (email
+delivery, the stub's nightly billing run, default PO numbers) run inside
+the app through pg-boss, in the same database.
 
 ### Behind Cloudflare
 
@@ -300,18 +302,11 @@ storage can be added later without changing pages or the editor.
 ### Backups
 
 In production the `backup` service writes the database and the uploaded
-images to `./backups` every night, encrypted with `BACKUP_PASSPHRASE`, and
-deletes backups older than `BACKUP_KEEP_DAYS`. Copy that folder off the
-server too. To take one now: `docker compose -f docker-compose.prod.yml run --rm backup /backup.sh`.
-
-To restore one:
-
-```sh
-mkdir restore && openssl enc -d -aes-256-cbc -pbkdf2 -pass env:BACKUP_PASSPHRASE \
-  -in backups/console-<time>.tar.enc | tar -C restore -xf -
-pg_restore --clean --if-exists --no-owner -d "$DATABASE_URL" restore/console.dump
-tar -C <media volume> -xzf restore/media.tar.gz
-```
+images to `./backups` every night, encrypted with `BACKUP_PASSPHRASE`,
+copies each one off-site (`OFFSITE_S3_*`), and deletes backups older than
+`BACKUP_KEEP_DAYS` in both places. A restore is tested every Monday.
+Taking one now, testing a restore and restoring for real are in
+docs/deploy.md.
 
 ## Where things are
 

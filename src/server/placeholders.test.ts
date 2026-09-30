@@ -57,4 +57,10 @@ describe("production placeholders", () => {
     expect(warn).toHaveBeenCalledWith(expect.stringMatching(/ALLOW_PLACEHOLDERS=yes/));
     warn.mockRestore();
   });
+
+  it("needs a real mail server when the caller checks one", async () => {
+    expect(await findPlaceholders(fakeDb(), { ...live, SMTP_URL: null })).toEqual([expect.stringMatching(/SMTP_URL is not set/)]);
+    expect(await findPlaceholders(fakeDb(), { ...live, SMTP_URL: "smtp://localhost:1025" })).toEqual([expect.stringMatching(/SMTP_URL/)]);
+    expect(await findPlaceholders(fakeDb(), { ...live, SMTP_URL: "smtps://u:p@mail.fourthgeneration.technology:465" })).toEqual([]);
+  });
 });

@@ -4,7 +4,11 @@
 #   backup.sh          one backup now
 #   backup.sh --nightly  one backup every day at BACKUP_AT (UTC)
 # Each backup is one file, console-<time>.tar(.enc), holding console.dump
-# (pg_dump custom format) and media.tar.gz. Restoring is in the README.
+# (pg_dump custom format) and media.tar.gz. Restoring is in docs/deploy.md.
+# With OFFSITE_S3_BUCKET set, each file is also copied off the server with
+# rclone (remote "offsite", set up from RCLONE_CONFIG_OFFSITE_* in
+# docker-compose.prod.yml), and off-site copies older than
+# BACKUP_KEEP_DAYS are deleted there too.
 set -eu
 
 dir=${BACKUP_DIR:-/backups}
@@ -31,6 +35,12 @@ backup() {
   trap - EXIT
   find "$dir" -maxdepth 1 -name 'console-*' -type f -mtime +"$keep" -delete
   echo "backup: wrote $out ($(du -h "$out" | cut -f1))"
+  if [ -n "${OFFSITE_S3_BUCKET:-}" ]; then
+    remote="offsite:$OFFSITE_S3_BUCKET/${OFFSITE_S3_PREFIX:-console}"
+    rclone -q copy --no-traverse "$out" "$remote/"
+    rclone -q delete --min-age "${keep}d" "$remote/" || echo "backup: could not prune old off-site copies" >&2
+    echo "backup: copied off-site to $remote/$(basename "$out")"
+  fi
 }
 
 if [ "${1:-}" != "--nightly" ]; then

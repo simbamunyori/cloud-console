@@ -11,7 +11,7 @@ import { ipAllowed, parseAllowlist } from "@/lib/net/ip-allowlist";
  */
 
 function clientIp(req: NextRequest): string | null {
-  // Caddy replaces X-Forwarded-For with the connecting address, so the
+  // Apache (deploy/apache-console.conf) or Caddy replaces X-Forwarded-For with the connecting address, so the
   // first entry is the client. Without a proxy in front, don't trust it.
   return req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || req.headers.get("x-real-ip") || null;
 }

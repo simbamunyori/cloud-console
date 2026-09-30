@@ -21,6 +21,8 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN npm run build
+# Server commands (scripts/ops.ts) as one file the runner can start with node.
+RUN npx esbuild scripts/ops.ts --bundle --platform=node --target=node22 --format=cjs --external:@prisma/client --external:.prisma --outfile=ops.cjs
 
 FROM base AS runner
 ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 HOSTNAME=0.0.0.0 MEDIA_DIR=/app/media
@@ -31,6 +33,7 @@ COPY --from=build /app/public ./public
 COPY --from=build --chown=console:console /app/.next/standalone ./
 COPY --from=build --chown=console:console /app/.next/static ./.next/static
 COPY --from=build /app/prisma ./prisma
+COPY --from=build /app/ops.cjs ./ops.cjs
 COPY --from=build /app/node_modules/@prisma ./node_modules/@prisma
 COPY --from=build /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=migrate /migrate/node_modules /migrate/node_modules

@@ -23,7 +23,7 @@ export function authDeps(): AuthDeps {
 
 export async function requestContext(): Promise<RequestContext> {
   const h = await headers();
-  // Caddy sets X-Forwarded-For to the connecting address; the first entry is the client.
+  // Apache (or Caddy) replaces X-Forwarded-For with the connecting address; the first entry is the client.
   const forwarded = h.get("x-forwarded-for")?.split(",")[0]?.trim();
   return { ipAddress: forwarded || h.get("x-real-ip") || null, userAgent: h.get("user-agent") };
 }

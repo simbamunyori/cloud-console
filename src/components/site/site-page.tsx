@@ -5,6 +5,7 @@ import { enabledMarkets, pricingTables, siteMarket } from "@/server/site/site";
 import type { FrameContent } from "./frame-content";
 import { currentTheme } from "@/server/theme";
 import { env } from "@/server/env";
+import { cardPaymentsOn } from "@/server/payments/live";
 import { LivePreview } from "./live-preview";
 import { SiteFrame } from "./site-frame";
 
@@ -13,7 +14,7 @@ export async function SitePage({ code, path, children }: { code: string; path: s
   const [market, markets, session, theme, drafts] = await Promise.all([siteMarket(code), enabledMarkets(), currentSession(), currentTheme(), showingDrafts()]);
   const content = withFromPrices(await siteFrameContent(market), await pricingTables(code), market.locale);
   return (
-    <SiteFrame market={market} markets={markets} path={path} signedIn={session?.stage === "ACTIVE"} theme={theme} statusUrl={env().STATUS_PAGE_URL} content={content}>
+    <SiteFrame market={cardPaymentsOn() ? market : { ...market, paymentMethods: market.paymentMethods.filter((p) => p !== "card") }} markets={markets} path={path} signedIn={session?.stage === "ACTIVE"} theme={theme} statusUrl={env().STATUS_PAGE_URL} content={content}>
       {drafts ? <LivePreview /> : null}
       {children}
     </SiteFrame>
