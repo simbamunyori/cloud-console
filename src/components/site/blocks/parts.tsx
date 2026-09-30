@@ -22,16 +22,16 @@ export type Tone = "plain" | "light" | "dark";
  * page; light ones on a panel with rules above and below; dark ones on navy.
  */
 export function Section({ tone, labelledBy, id, children, className }: { tone: Tone | null | undefined; labelledBy: string; id?: string | null; children: React.ReactNode; className?: string }) {
-  const inner = "mx-auto max-w-content px-4 sm:px-6";
+  const inner = "page-container";
   if (tone === "light" || tone === "dark") {
     return (
       <section id={id ?? undefined} aria-labelledby={labelledBy} className={cn(id && "scroll-mt-20", tone === "dark" ? "bg-navy text-ink-on-dark" : "border-y border-border bg-surface-1")}>
-        <div className={cn(inner, tone === "dark" ? "py-16 lg:py-20" : "py-16 lg:py-24", className)}>{children}</div>
+        <div className={cn(inner, tone === "dark" ? "py-16 lg:py-20 xl:py-24" : "py-16 lg:py-24 xl:py-28", className)}>{children}</div>
       </section>
     );
   }
   return (
-    <section id={id ?? undefined} aria-labelledby={labelledBy} className={cn(inner, "py-16 lg:py-24", id && "scroll-mt-20", className)}>
+    <section id={id ?? undefined} aria-labelledby={labelledBy} className={cn(inner, "py-16 lg:py-24 xl:py-28", id && "scroll-mt-20", className)}>
       {children}
     </section>
   );
@@ -41,12 +41,12 @@ export function Section({ tone, labelledBy, id, children, className }: { tone: T
 export function Heading({ id, tone, kicker, heading, intro }: { id: string; tone?: Tone | null; kicker?: string | null; heading?: string | null; intro?: React.ReactNode }) {
   const dark = tone === "dark";
   return (
-    <div className={cn("flex max-w-2xl flex-col", dark ? "gap-4" : "gap-3")}>
+    <div className={cn("flex max-w-3xl flex-col", dark ? "gap-4" : "gap-3")}>
       {kicker ? <p className={cn("label-kicker", dark ? "text-on-navy" : "text-link")}>{kicker}</p> : null}
-      <h2 id={id} className={cn("text-title-1 sm:text-display", dark ? "max-w-2xl text-on-navy" : "text-ink")}>
+      <h2 id={id} className={cn("text-title-1 sm:text-display xl:text-display-lg", dark ? "max-w-3xl text-on-navy" : "text-ink")}>
         {heading}
       </h2>
-      {intro ? <p className={cn("text-body", dark ? "max-w-2xl" : "text-ink-muted")}>{intro}</p> : null}
+      {intro ? <p className={cn("max-w-2xl text-body xl:text-headline xl:font-normal", dark ? "" : "text-ink-muted")}>{intro}</p> : null}
     </div>
   );
 }
@@ -126,7 +126,7 @@ export function PictureBody({ picture, market, hero }: { picture: PictureValue; 
     case "thebe-approvals":
       return <ThebeIllustration currency={market.currency} locale={market.locale} />;
     default:
-      return <MediaImage media={picture.image} priority={hero} sizes={hero ? "(min-width: 1024px) 656px, 100vw" : "(min-width: 1024px) 560px, calc(100vw - 32px)"} />;
+      return <MediaImage media={picture.image} priority={hero} sizes={hero ? "(min-width: 1536px) 840px, (min-width: 1024px) 56vw, 100vw" : "(min-width: 1024px) 560px, calc(100vw - 32px)"} />;
   }
 }
 

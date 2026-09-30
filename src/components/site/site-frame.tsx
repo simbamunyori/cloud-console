@@ -58,7 +58,7 @@ export function SiteFrame({
         Skip to content
       </a>
       <header className="sticky top-0 z-30 border-b border-border bg-surface-1/95 backdrop-blur">
-        <div className="mx-auto flex h-16 max-w-content items-center gap-2 px-4 sm:px-6 lg:h-20 lg:gap-6">
+        <div className="page-container flex h-16 items-center gap-2 lg:h-20 lg:gap-6">
           <Link href={base} className="flex shrink-0 items-center rounded-sm" aria-label={`${company.name} home`}>
             {/* The full lockup at every width: 42 px tall is its 160 px minimum width (brand/BRAND.md). */}
             <Logo height={42} className="lg:hidden" />
@@ -115,7 +115,7 @@ export function SiteFrame({
       </main>
 
       <footer className="bg-navy text-ink-on-dark">
-        <div className="mx-auto grid max-w-content gap-10 px-4 py-12 sm:px-6 md:grid-cols-4">
+        <div className="page-container grid gap-10 py-12 md:grid-cols-4">
           <div className="flex flex-col gap-4">
             <Link href={base} aria-label={`${company.name} home`} className="w-fit rounded-sm">
               <img src="/brand/logo/fgt-logo-reverse.svg" alt="" width={184} height={48} />
@@ -156,7 +156,7 @@ export function SiteFrame({
           </div>
         </div>
         <div className="border-t border-on-navy/10">
-          <div className="mx-auto flex max-w-content flex-wrap items-center justify-between gap-4 px-4 py-6 sm:px-6">
+          <div className="page-container flex flex-wrap items-center justify-between gap-4 py-6">
             <p className="text-caption">
               © {new Date().getFullYear()} {company.legalName}
             </p>

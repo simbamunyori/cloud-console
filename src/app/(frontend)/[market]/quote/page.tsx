@@ -28,7 +28,7 @@ export default async function QuotePage({ params, searchParams }: Props) {
   const detected = await requestCountry();
   return (
     <SitePage code={m.code} path="/quote">
-      <div className="mx-auto grid max-w-content gap-10 px-4 py-12 sm:px-6 lg:grid-cols-[1fr_var(--layout-aside-wide)] lg:py-16">
+      <div className="page-container grid gap-10 py-12 lg:grid-cols-[1fr_var(--layout-aside-wide)] lg:py-16">
         <div className="flex max-w-2xl flex-col gap-8">
           <div className="flex flex-col gap-3">
             <p className="label-kicker text-link">Quotes</p>

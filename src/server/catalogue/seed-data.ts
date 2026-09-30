@@ -1,4 +1,4 @@
-import type { ConnectorFamily, PrismaClient } from "@prisma/client";
+import { Prisma, type ConnectorFamily, type PrismaClient } from "@prisma/client";
 import type { StubProductKey } from "@/server/billing/stub/catalogue";
 import { DomainError } from "@/server/org/access";
 import { bookRows } from "./price-book";
@@ -453,7 +453,8 @@ export async function seedCatalogue(db: PrismaClient, billingIds: Partial<Record
       await seedPriceBook(db, code, first);
     } catch (e) {
       // A market removed while the seed runs has no price book to fill.
-      if (!(e instanceof DomainError && e.code === "not-found")) throw e;
+      const gone = (e instanceof DomainError && e.code === "not-found") || (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2003" && String(e.meta?.constraint ?? "").includes("marketCode"));
+      if (!gone) throw e;
     }
   }
 }

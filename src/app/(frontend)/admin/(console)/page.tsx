@@ -23,7 +23,7 @@ export default async function AdminHome() {
   return (
     <>
       <PageHeader title={`Hello, ${staff.name.split(" ")[0]}`} description="What needs our team today." />
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4 xl:gap-6">
         {tiles.map((t) => (
           <Card key={t.label} className="p-0">
             <Link href={t.href} className="flex h-full flex-col gap-1 rounded-lg p-5 hover:bg-surface-2">

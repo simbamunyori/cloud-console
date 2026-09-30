@@ -87,8 +87,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       </header>
       <div className="flex min-w-0 flex-1 flex-col">
         <TopBar />
-        <main id="main" className="min-w-0 flex-1 px-4 py-6 sm:px-8 lg:px-12 lg:py-10">
-          <div className="mx-auto max-w-content">{children}</div>
+        <main id="main" className="min-w-0 flex-1 px-4 py-6 sm:px-8 lg:px-10 lg:py-8 2xl:px-12">
+          <div className="mx-auto max-w-console">{children}</div>
         </main>
       </div>
     </div>

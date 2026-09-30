@@ -66,6 +66,14 @@
   --shadow-elevation-2: var(--elevation2);
   --shadow-elevation-3: var(--elevation3);
 
+  --text-mega: var(--type-mega-size);
+  --text-mega--line-height: var(--type-mega-line);
+  --text-mega--letter-spacing: var(--type-mega-tracking);
+  --text-mega--font-weight: var(--type-mega-weight);
+  --text-display-lg: var(--type-display-lg-size);
+  --text-display-lg--line-height: var(--type-display-lg-line);
+  --text-display-lg--letter-spacing: var(--type-display-lg-tracking);
+  --text-display-lg--font-weight: var(--type-display-lg-weight);
   --text-hero: var(--type-hero-size);
   --text-hero--line-height: var(--type-hero-line);
   --text-hero--letter-spacing: var(--type-hero-tracking);
@@ -97,6 +105,8 @@
 
   --container-sidebar: var(--layout-sidebar);
   --container-content: var(--layout-content);
+  --container-console: var(--layout-console);
+  --container-reading: var(--layout-reading);
   --container-auth-panel: var(--layout-auth-panel);
   --container-form: var(--layout-form);
 
@@ -114,6 +124,27 @@
 }
 @utility duration-slow {
   transition-duration: var(--motion-slow);
+}
+
+/*
+ * The public site's content column: edge-to-edge backgrounds, content up to
+ * the content width, and side margins that grow with the screen (16 px on
+ * phones to 64 px on wide desktops). Sections put this inside a full-width band.
+ */
+@utility page-container {
+  margin-inline: auto;
+  width: 100%;
+  max-width: calc(var(--layout-content) + 2 * var(--layout-gutter-xl));
+  padding-inline: var(--layout-gutter);
+  @media (width >= 40rem) {
+    padding-inline: var(--layout-gutter-sm);
+  }
+  @media (width >= 64rem) {
+    padding-inline: var(--layout-gutter-lg);
+  }
+  @media (width >= 96rem) {
+    padding-inline: var(--layout-gutter-xl);
+  }
 }
 
 /* Widths that are a token capped by the screen, so dialogs and the menu never touch its edges. */

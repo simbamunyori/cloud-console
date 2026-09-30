@@ -27,16 +27,18 @@ export default async function HomePage() {
   const owed = amountOwed(invoices, currency);
   const attention = attentionItems(invoices, services, domains, today, locale);
   const recent = invoices.slice(0, 3);
+  const liveDomains = domains.filter((d) => d.status === "active" || d.status === "pending" || d.status === "pending_transfer");
+  const renewal = liveDomains.map((d) => d.expiresOn).sort((a, b) => a.getTime() - b.getTime())[0];
   const checks = securityChecks(await securityFacts(db, actor.userId, live, today));
 
   return (
     <>
       <PageHeader eyebrow={organisation.name} title={`Welcome, ${actor.name.split(" ")[0]}`} />
       <div className="flex flex-col gap-6">
-        {/* Three totals: a compact row on phones, cards from tablet width up.
+        {/* The totals: a compact row on phones, cards from tablet width up.
             Amounts are always in full; on a very narrow phone the row scrolls
             sideways rather than shortening or cutting a figure. */}
-        <div className="flex gap-2 overflow-x-auto sm:grid sm:grid-cols-3 sm:gap-4 sm:overflow-visible">
+        <div className="flex gap-2 overflow-x-auto sm:grid sm:grid-cols-2 sm:gap-4 xl:grid-cols-4 xl:gap-6 sm:overflow-visible">
           <Card className="flex min-w-fit flex-1 flex-col gap-1 p-3 sm:min-w-0 sm:p-5">
             <span className="text-caption text-ink-muted sm:text-callout">
               <span className="sm:hidden">This month</span>
@@ -70,6 +72,16 @@ export default async function HomePage() {
               <Amount locale={locale} value={owed} className={`text-callout font-semibold sm:hidden ${owed.amountMinor > 0n ? "text-ink" : "text-positive"}`} />
               <Amount locale={locale} value={owed} size="title-1" className={`hidden sm:inline ${owed.amountMinor > 0n ? "text-ink" : "text-positive"}`} />
               <span className="hidden text-callout text-link group-hover:underline sm:inline">{owed.amountMinor > 0n ? "See invoices" : "All paid, thank you"}</span>
+            </Card>
+          </Link>
+          {/* Phones keep the three money figures; the domain count joins from tablet width. */}
+          <Link href="/app/services" className="group hidden rounded-lg sm:block">
+            <Card className="flex h-full flex-col gap-1 p-5 group-hover:bg-surface-2">
+              <span className="text-callout text-ink-muted">Domains</span>
+              <span className="text-title-1 font-bold text-ink tabular-nums">{liveDomains.length}</span>
+              <span className="text-callout text-ink-muted">
+                {renewal ? `Next renewal ${formatDay(renewal, renewal.getUTCFullYear() !== today.getUTCFullYear())}` : "None registered yet"}
+              </span>
             </Card>
           </Link>
         </div>

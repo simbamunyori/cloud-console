@@ -1,4 +1,3 @@
-import { Check } from "lucide-react";
 import type {
   CallToActionBlock,
   DomainSearchBlock,
@@ -21,6 +20,7 @@ import { selection } from "@/server/cms/catalogue-options";
 import { lowestPrice, selected, siteMarket, sitePrices, taxNote } from "@/server/site/site";
 import { CATCH_ALL } from "@/lib/domain/markets";
 import { DomainSearch, type HomeMarket } from "../home";
+import { SiteHero } from "../hero";
 import { AssistantNotice as AssistantNoticeText, PageIntro as PageIntroHeader, ProseSection } from "../prose";
 import { fill, SiteRichText, type TextMarket } from "../rich-text";
 import {
@@ -45,53 +45,31 @@ import {
 
 function Hero({ block: b, ctx }: { block: HeroBlock; ctx: BlockContext }) {
   const picture = b.picture as PictureValue | undefined;
+  const actions =
+    b.primary?.label || b.secondary?.label ? (
+      <>
+        <CmsButton link={b.primary} market={ctx.market} />
+        <CmsButton link={b.secondary} market={ctx.market} variant="secondary" />
+      </>
+    ) : null;
   return (
-    <section aria-labelledby={`${ctx.id}-title`} className="overflow-hidden border-b border-border bg-surface-1">
-      <div className={cn("mx-auto grid max-w-content items-center gap-10 px-4 pt-12 pb-10 sm:px-6 lg:gap-12 lg:pt-20 lg:pb-14", hasPicture(picture) && "lg:grid-cols-12")}>
-        <div className={cn("flex min-w-0 flex-col gap-6", hasPicture(picture) && "lg:col-span-5")}>
-          {b.kicker ? <p className="label-kicker text-link">{b.kicker}</p> : null}
-          <h1 id={`${ctx.id}-title`} className="text-display text-ink sm:text-hero">
-            {b.heading}
-          </h1>
-          {b.sub ? <p className="max-w-xl text-body text-ink-body sm:text-headline sm:font-normal">{b.sub}</p> : null}
-          {b.primary?.label || b.secondary?.label ? (
-            <div className="flex flex-wrap gap-3">
-              <CmsButton link={b.primary} market={ctx.market} />
-              <CmsButton link={b.secondary} market={ctx.market} variant="secondary" />
-            </div>
-          ) : null}
-          {b.supporting?.length ? (
-            <ul className="flex flex-col gap-2 text-callout text-ink-muted sm:flex-row sm:flex-wrap sm:gap-x-5">
-              {b.supporting.map((s) => (
-                <li key={s.id ?? s.text} className="flex items-center gap-2">
-                  <Check aria-hidden className="size-4 text-positive" />
-                  {s.text}
-                </li>
-              ))}
-            </ul>
-          ) : null}
-        </div>
-        {hasPicture(picture) ? (
-          <figure className="relative mx-auto w-full max-w-xl min-w-0 lg:col-span-7 lg:max-w-none">
-            <div className="overflow-hidden rounded-lg border border-border bg-surface-0 shadow-elevation-3">
-              <PictureBody picture={picture} market={ctx.market} hero />
-            </div>
-            {picture.caption ? <figcaption className="mt-3 text-caption text-ink-muted">{picture.caption}</figcaption> : null}
-          </figure>
-        ) : null}
-      </div>
-      {b.domainSearch ? (
-        <div className="mx-auto max-w-content px-4 pb-12 sm:px-6 lg:pb-20">
-          <DomainSearch tlds={domainQuickPicks(ctx.market.highlightedTlds)} />
-        </div>
-      ) : null}
-    </section>
+    <SiteHero
+      id={`${ctx.id}-title`}
+      kicker={b.kicker}
+      heading={b.heading}
+      sub={b.sub}
+      search={b.domainSearch ? domainQuickPicks(ctx.market.highlightedTlds) : null}
+      actions={actions}
+      supporting={(b.supporting ?? []).map((s) => s.text)}
+      picture={hasPicture(picture) ? <PictureBody picture={picture} market={ctx.market} hero /> : null}
+      caption={hasPicture(picture) ? picture.caption : null}
+    />
   );
 }
 
 function DomainSearchSection({ block: b, ctx }: { block: DomainSearchBlock; ctx: BlockContext }) {
   return (
-    <div className="mx-auto max-w-content px-4 py-12 sm:px-6">
+    <div className="page-container py-12">
       <DomainSearch tlds={domainQuickPicks(ctx.market.highlightedTlds)} heading={b.heading || undefined} intro={b.intro || undefined} />
     </div>
   );
@@ -105,7 +83,7 @@ function FeatureCards({ block: b, ctx }: { block: FeatureCardsBlock; ctx: BlockC
   return (
     <Section tone={b.tone} labelledBy={`${ctx.id}-title`}>
       <Heading id={`${ctx.id}-title`} tone={b.tone} kicker={b.kicker} heading={b.heading} intro={b.intro} />
-      <ul className={cn("mt-10 grid gap-4 sm:grid-cols-2", gridCols(items.length))}>
+      <ul className={cn("mt-10 grid gap-4 sm:grid-cols-2 xl:mt-12 xl:gap-6", gridCols(items.length))}>
         {items.map((it) => (
           <li key={it.id ?? it.title} className={cn("flex flex-col gap-3 rounded-lg border border-border p-6 text-ink", cardSurface(b.tone), raised && "shadow-elevation-1")}>
             {raised ? (
@@ -131,11 +109,11 @@ async function ServicesGrid({ block: b, ctx }: { block: ServicesGridBlock; ctx: 
   return (
     <Section tone={b.tone} id={b.anchor} labelledBy={`${ctx.id}-title`}>
       <Heading id={`${ctx.id}-title`} tone={b.tone} kicker={b.kicker} heading={b.heading} intro={intro} />
-      <ul className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <ul className="mt-10 grid gap-4 sm:grid-cols-2 xl:mt-12 xl:gap-6 lg:grid-cols-3">
         {(b.cards ?? []).map((card) => {
           const from = lowestPrice(prices, selection(card.products));
           return (
-            <li key={card.id ?? card.title} className={cn("flex flex-col gap-3 rounded-lg border border-border p-6", b.tone === "plain" ? "bg-surface-1" : "bg-surface-0")}>
+            <li key={card.id ?? card.title} className={cn("flex flex-col gap-3 rounded-lg border border-border p-6 transition-shadow duration-fast hover:shadow-elevation-2 xl:p-8", b.tone === "plain" ? "bg-surface-1" : "bg-surface-0")}>
               <BlockIcon name={card.icon} className="size-6 text-link" />
               <h3 className="text-headline text-ink">{card.title}</h3>
               <div className="flex flex-1 flex-col gap-2 text-callout text-ink-muted">
@@ -172,7 +150,7 @@ async function Pricing({ block: b, ctx }: { block: PricingBlock; ctx: BlockConte
     <Section tone={b.tone} labelledBy={`${ctx.id}-title`}>
       <Heading id={`${ctx.id}-title`} tone={b.tone} kicker={b.kicker} heading={b.heading} intro={[b.intro, tax].filter(Boolean).join(" ")} />
       {rows.length ? (
-        <ul className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <ul className="mt-10 grid gap-4 sm:grid-cols-2 xl:mt-12 xl:gap-6 lg:grid-cols-3">
           {rows.map((p) => (
             <li key={p.slug} className={cn("flex flex-col gap-2 rounded-lg border border-border p-6", cardSurface(b.tone))}>
               <h3 className="text-headline text-ink">{p.name}</h3>
@@ -343,7 +321,7 @@ function CallToAction({ block: b, ctx }: { block: CallToActionBlock; ctx: BlockC
   const dark = b.tone === "dark";
   return (
     <section aria-labelledby={`${ctx.id}-title`} className={dark ? "bg-navy text-ink-on-dark" : b.tone === "light" ? "border-t border-border bg-surface-1" : undefined}>
-      <div className="mx-auto flex max-w-content flex-col items-start gap-6 px-4 py-16 sm:px-6 lg:py-20">
+      <div className="page-container flex flex-col items-start gap-6 py-16 lg:py-20">
         <h2 id={`${ctx.id}-title`} className={cn("max-w-3xl text-title-1 sm:text-display", dark ? "text-on-navy" : "text-ink")}>
           {b.heading}
         </h2>
@@ -391,7 +369,7 @@ function Block({ block, ctx }: { block: AnyBlock; ctx: BlockContext }) {
   switch (block.blockType) {
     case "pageIntro":
       return (
-        <div className="mx-auto max-w-content px-4 pt-12 sm:px-6 lg:pt-16">
+        <div className="page-container pt-12 lg:pt-16">
           <PageIntro block={block} ctx={ctx} />
         </div>
       );
