@@ -191,7 +191,26 @@ export const TeamSection: Block = {
       admin: { description: "Shows while NSMC's address is set on the server (NSMC_URL)." },
       fields: [text("lead", { label: "Bold start", maxLength: 80 }), text("text", { maxLength: 140 }), phone("leadPhone", 60), phone("textPhone", 120), text("linkLabel", { label: "Words on the link", maxLength: 30 })],
     },
-    // Photos, names and roles come from Team members, and the median first reply from support tickets (Milestone 4).
+    text("replyLine", {
+      label: "Median first reply sentence",
+      maxLength: 140,
+      description: "Optional. Shown after the introduction once the last 90 days have at least 30 answered tickets; {time} becomes the median, e.g. 12 minutes.",
+    }),
+    // Photos, names and roles come from Team members (Proof), shown when they have a photo and are visible.
+  ],
+};
+
+/** The proof under the domain search: numbers, partner badges and client logos, each hidden while it has nothing approved. */
+export const ProofStrip: Block = {
+  slug: "proofStrip",
+  labels: { singular: "Home: proof (numbers, partners and clients, edited under Proof)", plural: "Home: proof sections" },
+  interfaceName: "ProofStripBlock",
+  fields: [
+    anchor,
+    { name: "numbers", label: "Show the proof numbers", type: "checkbox", defaultValue: true },
+    text("partnersHeading", { label: "Heading over the partner badges", maxLength: 60 }),
+    text("clientsHeading", { label: "Heading over the client logos", maxLength: 60 }),
+    // The numbers, badges and logos themselves are edited under Proof in the sidebar.
   ],
 };
 
@@ -203,4 +222,4 @@ export const ClosingBanner: Block = {
   fields: [text("heading", { required: true, maxLength: 120 }), link("primary", "Button")],
 };
 
-export const HOME_BLOCKS: Block[] = [HomeHero, DomainStore, NumberedServices, EmailShowcase, WebsitesShowcase, SecurityPanel, ThebeSection, PlansTable, CompareTable, TeamSection, ClosingBanner];
+export const HOME_BLOCKS: Block[] = [HomeHero, DomainStore, ProofStrip, NumberedServices, EmailShowcase, WebsitesShowcase, SecurityPanel, ThebeSection, PlansTable, CompareTable, TeamSection, ClosingBanner];

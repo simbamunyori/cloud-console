@@ -20,7 +20,9 @@ import { Help } from "./cms/collections/help";
 import { Insights } from "./cms/collections/insights";
 import { Legal } from "./cms/collections/legal";
 import { Pages } from "./cms/collections/pages";
+import { PROOF_COLLECTIONS } from "./cms/collections/proof";
 import { Staff } from "./cms/collections/staff";
+import { Announcement } from "./cms/globals/announcement";
 import { Footer, Header } from "./cms/globals/site-frame";
 import { DEFAULT_LOCALE, MARKET_LOCALES } from "./cms/locales";
 import { migrations } from "./cms/migrations";
@@ -51,8 +53,8 @@ export default buildConfig({
       logout: { Button: "@/cms/components/brand#BackToConsole" },
     },
   },
-  collections: [Pages, Insights, Help, Legal, Media, Staff],
-  globals: [Header, Footer],
+  collections: [Pages, Insights, Help, Legal, ...PROOF_COLLECTIONS, Media, Staff],
+  globals: [Header, Footer, Announcement],
   // Each market is a locale; a market without its own words shows Botswana's.
   localization: {
     locales: MARKET_LOCALES.map((l) => ({ code: l.code, label: l.label })),

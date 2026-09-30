@@ -9,6 +9,8 @@ export interface FeatureContext {
   money: DemoMoney;
   contact: { email: string; phone: string | null; hours: string };
   thebe: { tryUrl?: string; demoUrl?: string };
+  /** The approved partner marked for email (Proof), for the Email menu's badge. */
+  partner?: { badge: string; link: string | null } | null;
 }
 
 const box = "flex h-full flex-col gap-3 rounded-lg bg-surface-0 p-6";
@@ -95,8 +97,24 @@ export function MenuFeature({ feature: f, ctx }: { feature: FeatureView | null; 
           {more}
         </div>
       ) : null;
+    case "partnerBadge":
+      if (!ctx.partner) return null;
+      return (
+        <div className={box}>
+          <p className="text-caption text-ink-muted">Official</p>
+          <p className="text-headline text-ink">{ctx.partner.badge}</p>
+          {heading}
+          {text}
+          {ctx.partner.link ? (
+            <a href={ctx.partner.link} rel="noopener" className="mt-auto inline-flex items-center gap-1 text-callout font-semibold text-link hover:underline">
+              See our listing <ArrowRight aria-hidden className="size-4" />
+            </a>
+          ) : (
+            more
+          )}
+        </div>
+      );
     default:
-      // Partner badges come from Partners and accreditations once approved (Milestone 4).
       return null;
   }
 }

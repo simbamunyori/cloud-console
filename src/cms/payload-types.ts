@@ -71,6 +71,12 @@ export interface Config {
     insights: Insight;
     help: Help;
     legal: Legal;
+    partners: Partner;
+    'client-logos': ClientLogo;
+    'proof-numbers': ProofNumber;
+    'team-members': TeamMember;
+    testimonials: Testimonial;
+    'showcase-sites': ShowcaseSite;
     media: Media;
     staff: Staff;
     'payload-kv': PayloadKv;
@@ -85,6 +91,12 @@ export interface Config {
     insights: InsightsSelect<false> | InsightsSelect<true>;
     help: HelpSelect<false> | HelpSelect<true>;
     legal: LegalSelect<false> | LegalSelect<true>;
+    partners: PartnersSelect<false> | PartnersSelect<true>;
+    'client-logos': ClientLogosSelect<false> | ClientLogosSelect<true>;
+    'proof-numbers': ProofNumbersSelect<false> | ProofNumbersSelect<true>;
+    'team-members': TeamMembersSelect<false> | TeamMembersSelect<true>;
+    testimonials: TestimonialsSelect<false> | TestimonialsSelect<true>;
+    'showcase-sites': ShowcaseSitesSelect<false> | ShowcaseSitesSelect<true>;
     media: MediaSelect<false> | MediaSelect<true>;
     staff: StaffSelect<false> | StaffSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
@@ -101,10 +113,12 @@ export interface Config {
   globals: {
     header: Header;
     footer: Footer;
+    announcement: Announcement;
   };
   globalsSelect: {
     header: HeaderSelect<false> | HeaderSelect<true>;
     footer: FooterSelect<false> | FooterSelect<true>;
+    announcement: AnnouncementSelect<false> | AnnouncementSelect<true>;
   };
   locale: 'bw' | 'za' | 'zw' | 'global';
   widgets: {
@@ -164,6 +178,7 @@ export interface Page {
     | (
         | HomeHeroBlock
         | DomainStoreBlock
+        | ProofStripBlock
         | NumberedServicesBlock
         | EmailShowcaseBlock
         | WebsitesShowcaseBlock
@@ -258,6 +273,22 @@ export interface DomainStoreBlock {
   id?: string | null;
   blockName?: string | null;
   blockType: 'domainStore';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ProofStripBlock".
+ */
+export interface ProofStripBlock {
+  /**
+   * Optional. Lets a link jump here, e.g. domains for /bw#domains.
+   */
+  anchor?: string | null;
+  numbers?: boolean | null;
+  partnersHeading?: string | null;
+  clientsHeading?: string | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'proofStrip';
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -583,6 +614,10 @@ export interface TeamSectionBlock {
     textPhone?: string | null;
     linkLabel?: string | null;
   };
+  /**
+   * Optional. Shown after the introduction once the last 90 days have at least 30 answered tickets; {time} becomes the median, e.g. 12 minutes.
+   */
+  replyLine?: string | null;
   id?: string | null;
   blockName?: string | null;
   blockType: 'teamSection';
@@ -1041,17 +1076,6 @@ export interface TestimonialsBlock {
    */
   heading?: string | null;
   tone: 'plain' | 'light' | 'dark';
-  /**
-   * Real customers only, with their permission. The section stays hidden while there are none.
-   */
-  items?:
-    | {
-        quote: string;
-        name: string;
-        role?: string | null;
-        id?: string | null;
-      }[]
-    | null;
   id?: string | null;
   blockName?: string | null;
   blockType: 'testimonials';
@@ -1063,13 +1087,6 @@ export interface TestimonialsBlock {
 export interface LogoStripBlock {
   heading?: string | null;
   tone: 'plain' | 'light' | 'dark';
-  logos?:
-    | {
-        name: string;
-        image: number | Media;
-        id?: string | null;
-      }[]
-    | null;
   id?: string | null;
   blockName?: string | null;
   blockType: 'logoStrip';
@@ -1307,6 +1324,207 @@ export interface Legal {
   _status?: ('draft' | 'published') | null;
 }
 /**
+ * Shown on the home page, in the footer and in the Email menu once approved to display. Drag to reorder.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "partners".
+ */
+export interface Partner {
+  id: number;
+  _order?: string | null;
+  /**
+   * e.g. Microsoft
+   */
+  name: string;
+  /**
+   * The words on the badge, exactly as the partner allows, e.g. Microsoft partner.
+   */
+  badge: string;
+  /**
+   * The partner's official logo, as a PNG or WebP. Without one the badge shows its wording.
+   */
+  logo?: (number | null) | Media;
+  /**
+   * Optional. The partner's page confirming the status, e.g. the partner directory entry.
+   */
+  link?: string | null;
+  /**
+   * Optional. The first approved partner marked for email shows there.
+   */
+  feature?: 'email' | null;
+  /**
+   * For staff only: where the permission to display this came from (agreement, email, portal page) and when.
+   */
+  evidence?: string | null;
+  /**
+   * Tick once the evidence is on file. Only Publishers can change this.
+   */
+  approved?: boolean | null;
+  /**
+   * Leave empty to show it in every market.
+   */
+  markets?: ('bw' | 'za' | 'zw' | 'global')[] | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * "Businesses we look after" on the home page. Shown only with the client's permission. Drag to reorder.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "client-logos".
+ */
+export interface ClientLogo {
+  id: number;
+  _order?: string | null;
+  company: string;
+  /**
+   * Optional. Without a logo the company's name shows.
+   */
+  logo?: (number | null) | Media;
+  website?: string | null;
+  /**
+   * Tick once the client has agreed in writing. Only Publishers can change this.
+   */
+  permission?: boolean | null;
+  permissionDate?: string | null;
+  /**
+   * Leave empty to show it in every market.
+   */
+  markets?: ('bw' | 'za' | 'zw' | 'global')[] | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * The figures on the home page, e.g. 250+ businesses we look after. Drag to reorder.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "proof-numbers".
+ */
+export interface ProofNumber {
+  id: number;
+  _order?: string | null;
+  /**
+   * The median first reply is worked out from the last 90 days of support tickets, and hides while there are fewer than 30.
+   */
+  calculated: 'typed' | 'medianFirstReply';
+  /**
+   * e.g. 250+
+   */
+  value?: string | null;
+  /**
+   * e.g. Businesses we look after
+   */
+  label: string;
+  /**
+   * For staff only: where the figure comes from and when it was last checked.
+   */
+  source?: string | null;
+  /**
+   * Tick once the figure is checked. Only Publishers can change this.
+   */
+  visible?: boolean | null;
+  /**
+   * Leave empty to show it in every market.
+   */
+  markets?: ('bw' | 'za' | 'zw' | 'global')[] | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * "People you can call by name" on the home page. Shown only with a photo and when visible. Drag to reorder.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "team-members".
+ */
+export interface TeamMember {
+  id: number;
+  _order?: string | null;
+  /**
+   * As they would like it shown, e.g. Naledi K.
+   */
+  name: string;
+  /**
+   * e.g. Customer success
+   */
+  role: string;
+  photo?: (number | null) | Media;
+  /**
+   * Tick once they have agreed to be shown. Only Publishers can change this.
+   */
+  visible?: boolean | null;
+  /**
+   * Leave empty to show it in every market.
+   */
+  markets?: ('bw' | 'za' | 'zw' | 'global')[] | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Shown by a Testimonials section on any page, only with permission. Drag to reorder.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "testimonials".
+ */
+export interface Testimonial {
+  id: number;
+  _order?: string | null;
+  quote: string;
+  name: string;
+  role?: string | null;
+  company?: string | null;
+  /**
+   * Optional. The company's logo.
+   */
+  logo?: (number | null) | Media;
+  /**
+   * Optional. The outcome in a few words, e.g. Moved 40 mailboxes over a weekend.
+   */
+  result?: string | null;
+  /**
+   * Tick once the person has agreed to be quoted. Only Publishers can change this.
+   */
+  permission?: boolean | null;
+  /**
+   * Leave empty to show it in every market.
+   */
+  markets?: ('bw' | 'za' | 'zw' | 'global')[] | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Client websites under "Your website, your way" on the home page, only with permission. Drag to reorder.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "showcase-sites".
+ */
+export interface ShowcaseSite {
+  id: number;
+  _order?: string | null;
+  client: string;
+  /**
+   * A screenshot of the home page, about 1440 by 900.
+   */
+  screenshot: number | Media;
+  /**
+   * e.g. Law firm
+   */
+  industry?: string | null;
+  /**
+   * The live site, starting with https://
+   */
+  url?: string | null;
+  /**
+   * Tick once the client has agreed. Only Publishers can change this.
+   */
+  permission?: boolean | null;
+  /**
+   * Leave empty to show it in every market.
+   */
+  markets?: ('bw' | 'za' | 'zw' | 'global')[] | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
  * Website roles are set on the Staff page in the staff console.
  *
  * This interface was referenced by `Config`'s JSON-Schema
@@ -1455,6 +1673,30 @@ export interface PayloadLockedDocument {
         value: number | Legal;
       } | null)
     | ({
+        relationTo: 'partners';
+        value: number | Partner;
+      } | null)
+    | ({
+        relationTo: 'client-logos';
+        value: number | ClientLogo;
+      } | null)
+    | ({
+        relationTo: 'proof-numbers';
+        value: number | ProofNumber;
+      } | null)
+    | ({
+        relationTo: 'team-members';
+        value: number | TeamMember;
+      } | null)
+    | ({
+        relationTo: 'testimonials';
+        value: number | Testimonial;
+      } | null)
+    | ({
+        relationTo: 'showcase-sites';
+        value: number | ShowcaseSite;
+      } | null)
+    | ({
         relationTo: 'media';
         value: number | Media;
       } | null)
@@ -1517,6 +1759,7 @@ export interface PagesSelect<T extends boolean = true> {
     | {
         homeHero?: T | HomeHeroBlockSelect<T>;
         domainStore?: T | DomainStoreBlockSelect<T>;
+        proofStrip?: T | ProofStripBlockSelect<T>;
         numberedServices?: T | NumberedServicesBlockSelect<T>;
         emailShowcase?: T | EmailShowcaseBlockSelect<T>;
         websitesShowcase?: T | WebsitesShowcaseBlockSelect<T>;
@@ -1594,6 +1837,18 @@ export interface DomainStoreBlockSelect<T extends boolean = true> {
   intro?: T;
   introPhone?: T;
   example?: T;
+  id?: T;
+  blockName?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ProofStripBlock_select".
+ */
+export interface ProofStripBlockSelect<T extends boolean = true> {
+  anchor?: T;
+  numbers?: T;
+  partnersHeading?: T;
+  clientsHeading?: T;
   id?: T;
   blockName?: T;
 }
@@ -1800,6 +2055,7 @@ export interface TeamSectionBlockSelect<T extends boolean = true> {
         textPhone?: T;
         linkLabel?: T;
       };
+  replyLine?: T;
   id?: T;
   blockName?: T;
 }
@@ -2058,14 +2314,6 @@ export interface FaqBlockSelect<T extends boolean = true> {
 export interface TestimonialsBlockSelect<T extends boolean = true> {
   heading?: T;
   tone?: T;
-  items?:
-    | T
-    | {
-        quote?: T;
-        name?: T;
-        role?: T;
-        id?: T;
-      };
   id?: T;
   blockName?: T;
 }
@@ -2076,13 +2324,6 @@ export interface TestimonialsBlockSelect<T extends boolean = true> {
 export interface LogoStripBlockSelect<T extends boolean = true> {
   heading?: T;
   tone?: T;
-  logos?:
-    | T
-    | {
-        name?: T;
-        image?: T;
-        id?: T;
-      };
   id?: T;
   blockName?: T;
 }
@@ -2205,6 +2446,99 @@ export interface LegalSelect<T extends boolean = true> {
   updatedAt?: T;
   createdAt?: T;
   _status?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "partners_select".
+ */
+export interface PartnersSelect<T extends boolean = true> {
+  _order?: T;
+  name?: T;
+  badge?: T;
+  logo?: T;
+  link?: T;
+  feature?: T;
+  evidence?: T;
+  approved?: T;
+  markets?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "client-logos_select".
+ */
+export interface ClientLogosSelect<T extends boolean = true> {
+  _order?: T;
+  company?: T;
+  logo?: T;
+  website?: T;
+  permission?: T;
+  permissionDate?: T;
+  markets?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "proof-numbers_select".
+ */
+export interface ProofNumbersSelect<T extends boolean = true> {
+  _order?: T;
+  calculated?: T;
+  value?: T;
+  label?: T;
+  source?: T;
+  visible?: T;
+  markets?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "team-members_select".
+ */
+export interface TeamMembersSelect<T extends boolean = true> {
+  _order?: T;
+  name?: T;
+  role?: T;
+  photo?: T;
+  visible?: T;
+  markets?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "testimonials_select".
+ */
+export interface TestimonialsSelect<T extends boolean = true> {
+  _order?: T;
+  quote?: T;
+  name?: T;
+  role?: T;
+  company?: T;
+  logo?: T;
+  result?: T;
+  permission?: T;
+  markets?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "showcase-sites_select".
+ */
+export interface ShowcaseSitesSelect<T extends boolean = true> {
+  _order?: T;
+  client?: T;
+  screenshot?: T;
+  industry?: T;
+  url?: T;
+  permission?: T;
+  markets?: T;
+  updatedAt?: T;
+  createdAt?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -2520,6 +2854,42 @@ export interface Footer {
   createdAt?: string | null;
 }
 /**
+ * One line above the top of every public page, between the start and end below. Leave the text empty for none.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "announcement".
+ */
+export interface Announcement {
+  id: number;
+  /**
+   * e.g. Our offices are closed on 30 September. Urgent issues are still watched around the clock.
+   */
+  text?: string | null;
+  link?: {
+    label?: string | null;
+    to?: ('market' | 'site' | 'email' | 'thebe') | null;
+    /**
+     * Starts with /. For this market's pricing page: /pricing
+     */
+    path?: string | null;
+    subject?: string | null;
+  };
+  /**
+   * Empty shows it straight away.
+   */
+  startsAt?: string | null;
+  /**
+   * Empty keeps it up until it is removed.
+   */
+  endsAt?: string | null;
+  /**
+   * Leave empty to show it in every market.
+   */
+  markets?: ('bw' | 'za' | 'zw' | 'global')[] | null;
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "header_select".
  */
@@ -2634,6 +3004,27 @@ export interface FooterSelect<T extends boolean = true> {
         facebook?: T;
       };
   _status?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "announcement_select".
+ */
+export interface AnnouncementSelect<T extends boolean = true> {
+  text?: T;
+  link?:
+    | T
+    | {
+        label?: T;
+        to?: T;
+        path?: T;
+        subject?: T;
+      };
+  startsAt?: T;
+  endsAt?: T;
+  markets?: T;
   updatedAt?: T;
   createdAt?: T;
   globalType?: T;

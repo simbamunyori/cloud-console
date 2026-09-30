@@ -1,6 +1,6 @@
 import type { Payload } from "payload";
 import { DEFAULT_LOCALE, MARKET_LOCALES } from "../locales";
-import { homeLayout } from "../seed-home";
+import { homeLayout, PROOF_STRIP } from "../seed-home";
 import { DEFAULT_FOOTER, DEFAULT_HEADER } from "../seed-frame";
 import type { Page } from "../payload-types";
 import { legalFromMarkdown } from "./legal-markdown";
@@ -40,6 +40,30 @@ export async function seedWebsite(payload: Payload): Promise<string | null> {
     const { docs } = await payload.find({ collection: "pages", where: { slug: { equals: "home" } }, limit: 1, overrideAccess: true, draft: true });
     if (!docs[0]) return page("home", "Home", homeLayout)();
     for (const l of MARKET_LOCALES) await payload.update({ collection: "pages", id: docs[0].id, locale: l.code, data: { layout: homeLayout(l.code), _status: "published" }, overrideAccess: true });
+    return true;
+  });
+  // Milestone 4: the proof section under the domain search, added once to each market's home page without touching the rest.
+  await once("home-proof", "the proof section on the home page", async () => {
+    const { docs } = await payload.find({ collection: "pages", where: { slug: { equals: "home" } }, limit: 1, overrideAccess: true, depth: 0 });
+    if (!docs[0]) return false;
+    let added = false;
+    for (const l of MARKET_LOCALES) {
+      const home = await payload.findByID({ collection: "pages", id: docs[0].id, locale: l.code, fallbackLocale: false, depth: 0, overrideAccess: true });
+      const layout = home.layout ?? [];
+      if (!layout.length || layout.some((b) => b.blockType === "proofStrip")) continue;
+      const at = layout.findIndex((b) => b.blockType === "domainStore");
+      const { id: _id, ...strip } = PROOF_STRIP() as { id?: string };
+      const next = [...layout.slice(0, at + 1), strip, ...layout.slice(at + 1)] as typeof layout;
+      await payload.update({ collection: "pages", id: docs[0].id, locale: l.code, data: { layout: next, _status: "published" }, overrideAccess: true });
+      added = true;
+    }
+    return added;
+  });
+  await once("proof-numbers", "the first proof numbers", async () => {
+    const { totalDocs } = await payload.count({ collection: "proof-numbers", overrideAccess: true });
+    if (totalDocs) return false;
+    await payload.create({ collection: "proof-numbers", data: { calculated: "typed", value: "2014", label: "Looking after businesses since", source: "The company's founding year.", visible: true }, overrideAccess: true });
+    await payload.create({ collection: "proof-numbers", data: { calculated: "medianFirstReply", label: "Median first reply", source: "Worked out from the last 90 days of support tickets; hidden while there are fewer than 30.", visible: true }, overrideAccess: true });
     return true;
   });
   await once("pricing", "the pricing page", page("pricing", "Pricing", pricingLayout));

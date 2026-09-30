@@ -192,21 +192,19 @@ export const Testimonials: Block = {
   fields: [
     text("heading", { maxLength: 80, description: "Hidden from view (read by screen readers) when left empty." }),
     tone,
-    {
-      name: "items",
-      label: "Quotes",
-      type: "array",
-      admin: { description: "Real customers only, with their permission. The section stays hidden while there are none." },
-      fields: [textarea("quote", { required: true, maxLength: 400 }), text("name", { required: true, maxLength: 80 }), text("role", { maxLength: 80 })],
-    },
+    // The quotes come from Testimonials and case studies (Proof), those with permission, in their order. Hidden while there are none.
   ],
 };
 
 export const LogoStrip: Block = {
   slug: "logoStrip",
-  labels: { singular: "Logos", plural: "Logos" },
+  labels: { singular: "Client logos", plural: "Client logos" },
   interfaceName: "LogoStripBlock",
-  fields: [text("heading", { maxLength: 80 }), tone, { name: "logos", type: "array", minRows: 1, maxRows: 12, fields: [text("name", { required: true, maxLength: 60 }), image("image", { required: true })] }],
+  fields: [
+    text("heading", { maxLength: 80 }),
+    tone,
+    // The logos come from Client logos (Proof), those with permission, in their order. Hidden while there are none.
+  ],
 };
 
 export const CallToAction: Block = {

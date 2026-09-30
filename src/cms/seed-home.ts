@@ -43,6 +43,10 @@ const row = (label: string, labelPhone: string, start: Cell, grow: Cell, protect
 const yes = (text: string, phone = "✓"): Cell => [text, phone, true];
 const no = (text: string, phone = text): Cell => [text, phone, false];
 
+/** The proof section as designed, for home pages made before it existed. */
+export const PROOF_STRIP = (): Layout[number] => homeLayout(DEFAULT_MARKET).find((b) => b.blockType === "proofStrip")!;
+const DEFAULT_MARKET = "bw";
+
 export function homeLayout(_market: string): Layout {
   return [
     {
@@ -62,6 +66,13 @@ export function homeLayout(_market: string): Layout {
       heading: "Start with your name.",
       intro: "Search once and see every ending that is free, with the price per year in your currency. Your domain comes with free security certificates and our team renews it for you.",
       example: "yourcompany",
+    },
+    {
+      blockType: "proofStrip",
+      anchor: "why",
+      numbers: true,
+      partnersHeading: "Partners and accreditations",
+      clientsHeading: "Businesses we look after",
     },
     {
       blockType: "numberedServices",
@@ -180,6 +191,7 @@ export function homeLayout(_market: string): Layout {
       heading: "People you can call by name.",
       intro: "Our support team replies by phone, email or chat from 07:30 to 17:30 on weekdays. Urgent issues are watched around the clock.",
       introPhone: "Support 07:30 to 17:30 on weekdays, urgent issues watched around the clock.",
+      replyLine: "Our median first reply over the last 90 days is {time}.",
       link: { label: "Contact support", to: "email", subject: "Support" },
       nsmc: {
         lead: "Need on-site IT, networks or infrastructure?",

@@ -5,7 +5,7 @@ import { company } from "@/config/app";
 import type { Theme } from "@/lib/theme";
 import type { StatusState } from "@/server/status/status";
 import { ThemeSwitch } from "@/components/theme/theme-switch";
-import type { FrameContent } from "./frame-content";
+import type { FrameContent, FrameLink } from "./frame-content";
 import { MarketSwitcher, type SwitcherMarket } from "./market-switcher";
 import { MenuFeature, type FeatureContext } from "./menu-features";
 import { NewsletterForm } from "./newsletter-form";
@@ -34,6 +34,7 @@ export function SiteFrame({
   status,
   content,
   features,
+  proof,
   children,
 }: {
   market: SwitcherMarket;
@@ -45,6 +46,8 @@ export function SiteFrame({
   /** The header's menus and the footer's links, from the website editor. */
   content: FrameContent;
   features: FeatureContext;
+  /** Approved partner badges for the footer, and the announcement while it is up (Proof). */
+  proof: { badges: { id: number; badge: string; link: string | null }[]; announcement: { text: string; link: FrameLink | null } | null };
   children: React.ReactNode;
 }) {
   const base = `/${market.code}`;
@@ -59,6 +62,19 @@ export function SiteFrame({
       <a href="#main" className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:rounded-md focus:bg-surface-1 focus:px-4 focus:py-2 focus:text-ink">
         Skip to content
       </a>
+
+      {proof.announcement ? (
+        <div role="region" aria-label="Announcement" className="bg-navy text-callout text-on-navy">
+          <p className="page-container flex min-h-9 flex-wrap items-center justify-center gap-x-3 gap-y-1 py-2 text-center">
+            <span>{proof.announcement.text}</span>
+            {proof.announcement.link ? (
+              <Link href={proof.announcement.link.href} className="font-semibold underline underline-offset-2 hover:no-underline">
+                {proof.announcement.link.label}
+              </Link>
+            ) : null}
+          </p>
+        </div>
+      ) : null}
 
       {/* Top strip: live status, country and currency, sign in. Phones have these in the menu and footer. */}
       <div className="hidden bg-surface-0 text-site-strip text-ink-muted md:block">
@@ -199,6 +215,22 @@ export function SiteFrame({
               );
             })}
           </div>
+
+          {proof.badges.length ? (
+            <ul aria-label="Partners and accreditations" className="flex flex-wrap gap-2.5 pb-8">
+              {proof.badges.map((b) => (
+                <li key={b.id}>
+                  {b.link ? (
+                    <a href={b.link} rel="noopener" className="inline-flex rounded-sm border border-footer-line px-3 py-1.5 text-caption font-medium text-footer-muted hover:text-on-navy">
+                      {b.badge}
+                    </a>
+                  ) : (
+                    <span className="inline-flex rounded-sm border border-footer-line px-3 py-1.5 text-caption font-medium text-footer-muted">{b.badge}</span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          ) : null}
 
           <div className="flex flex-col gap-3 border-t border-footer-line py-5.5 text-caption text-footer-muted lg:flex-row lg:items-center lg:justify-between lg:text-callout">
             <p>

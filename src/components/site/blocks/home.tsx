@@ -9,6 +9,7 @@ import type {
   HomeHeroBlock,
   NumberedServicesBlock,
   PlansTableBlock,
+  ProofStripBlock,
   SecurityPanelBlock,
   TeamSectionBlock,
   ThebeSectionBlock,
@@ -24,8 +25,11 @@ import { selected, siteMarket, sitePrices, taxNote, type SitePrice } from "@/ser
 import { ConsoleHomeDemo, ConsoleSecurityDemo } from "../console-demo";
 import { DomainStore } from "../domain-store";
 import { PlanEstimate } from "../plan-estimate";
+import { ClientGrid, EmailPartnerBadge, PartnerGrid, ProofNumbers, ShowcaseCard } from "../proof";
+import { emailPartner, firstReplyMinutes, approvedPartners, permittedClientLogos, permittedShowcaseSites, visibleProofNumbers, visibleTeam } from "@/server/site/proof";
+import { formatReplyTime } from "@/server/support/first-reply";
 import { KgaleSignature, MothibiSite, ThebeScreen } from "../showcase";
-import { linkHref, type BlockContext, type CmsLinkValue } from "./parts";
+import { linkHref, MediaImage, type BlockContext, type CmsLinkValue } from "./parts";
 
 /**
  * The home page's sections, drawn exactly as designed
@@ -145,6 +149,27 @@ export async function DomainStoreSection({ block: b, ctx }: { block: DomainStore
   );
 }
 
+/** Numbers, partner badges and client logos under the domain search. Each part hides while it has nothing approved; the section hides when all do. */
+export async function ProofStripSection({ block: b, ctx }: { block: ProofStripBlock; ctx: BlockContext }) {
+  const code = ctx.market.code;
+  const [numbers, partners, clients] = await Promise.all([b.numbers === false ? [] : visibleProofNumbers(code), approvedPartners(code), permittedClientLogos(code)]);
+  if (!numbers.length && !partners.length && !clients.length) return null;
+  return (
+    <HomeSection id={b.anchor} labelledBy={`${ctx.id}-title`} className="lg:gap-12">
+      <h2 id={`${ctx.id}-title`} className="sr-only">
+        Why businesses choose us
+      </h2>
+      {numbers.length ? <ProofNumbers numbers={numbers} /> : null}
+      {partners.length || clients.length ? (
+        <div className="flex flex-col gap-4.5 lg:gap-8">
+          {partners.length ? <PartnerGrid partners={partners} heading={b.partnersHeading || "Partners and accreditations"} /> : null}
+          {clients.length ? <ClientGrid clients={clients} heading={b.clientsHeading || "Businesses we look after"} className="hidden lg:flex" /> : null}
+        </div>
+      ) : null}
+    </HomeSection>
+  );
+}
+
 export function NumberedServices({ block: b, ctx }: { block: NumberedServicesBlock; ctx: BlockContext }) {
   const items = b.items ?? [];
   return (
@@ -189,7 +214,8 @@ export function NumberedServices({ block: b, ctx }: { block: NumberedServicesBlo
 
 const MESSAGE = "Please find this month's invoice attached. Thank you for your business.";
 
-export function EmailShowcase({ block: b, ctx }: { block: EmailShowcaseBlock; ctx: BlockContext }) {
+export async function EmailShowcase({ block: b, ctx }: { block: EmailShowcaseBlock; ctx: BlockContext }) {
+  const partner = await emailPartner(ctx.market.code);
   const phone = (
     <div className="flex flex-col gap-3 rounded-device border-8 border-device-frame bg-surface-1 px-3.5 py-4.5 text-ink lg:h-105 lg:px-4 lg:py-5">
       <p className="text-caption text-ink-muted">Phone · Outlook</p>
@@ -200,7 +226,14 @@ export function EmailShowcase({ block: b, ctx }: { block: EmailShowcaseBlock; ct
   );
   return (
     <HomeSection id={b.anchor} labelledBy={`${ctx.id}-title`} tone="navy">
-      <Title id={`${ctx.id}-title`} b={b} dark />
+      {partner ? (
+        <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between lg:gap-12">
+          <Title id={`${ctx.id}-title`} b={b} dark />
+          <EmailPartnerBadge partner={partner} />
+        </div>
+      ) : (
+        <Title id={`${ctx.id}-title`} b={b} dark />
+      )}
       <figure className="m-0 grid items-end gap-8 lg:grid-cols-[1fr_var(--layout-phone-mock)]">
         <div inert aria-hidden className="hidden overflow-hidden rounded-lg border border-footer-field-line bg-surface-1 text-ink lg:block">
           <p className="flex h-9 items-center border-b border-border px-4 text-caption text-ink-muted">Laptop · Outlook</p>
@@ -223,6 +256,7 @@ export async function WebsitesShowcase({ block: b, ctx }: { block: WebsitesShowc
   const prices = await sitePrices(ctx.market.code);
   // A card about products shows only while one of them is on sale here.
   const cards = (b.cards ?? []).filter((c) => !hasSelection(c.products) || selected(prices, selection(c.products)).length > 0);
+  const sites = await permittedShowcaseSites(ctx.market.code);
   return (
     <HomeSection id={b.anchor} labelledBy={`${ctx.id}-title`}>
       <Title id={`${ctx.id}-title`} b={b} />
@@ -259,6 +293,19 @@ export async function WebsitesShowcase({ block: b, ctx }: { block: WebsitesShowc
           ) : null}
         </div>
       </div>
+      {sites.length ? (
+        <div className="flex flex-col gap-4.5">
+          <h3 className="text-callout font-medium text-ink-muted">Websites we built</h3>
+          <ul className="grid gap-6 lg:grid-cols-3">
+            {sites.map((site, i) => (
+              // Phones show the first site only, to keep the page short.
+              <li key={site.id} className={i > 0 ? "hidden lg:block" : undefined}>
+                <ShowcaseCard site={site} />
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
     </HomeSection>
   );
 }
@@ -559,15 +606,38 @@ export function CompareTable({ block: b, ctx }: { block: CompareTableBlock; ctx:
   );
 }
 
-export function TeamSection({ block: b, ctx }: { block: TeamSectionBlock; ctx: BlockContext }) {
+export async function TeamSection({ block: b, ctx }: { block: TeamSectionBlock; ctx: BlockContext }) {
   const nsmcUrl = env().NSMC_URL;
   const n = b.nsmc;
+  const [team, reply] = await Promise.all([visibleTeam(ctx.market.code), b.replyLine?.includes("{time}") ? firstReplyMinutes() : null]);
+  const replyLine = reply !== null && b.replyLine ? b.replyLine.replace("{time}", formatReplyTime(reply, "long")) : null;
+  const intro = (
+    <div className="flex max-w-170 flex-col gap-4">
+      <Title id={`${ctx.id}-title`} b={b} />
+      {replyLine ? <p className="text-callout text-ink-muted lg:text-site-lead">{replyLine}</p> : null}
+      <EditorLink link={b.link} market={ctx.market} arrow className={cn(textLink, "w-fit text-body")} />
+    </div>
+  );
   return (
     <HomeSection id={b.anchor} labelledBy={`${ctx.id}-title`}>
-      <div className="flex max-w-170 flex-col gap-4">
-        <Title id={`${ctx.id}-title`} b={b} />
-        <EditorLink link={b.link} market={ctx.market} arrow className={cn(textLink, "w-fit text-body")} />
-      </div>
+      {team.length ? (
+        <div className="grid gap-8 lg:grid-cols-[1fr_1.2fr] lg:gap-18">
+          {intro}
+          <ul className="grid grid-cols-3 gap-2.5 lg:gap-5">
+            {team.map((m) => (
+              <li key={m.id} className="flex flex-col gap-1.5 lg:gap-3">
+                <div className="h-30 overflow-hidden rounded-lg bg-surface-0 lg:h-60">
+                  <MediaImage media={m.photo} sizes="(min-width: 1024px) 240px, 33vw" className="h-full object-cover" />
+                </div>
+                <p className="text-caption font-semibold text-ink lg:text-body">{m.name}</p>
+                <p className="text-site-strip text-ink-muted lg:text-callout">{m.role}</p>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : (
+        intro
+      )}
       {nsmcUrl && n?.lead ? (
         <p className="flex flex-col gap-3 rounded-lg border border-border p-4 text-callout text-ink lg:flex-row lg:items-center lg:justify-between lg:px-7 lg:py-6 lg:text-body">
           <span>
