@@ -47,7 +47,7 @@ export function ServicesMenu({ groups, note, more }: { groups: MenuGroupView[]; 
         <ChevronDown aria-hidden className={cn("size-4 transition-transform duration-fast motion-reduce:transition-none", open && "rotate-180")} />
       </button>
       <div id={panelId} hidden={!open} className="absolute inset-x-0 top-full border-b border-border bg-surface-1 shadow-elevation-3">
-        <div className="mx-auto grid max-w-content grid-cols-5 gap-6 px-6 py-8">
+        <div className="page-container grid grid-cols-5 gap-6 py-8">
           {groups.map((g) => {
             return (
               <section key={g.id} aria-labelledby={`menu-${g.id}`} className="flex flex-col gap-3">
@@ -58,6 +58,7 @@ export function ServicesMenu({ groups, note, more }: { groups: MenuGroupView[]; 
                   {g.title}
                 </h2>
                 <p className="text-callout text-ink-muted">{g.blurb}</p>
+                {g.from ? <p className="text-callout font-semibold text-ink">{g.from}</p> : null}
                 <ul className="flex flex-col gap-1">
                   {g.links.map((l) => (
                     <li key={l.label}>
@@ -73,7 +74,7 @@ export function ServicesMenu({ groups, note, more }: { groups: MenuGroupView[]; 
         </div>
         {note || more ? (
           <div className="border-t border-border bg-surface-0">
-            <div className="mx-auto flex max-w-content items-center justify-between gap-4 px-6 py-4 text-callout">
+            <div className="page-container flex items-center justify-between gap-4 py-4 text-callout">
               <span className="text-ink-muted">{note}</span>
               {more ? (
                 <Link href={more.href} onClick={() => setOpen(false)} className="font-semibold text-link hover:underline">

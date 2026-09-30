@@ -7,7 +7,7 @@ import { Logo } from "@/components/ui/logo";
 /** Any address we don't have, and a market asked for by name while it is switched off. */
 export default function NotFound() {
   return (
-    <main id="main" className="mx-auto flex min-h-dvh max-w-content flex-col items-center justify-center gap-10 px-4 py-12">
+    <main id="main" className="page-container flex min-h-dvh flex-col items-center justify-center gap-10 py-12">
       <Link href="/" className="rounded-sm" aria-label="Home">
         <Logo />
       </Link>

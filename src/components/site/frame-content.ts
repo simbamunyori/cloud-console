@@ -13,6 +13,8 @@ export interface MenuGroupView {
   title: string;
   blurb: string;
   links: FrameLink[];
+  /** "From P 100.00 per user a month", from the market's price book. */
+  from?: string | null;
 }
 
 export interface FrameContent {

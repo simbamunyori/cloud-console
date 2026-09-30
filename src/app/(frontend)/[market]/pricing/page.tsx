@@ -38,44 +38,76 @@ export default async function PricingPage({ params }: Props) {
   const rest = layout.filter((b) => b !== intro && b !== panel);
   return (
     <SitePage code={m.code} path="/pricing">
-      <div className="mx-auto max-w-content px-4 py-12 sm:px-6 lg:py-16">
+      <div className="page-container py-12 lg:py-16">
         {intro ? (
           <PageHeading block={intro} market={m} />
         ) : (
           <div className="flex max-w-2xl flex-col gap-3">
             <p className="label-kicker text-link">Pricing</p>
-            <h1 className="text-title-1 text-ink sm:text-display">One invoice a month, in your currency.</h1>
+            <h1 className="text-title-1 text-ink sm:text-display xl:text-display-lg">One invoice a month, in your currency.</h1>
             <p className="text-body text-ink-muted">
               Prices for {m.name}, per month unless it says otherwise. They are fixed for the month and every line on your invoice is explained.{note ? ` ${note}` : ""}
             </p>
           </div>
         )}
 
-        <div className="mt-10 flex flex-col gap-10">
+        <nav aria-label="Jump to a family" className="mt-8 -mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
+          <ul className="flex gap-2">
+            {categories.map(({ category }) => (
+              <li key={category.key}>
+                <a href={`#cat-${category.key}`} className="inline-flex h-9 items-center whitespace-nowrap rounded-full border border-border bg-surface-0 px-4 text-callout font-semibold text-ink hover:border-border-strong hover:bg-surface-2">
+                  {category.name}
+                </a>
+              </li>
+            ))}
+            {domains.length ? (
+              <li>
+                <a href="#domains-title" className="inline-flex h-9 items-center whitespace-nowrap rounded-full border border-border bg-surface-0 px-4 text-callout font-semibold text-ink hover:border-border-strong hover:bg-surface-2">
+                  Domain names
+                </a>
+              </li>
+            ) : null}
+          </ul>
+        </nav>
+
+        <div className="mt-10 flex flex-col gap-12 xl:mt-12 xl:gap-16">
           {categories.map(({ category, products }) => (
-            <section key={category.key} aria-labelledby={`cat-${category.key}`} className="flex flex-col gap-4">
+            <section key={category.key} aria-labelledby={`cat-${category.key}`} className="flex scroll-mt-24 flex-col gap-5">
               <div className="flex flex-col gap-1">
-                <h2 id={`cat-${category.key}`} className="text-title-2 text-ink">
+                <h2 id={`cat-${category.key}`} className="scroll-mt-24 text-title-2 text-ink xl:text-title-1">
                   {category.name}
                 </h2>
-                <p className="text-callout text-ink-muted">{category.description}</p>
+                <p className="text-callout text-ink-muted xl:text-body">{category.description}</p>
               </div>
-              <ul className="divide-y divide-border overflow-hidden rounded-lg border border-border bg-surface-1">
+              <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:gap-6 2xl:grid-cols-4">
                 {products.map(({ product, price }) => (
-                  <li key={product.id} className="flex flex-col gap-1 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:gap-6 sm:px-6">
-                    <div className="flex flex-col gap-0.5">
+                  <li key={product.id} className="flex flex-col gap-4 rounded-lg border border-border bg-surface-1 p-5 transition-shadow duration-fast hover:shadow-elevation-2 xl:p-6">
+                    <div className="flex flex-col gap-1">
                       <h3 className="text-headline text-ink">{product.name}</h3>
                       <p className="text-callout text-ink-muted">{product.summary}</p>
                     </div>
-                    {price ? (
-                      <p className="shrink-0 text-callout text-ink sm:text-right">
-                        <span className="text-headline tabular-nums">{formatMoney(price, m.locale)}</span> {product.unitLabel} a month
-                      </p>
-                    ) : (
-                      <Link href={`/${m.code}/quote?product=${product.slug}`} className="shrink-0 text-callout font-semibold text-link hover:underline sm:text-right">
-                        Priced by quote. Ask for one
-                      </Link>
-                    )}
+                    <div className="mt-auto flex flex-col gap-4 border-t border-border pt-4">
+                      {price ? (
+                        <p className="flex flex-col text-callout text-ink-muted">
+                          <span className="text-title-2 text-ink tabular-nums">{formatMoney(price, m.locale)}</span>
+                          {product.unitLabel} a month
+                        </p>
+                      ) : (
+                        <p className="flex flex-col text-callout text-ink-muted">
+                          <span className="text-title-2 text-ink">By quote</span>
+                          Priced for what you run
+                        </p>
+                      )}
+                      {price ? (
+                        <Button asChild variant="secondary" className="w-full">
+                          <Link href="/sign-up">Get started</Link>
+                        </Button>
+                      ) : (
+                        <Button asChild variant="secondary" className="w-full">
+                          <Link href={`/${m.code}/quote?product=${product.slug}`}>Ask for a quote</Link>
+                        </Button>
+                      )}
+                    </div>
                   </li>
                 ))}
               </ul>
@@ -83,14 +115,14 @@ export default async function PricingPage({ params }: Props) {
           ))}
 
           {domains.length ? (
-            <section aria-labelledby="domains-title" className="flex flex-col gap-4">
+            <section aria-labelledby="domains-title" className="flex scroll-mt-24 flex-col gap-5">
               <div className="flex flex-col gap-1">
-                <h2 id="domains-title" className="text-title-2 text-ink">
+                <h2 id="domains-title" className="scroll-mt-24 text-title-2 text-ink xl:text-title-1">
                   Domain names
                 </h2>
                 <p className="text-callout text-ink-muted">A year at a time, renewed on your monthly invoice.</p>
               </div>
-              <div className="overflow-x-auto rounded-lg border border-border bg-surface-1">
+              <div className="overflow-x-auto rounded-lg border border-border bg-surface-1 lg:max-w-3xl">
                 <table className="w-full text-left text-callout">
                   <thead className="text-ink-muted">
                     <tr className="border-b border-border">

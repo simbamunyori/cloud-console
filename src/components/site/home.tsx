@@ -1,10 +1,11 @@
-import { Boxes, Building2, Check, CreditCard, GraduationCap, Handshake, HardDrive, LayoutGrid, LifeBuoy, Lock, Mail, Search, Server, ShieldCheck, Sparkles, TrendingUp, Users } from "lucide-react";
+import { Boxes, Building2, CreditCard, GraduationCap, Handshake, HardDrive, LayoutGrid, LifeBuoy, Lock, Mail, Search, Server, ShieldCheck, Sparkles, TrendingUp, Users } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { AUDIENCES, BUILDERS, CLOSING, CONSOLE, domainQuickPicks, HERO, marketCopy, PLATE, withDataCentre } from "@/config/site";
 import { formatMoney, money } from "@/lib/domain/money";
 import type { ServiceFrom } from "@/server/site/site";
 import { currentTheme } from "@/server/theme";
+import { SiteHero } from "./hero";
 
 const PLATE_ICONS = [Users, CreditCard, LifeBuoy, ShieldCheck];
 const SERVICE_ICONS: Record<string, typeof Users> = { productivity: Mail, servers: Server, security: Lock, protection: HardDrive, web: LayoutGrid, apps: Boxes };
@@ -22,8 +23,8 @@ export interface HomeMarket {
 }
 
 const HERO_ALT = "The Cloud Console home page, showing this month's total, the next invoice and services that need attention";
-// Wide screens: the whole Home page, seven twelfths of the content width, from a 2x capture so text stays sharp.
-const WIDE_SIZES = "(min-width: 1024px) 656px, 100vw";
+// Wide screens: the whole Home page, seven twelfths of the content width (up to 840 px), from a 2x capture so text stays sharp.
+const WIDE_SIZES = "(min-width: 1536px) 840px, (min-width: 1024px) 56vw, 100vw";
 // Phones and tablets: a close-up of the page's top, so its numbers are readable at phone width.
 const CROP_SIZES = "(min-width: 640px) 576px, calc(100vw - 32px)";
 const wideSet = (scheme: "light" | "dark") => [960, 1280, 1920, 2560].map((w) => `/site/console-home-${scheme}-${w}.webp ${w}w`).join(", ");
@@ -153,12 +154,12 @@ export function ThebeIllustration({ currency, locale }: { currency: string; loca
 
 export function SectionHeading({ id, kicker, title, children }: { id: string; kicker?: string; title: string; children?: React.ReactNode }) {
   return (
-    <div className="flex max-w-2xl flex-col gap-3">
+    <div className="flex max-w-3xl flex-col gap-3">
       {kicker ? <p className="label-kicker text-link">{kicker}</p> : null}
-      <h2 id={id} className="text-title-1 text-ink sm:text-display">
+      <h2 id={id} className="text-title-1 text-ink sm:text-display xl:text-display-lg">
         {title}
       </h2>
-      {children ? <p className="text-body text-ink-muted">{children}</p> : null}
+      {children ? <p className="max-w-2xl text-body text-ink-muted xl:text-headline xl:font-normal">{children}</p> : null}
     </div>
   );
 }
@@ -171,45 +172,29 @@ export function HomeContent({ market, services, taxNote }: { market: HomeMarket;
   return (
     <>
       {/* 1. Hero */}
-      <section aria-labelledby="hero-title" className="overflow-hidden border-b border-border bg-surface-1">
-        <div className="mx-auto grid max-w-content items-center gap-10 px-4 pt-12 pb-10 sm:px-6 lg:grid-cols-12 lg:gap-12 lg:pt-20 lg:pb-14">
-          <div className="flex min-w-0 flex-col gap-6 lg:col-span-5">
-            <p className="label-kicker text-link">{HERO.kicker}</p>
-            <h1 id="hero-title" className="text-display text-ink sm:text-hero">
-              {HERO.headline}
-            </h1>
-            <p className="max-w-xl text-body text-ink-body sm:text-headline sm:font-normal">{HERO.sub}</p>
-            <div className="flex flex-wrap gap-3">
-              <Button asChild size="lg">
-                <Link href={`${base}/pricing`}>View plans</Link>
-              </Button>
-              <Button asChild size="lg" variant="secondary">
-                <a href={talk}>Talk to us</a>
-              </Button>
-            </div>
-            <ul className="flex flex-col gap-2 text-callout text-ink-muted sm:flex-row sm:flex-wrap sm:gap-x-5">
-              {HERO.supporting.map((s) => (
-                <li key={s} className="flex items-center gap-2">
-                  <Check aria-hidden className="size-4 text-positive" />
-                  {s}
-                </li>
-              ))}
-            </ul>
-          </div>
-          <figure className="relative mx-auto w-full max-w-xl min-w-0 lg:col-span-7 lg:max-w-none">
-            <div className="overflow-hidden rounded-lg border border-border bg-surface-0 shadow-elevation-3">
-              <HeroShot />
-            </div>
-            <figcaption className="mt-3 text-caption text-ink-muted">The Cloud Console, with demo data.</figcaption>
-          </figure>
-        </div>
-        <div className="mx-auto max-w-content px-4 pb-12 sm:px-6 lg:pb-20">
-          <DomainSearch tlds={domainQuickPicks(market.highlightedTlds)} />
-        </div>
-      </section>
+      <SiteHero
+        id="hero-title"
+        kicker={HERO.kicker}
+        heading={HERO.headline}
+        sub={HERO.sub}
+        search={domainQuickPicks(market.highlightedTlds)}
+        actions={
+          <>
+            <Button asChild size="lg">
+              <Link href={`${base}/pricing`}>View plans</Link>
+            </Button>
+            <Button asChild size="lg" variant="secondary">
+              <a href={talk}>Talk to us</a>
+            </Button>
+          </>
+        }
+        supporting={HERO.supporting}
+        picture={<HeroShot />}
+        caption="The Cloud Console, with demo data."
+      />
 
       {/* 2. What we take off your plate */}
-      <section aria-labelledby="plate-title" className="mx-auto max-w-content px-4 py-16 sm:px-6 lg:py-24">
+      <section aria-labelledby="plate-title" className="page-container py-16 lg:py-24 xl:py-28">
         <SectionHeading id="plate-title" kicker="What we take off your plate" title={PLATE.heading} />
         <ul className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {PLATE.cards.map(([title, body], i) => {
@@ -229,7 +214,7 @@ export function HomeContent({ market, services, taxNote }: { market: HomeMarket;
 
       {/* 3. Services */}
       <section id="services" aria-labelledby="services-title" className="scroll-mt-20 border-y border-border bg-surface-1">
-        <div className="mx-auto max-w-content px-4 py-16 sm:px-6 lg:py-24">
+        <div className="page-container py-16 lg:py-24 xl:py-28">
           <SectionHeading id="services-title" kicker="Services" title="Everything you run, managed by one team.">
             Prices are per month, in your currency, on one invoice.{taxNote ? ` ${taxNote}` : ""}
           </SectionHeading>
@@ -266,7 +251,7 @@ export function HomeContent({ market, services, taxNote }: { market: HomeMarket;
       </section>
 
       {/* 4. The Cloud Console */}
-      <section aria-labelledby="console-title" className="mx-auto max-w-content px-4 py-16 sm:px-6 lg:py-24">
+      <section aria-labelledby="console-title" className="page-container py-16 lg:py-24 xl:py-28">
         <div className="grid items-center gap-12 lg:grid-cols-2">
           <div className="flex min-w-0 flex-col gap-10">
             <SectionHeading id="console-title" kicker="The Cloud Console" title={CONSOLE.heading} />
@@ -298,7 +283,7 @@ export function HomeContent({ market, services, taxNote }: { market: HomeMarket;
 
       {/* 5. Built by people who build software */}
       <section aria-labelledby="builders-title" className="bg-navy text-ink-on-dark">
-        <div className="mx-auto grid max-w-content items-center gap-10 px-4 py-16 sm:px-6 lg:grid-cols-2 lg:py-20">
+        <div className="page-container grid items-center gap-10 py-16 lg:grid-cols-2 lg:py-20">
           <div className="flex flex-col gap-4">
             <h2 id="builders-title" className="max-w-2xl text-title-1 text-on-navy sm:text-display">
               {BUILDERS.heading}
@@ -325,7 +310,7 @@ export function HomeContent({ market, services, taxNote }: { market: HomeMarket;
       </section>
 
       {/* 6. Who we serve */}
-      <section aria-labelledby="audiences-title" className="mx-auto max-w-content px-4 py-16 sm:px-6 lg:py-24">
+      <section aria-labelledby="audiences-title" className="page-container py-16 lg:py-24 xl:py-28">
         <SectionHeading id="audiences-title" title={AUDIENCES.heading} />
         <ul className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {AUDIENCES.items.map(([title, body], i) => {
@@ -342,7 +327,7 @@ export function HomeContent({ market, services, taxNote }: { market: HomeMarket;
       </section>
 
       {copy.testimonials.length ? (
-        <section aria-labelledby="quotes-title" className="mx-auto max-w-content px-4 pb-16 sm:px-6">
+        <section aria-labelledby="quotes-title" className="page-container pb-16">
           <h2 id="quotes-title" className="sr-only">
             What customers say
           </h2>
@@ -361,7 +346,7 @@ export function HomeContent({ market, services, taxNote }: { market: HomeMarket;
 
       {/* 7. Closing */}
       <section aria-labelledby="closing-title" className="border-t border-border bg-surface-1">
-        <div className="mx-auto flex max-w-content flex-col items-start gap-6 px-4 py-16 sm:px-6 lg:py-20">
+        <div className="page-container flex flex-col items-start gap-6 py-16 lg:py-20">
           <h2 id="closing-title" className="max-w-3xl text-title-1 text-ink sm:text-display">
             {CLOSING.heading}
           </h2>

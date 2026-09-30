@@ -80,7 +80,7 @@ export const serviceCards = cache(async (code: string): Promise<ServiceFrom[]> =
   });
 });
 
-export async function pricingTables(code: string) {
+export const pricingTables = cache(async (code: string) => {
   const m = await siteMarket(code);
   const month = siteMonth(m);
   const [categories, domains] = await Promise.all([marketplace(prisma as unknown as PrismaClient, m, month), tldOffers(prisma as unknown as PrismaClient, m, month)]);
@@ -88,7 +88,7 @@ export async function pricingTables(code: string) {
     categories: categories.map((c) => ({ ...c, products: c.products.map((p) => ({ ...p, price: p.price ? shownPrice(m, p.price) : null })) })),
     domains: domains.map((d) => ({ ...d, register: shownPrice(m, d.register), renew: shownPrice(m, d.renew) })),
   };
-}
+});
 
 /** hreflang for a market: its locale, except the catch-all market, which is plain English. */
 export const hreflang = (m: Pick<Market, "code" | "locale">) => (m.code === CATCH_ALL ? "en" : m.locale);
