@@ -261,7 +261,7 @@ export async function askThapelo(deps: SalesDeps, input: { question: string; tok
   }
   if (!answer) answer = "Sorry, I couldn't work that out. You can ask another way, or talk to a person.";
   // House style, whatever the model writes.
-  answer = answer.replace(/\s*—\s*/g, ", ").replace(/!/g, ".");
+  answer = answer.replace(/\s*\u2014\s*/g, ", ").replace(/!/g, ".");
 
   await deps.prisma.salesChatMessage.create({ data: { chatId: chat.id, role: "ASSISTANT", text: answer, toolTrace: trace.length ? trace : undefined } });
   const keep = new Date(now.getTime() + CHAT_KEEP_DAYS * DAY);
