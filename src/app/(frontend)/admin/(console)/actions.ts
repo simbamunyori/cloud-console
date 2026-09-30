@@ -35,6 +35,7 @@ export async function completeTaskAction(_prev: ActionState, form: FormData): Pr
   const values = { note: field(form, "note") };
   const result = await run(async () => {
     const done = await completeTask(await deps(), field(form, "taskId"), values);
+    if (!done.task.orderId) return done.task.kind === "licence_change" ? "Done. The customer sees the change now." : "Done.";
     return done.orderReady ? "Done. The order is live and the customer has been emailed." : "Done. Other tasks on this order are still open.";
   }, values);
   if (result.ok) {

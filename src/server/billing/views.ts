@@ -1,5 +1,5 @@
 import { addDays, daysBetween, formatDay } from "@/lib/dates";
-import { divRound, formatMoney, money, total, type Money } from "@/lib/domain/money";
+import { divRound, formatMoney, money, times, total, type Money } from "@/lib/domain/money";
 import type { Domain, Invoice, InvoiceSummary, Service, Transaction } from "./adapter";
 
 /**
@@ -47,9 +47,38 @@ export interface AttentionItem {
   actionLabel: string;
 }
 
+/** Licences bought but held by no one, from the Users and licences view. */
+export interface UnusedLicenceFact {
+  name: string;
+  unused: number;
+}
+
+/**
+ * What unused licences cost a month: the matching service's monthly price
+ * for one seat, times the number unused. Null when no service of that name
+ * is billed, so the page says nothing rather than guess.
+ */
+export function unusedCost(services: Service[], l: UnusedLicenceFact): Money | null {
+  const s = services.find((x) => BILLED.includes(x.status) && x.name === l.name && x.quantity > 0);
+  if (!s) return null;
+  const month = monthlyPrice(s);
+  return times(money(divRound(month.amountMinor, BigInt(s.quantity)), month.currency), l.unused);
+}
+
 /** Things someone should look at, most urgent first. */
-export function attentionItems(invoices: InvoiceSummary[], services: Service[], domains: Domain[], today: Date, locale: string): AttentionItem[] {
+export function attentionItems(invoices: InvoiceSummary[], services: Service[], domains: Domain[], today: Date, locale: string, unused: UnusedLicenceFact[] = []): AttentionItem[] {
   const items: AttentionItem[] = [];
+  for (const l of unused) {
+    const cost = unusedCost(services, l);
+    items.push({
+      key: `lic-${l.name}`,
+      tone: "warning",
+      title: `${l.unused} unused ${l.name} ${l.unused === 1 ? "licence" : "licences"}`,
+      detail: cost ? `About ${formatMoney(cost, locale)} a month for licences no one holds.` : "Paid for but held by no one.",
+      href: "/app/licences",
+      actionLabel: "Review licences",
+    });
+  }
   for (const i of invoices) {
     if (i.status !== "unpaid") continue;
     const href = `/app/billing/invoices/${i.invoiceId}`;

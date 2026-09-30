@@ -28,6 +28,8 @@ export type Permission =
   | "support"
   /** See everyone's sign-ins and the full audit log. */
   | "viewSecurity"
+  /** Give and take back Microsoft 365 and Google Workspace licences, and add or remove people there. */
+  | "manageLicences"
   /** Ask for the account to be closed. */
   | "closeAccount";
 
@@ -39,6 +41,7 @@ const ALLOWED: Record<Permission, Role[]> = {
   manageOrganisation: ["OWNER", "ADMIN"],
   support: ["OWNER", "ADMIN", "BILLING", "READ_ONLY"],
   viewSecurity: ["OWNER", "ADMIN"],
+  manageLicences: ["OWNER", "ADMIN"],
   closeAccount: ["OWNER"],
 };
 

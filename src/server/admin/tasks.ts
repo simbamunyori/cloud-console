@@ -1,6 +1,7 @@
 import type { PrismaClient, TaskStatus } from "@prisma/client";
 import { BillingError, type BillingAdapter } from "@/server/billing/adapter";
 import { queueEmail } from "@/server/email/outbox";
+import { applyChangesForTask } from "@/server/licences/licences";
 import { DomainError } from "@/server/org/access";
 import { audit } from "@/server/org/audit";
 import { assertStaffCan, type StaffActor } from "@/server/staff/access";
@@ -9,7 +10,8 @@ import { staffAudit } from "@/server/staff/audit";
 /**
  * The provisioning queue: work the manual connectors hand to staff. When
  * the last task on an order is done, the order goes live in the billing
- * engine and the customer is told. Every step is written to the
+ * engine and the customer is told. A licence change is applied when its
+ * task is done. Every step is written to the
  * customer's audit log, where they can see it.
  */
 
@@ -84,6 +86,8 @@ export async function completeTask(deps: StaffDeps, taskId: string, input: { not
 
   return deps.db.$transaction(async (tx) => {
     await audit(tx, staffAudit(deps.staff, task.organisationId, { action: "task.done", summary: `Done: ${task.title}`, targetType: "Order", targetId: task.orderId ?? undefined, data: note ? { note } : undefined }));
+    // A licence change waits on its task: the console's copy of the tenant changes now.
+    if (task.kind === "licence_change") await applyChangesForTask(tx, task.id, now);
     if (finishesOrder) {
       await tx.order.update({ where: { id: order.id }, data: { status: "ACTIVE" } });
       await audit(tx, staffAudit(deps.staff, task.organisationId, { action: "order.ready", summary: `Order ${order.reference} is ready`, targetType: "Order", targetId: order.id }));

@@ -29,6 +29,12 @@ const schema = z.object({
   WHMCS_SYNC_URL: optionalUrl(),
   /** Which WHMCS this is. "production" makes the write tests refuse to run against it. */
   WHMCS_ENVIRONMENT: z.enum(["test", "production"]).optional(),
+  /**
+   * Who carries out changes in customers' Microsoft 365 and Google Workspace
+   * tenants: "stub" applies them at once to demo data; "manual" hands each
+   * one to staff as a task, until the vendor APIs are connected.
+   */
+  TENANT_PROVIDER: z.enum(["stub", "manual"]).default("stub"),
   /** Which card gateway takes card payments. Not chosen yet. */
   PAYMENT_ADAPTER: z.enum(["stub"]).default("stub"),
   /** Request header carrying the visitor's country, set by the CDN in front of the console. */

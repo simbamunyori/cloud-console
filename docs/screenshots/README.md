@@ -48,6 +48,7 @@ Refresh with `npm run screenshots -- --commit` against a running console with th
 | new-ticket | [view](customer/new-ticket-390-light.webp) | [view](customer/new-ticket-390-dark.webp) | [view](customer/new-ticket-1440-light.webp) | [view](customer/new-ticket-1440-dark.webp) |
 | assistant | [view](customer/assistant-390-light.webp) | [view](customer/assistant-390-dark.webp) | [view](customer/assistant-1440-light.webp) | [view](customer/assistant-1440-dark.webp) |
 | team | [view](customer/team-390-light.webp) | [view](customer/team-390-dark.webp) | [view](customer/team-1440-light.webp) | [view](customer/team-1440-dark.webp) |
+| licences | [view](customer/licences-390-light.webp) | [view](customer/licences-390-dark.webp) | [view](customer/licences-1440-light.webp) | [view](customer/licences-1440-dark.webp) |
 | security | [view](customer/security-390-light.webp) | [view](customer/security-390-dark.webp) | [view](customer/security-1440-light.webp) | [view](customer/security-1440-dark.webp) |
 | settings | [view](customer/settings-390-light.webp) | [view](customer/settings-390-dark.webp) | [view](customer/settings-1440-light.webp) | [view](customer/settings-1440-dark.webp) |
 

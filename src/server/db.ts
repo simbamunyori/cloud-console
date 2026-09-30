@@ -31,6 +31,11 @@ export const TENANT_MODELS = new Set<string>([
   "AssistantConversation",
   "AssistantMessage",
   "AssistantAction",
+  "Tenant",
+  "TenantLicence",
+  "TenantUser",
+  "LicenceAssignment",
+  "LicenceChange",
 ]);
 
 const WHERE_OPS = new Set([

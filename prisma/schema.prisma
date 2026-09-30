@@ -158,23 +158,28 @@ model Organisation {
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
 
-  market            Market                  @relation(fields: [billingMarket], references: [code], onDelete: Restrict)
-  memberships       Membership[]
-  invitations       Invitation[]
-  billingAccount    BillingAccount?
-  orders            Order[]
-  quotes            Quote[]
-  tasks             ProvisioningTask[]
-  eftPayments       EftPayment[]
-  cardPayments      CardPayment[]
-  invoicePoNumbers  InvoicePoNumber[]
-  tickets           Ticket[]
-  ticketMessages    TicketMessage[]
-  conversations     AssistantConversation[]
-  assistantMessages AssistantMessage[]
-  assistantActions  AssistantAction[]
-  auditEvents       AuditEvent[]
-  outboundEmails    OutboundEmail[]
+  market             Market                  @relation(fields: [billingMarket], references: [code], onDelete: Restrict)
+  memberships        Membership[]
+  invitations        Invitation[]
+  billingAccount     BillingAccount?
+  orders             Order[]
+  quotes             Quote[]
+  tasks              ProvisioningTask[]
+  eftPayments        EftPayment[]
+  cardPayments       CardPayment[]
+  invoicePoNumbers   InvoicePoNumber[]
+  tickets            Ticket[]
+  ticketMessages     TicketMessage[]
+  conversations      AssistantConversation[]
+  assistantMessages  AssistantMessage[]
+  assistantActions   AssistantAction[]
+  auditEvents        AuditEvent[]
+  outboundEmails     OutboundEmail[]
+  tenants            Tenant[]
+  tenantLicences     TenantLicence[]
+  tenantUsers        TenantUser[]
+  licenceAssignments LicenceAssignment[]
+  licenceChanges     LicenceChange[]
 }
 
 enum UserKind {
@@ -833,13 +838,150 @@ model ProvisioningTask {
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
 
-  organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Restrict)
-  order        Order?       @relation(fields: [orderId], references: [id], onDelete: Restrict)
-  assignee     User?        @relation("taskAssignee", fields: [assigneeId], references: [id], onDelete: Restrict)
-  completedBy  User?        @relation("taskCompletedBy", fields: [completedById], references: [id], onDelete: Restrict)
+  organisation   Organisation    @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  order          Order?          @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  assignee       User?           @relation("taskAssignee", fields: [assigneeId], references: [id], onDelete: Restrict)
+  completedBy    User?           @relation("taskCompletedBy", fields: [completedById], references: [id], onDelete: Restrict)
+  licenceChanges LicenceChange[]
 
   @@index([status, expectedBy])
   @@index([organisationId])
+}
+
+// ─── Users and licences ─────────────────────────────────────────────
+
+enum TenantVendor {
+  MICROSOFT
+  GOOGLE
+}
+
+/// A customer's Microsoft 365 or Google Workspace tenant, as we manage it.
+/// Until the vendor's API is connected, staff keep it in step with the
+/// partner portal and every change goes through a task.
+model Tenant {
+  id             String       @id @default(cuid())
+  organisationId String
+  vendor         TenantVendor
+  /// The domain people sign in with, e.g. kgalehill.co.bw.
+  primaryDomain  String
+  /// The vendor's own id for the tenant, once known.
+  vendorTenantId String?
+  /// When users and licences were last read from the vendor or checked by staff.
+  lastSyncedAt   DateTime?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  organisation Organisation    @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  licences     TenantLicence[]
+  users        TenantUser[]
+  changes      LicenceChange[]
+
+  @@unique([organisationId, vendor])
+}
+
+/// A kind of licence the tenant holds, and how many were bought.
+model TenantLicence {
+  id             String   @id @default(cuid())
+  organisationId String
+  tenantId       String
+  /// The vendor's SKU, e.g. O365_BUSINESS_PREMIUM.
+  sku            String
+  name           String
+  /// How many the customer pays for.
+  purchased      Int
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organisation Organisation        @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  tenant       Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  assignments  LicenceAssignment[]
+  changes      LicenceChange[]
+
+  @@unique([tenantId, sku])
+  @@index([organisationId])
+}
+
+/// A person in the tenant: someone with a mailbox or sign-in there. Not the
+/// same as a console team member.
+model TenantUser {
+  id             String    @id @default(cuid())
+  organisationId String
+  tenantId       String
+  email          String
+  name           String
+  /// False when sign-in is blocked in the tenant.
+  enabled        Boolean   @default(true)
+  lastSignInAt   DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organisation Organisation        @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  tenant       Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  assignments  LicenceAssignment[]
+  changes      LicenceChange[]
+
+  @@unique([tenantId, email])
+  @@index([organisationId])
+}
+
+model LicenceAssignment {
+  id             String   @id @default(cuid())
+  organisationId String
+  tenantUserId   String
+  licenceId      String
+  createdAt      DateTime @default(now())
+
+  organisation Organisation  @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  user         TenantUser    @relation(fields: [tenantUserId], references: [id], onDelete: Cascade)
+  licence      TenantLicence @relation(fields: [licenceId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantUserId, licenceId])
+  @@index([organisationId])
+}
+
+enum LicenceChangeKind {
+  /// Give a user a licence.
+  ASSIGN
+  /// Take a licence back, freeing it for someone else.
+  UNASSIGN
+  /// Create a new person in the tenant, with a licence when one is named.
+  ADD_USER
+  /// Block sign-in and free the person's licences.
+  REMOVE_USER
+}
+
+enum LicenceChangeStatus {
+  PENDING
+  DONE
+  CANCELLED
+}
+
+/// A change a customer asked for in their tenant. Applied at once when the
+/// vendor's API is connected; otherwise pending until staff finish its task.
+model LicenceChange {
+  id             String              @id @default(cuid())
+  organisationId String
+  tenantId       String
+  kind           LicenceChangeKind
+  status         LicenceChangeStatus @default(PENDING)
+  tenantUserId   String?
+  licenceId      String?
+  /// For ADD_USER: the new person.
+  email          String?
+  name           String?
+  taskId         String?
+  requestedById  String
+  createdAt      DateTime            @default(now())
+  completedAt    DateTime?
+
+  organisation Organisation      @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  tenant       Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user         TenantUser?       @relation(fields: [tenantUserId], references: [id], onDelete: Cascade)
+  licence      TenantLicence?    @relation(fields: [licenceId], references: [id], onDelete: Cascade)
+  task         ProvisioningTask? @relation(fields: [taskId], references: [id], onDelete: SetNull)
+
+  @@index([organisationId, status])
+  @@index([taskId])
 }
 
 // ─── Payments ────────────────────────────────────────────────────────

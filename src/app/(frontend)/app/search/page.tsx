@@ -24,6 +24,7 @@ const PAGES = [
   { label: "Support", href: "/app/support", words: "support help tickets" },
   { label: "Ask the assistant", href: "/app/support/assistant", words: "assistant ai question help" },
   { label: "Team", href: "/app/team", words: "team people users invite roles" },
+  { label: "Users and licences", href: "/app/licences", words: "licences licenses users seats microsoft 365 google workspace mailbox unused" },
   { label: "Security", href: "/app/security", words: "security password authenticator backup codes sign-ins activity" },
   { label: "Settings", href: "/app/settings", words: "settings company address vat billing email" },
 ];
