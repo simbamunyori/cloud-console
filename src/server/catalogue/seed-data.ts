@@ -392,10 +392,12 @@ export const PLACEHOLDER_RATES: { base: string; quote: string; rateMicros: bigin
  * Loads the catalogue. Only adds what is missing: once staff edit the
  * catalogue in the admin console, a family, category or product that
  * exists is never changed here. `billingIds` maps the stub's product keys
- * to billing product ids. Then fills any empty price book with the
- * suggestions for the first month given, as if approved.
+ * to billing product ids, or is "sync" on a production server, where the
+ * WHMCS price sync links each product the first time it runs. Then fills
+ * any empty price book with the suggestions for the first month given, as
+ * if approved.
  */
-export async function seedCatalogue(db: PrismaClient, billingIds: Partial<Record<StubProductKey, string>>, months: string[]) {
+export async function seedCatalogue(db: PrismaClient, billingIds: Partial<Record<StubProductKey, string>> | "sync", months: string[]) {
   const allMarkets = (await db.market.findMany({ orderBy: { sortOrder: "asc" }, select: { code: true } })).map((m) => m.code);
   for (const f of FAMILIES) {
     await db.productFamily.upsert({ where: { key: f.key }, update: {}, create: { ...f, status: f.status ?? "LIVE" } });
@@ -404,8 +406,8 @@ export async function seedCatalogue(db: PrismaClient, billingIds: Partial<Record
     await db.productCategory.upsert({ where: { key: c.key }, update: {}, create: c });
   }
   for (const [i, p] of PRODUCTS.entries()) {
-    const billingProductId = billingIds[p.billing];
-    if (!billingProductId) throw new Error(`No billing product for ${p.slug}.`);
+    const billingProductId = billingIds === "sync" ? null : billingIds[p.billing];
+    if (billingProductId === undefined) throw new Error(`No billing product for ${p.slug}.`);
     await db.product.upsert({
       where: { slug: p.slug },
       update: {},
@@ -479,4 +481,17 @@ async function seedPriceBook(db: PrismaClient, marketCode: string, month: string
       },
     });
   }
+}
+
+/**
+ * A new production server's catalogue: the launch families, categories,
+ * products and domain endings, once, while the database has no products.
+ * No exchange rates and no prices: staff enter this month's rates and
+ * approve the price books at /admin/pricing, and only priced products
+ * show on the site. Returns whether it loaded anything.
+ */
+export async function loadLaunchCatalogue(db: PrismaClient): Promise<boolean> {
+  if (await db.product.count()) return false;
+  await seedCatalogue(db, "sync", []);
+  return true;
 }

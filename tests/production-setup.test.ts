@@ -1,5 +1,6 @@
 import { afterAll, describe, expect, it } from "vitest";
 import { verifyPassword } from "../src/server/auth/password";
+import { loadLaunchCatalogue, PRODUCTS } from "../src/server/catalogue/seed-data";
 import { createAdmin, fillSupportEmail } from "../src/server/ops/setup";
 import { cardPaymentsOn } from "../src/server/payments/live";
 import { db, hasDb, uniqueEmail } from "./helpers";
@@ -65,5 +66,35 @@ describe("SUPPORT_EMAIL on a new server", () => {
     expect(markets.map((m) => m.supportEmail)).toEqual(["support@fourthgeneration.technology", "help@example.co.za", "support@fourthgeneration.technology"]);
     expect(audits.map((a) => a.action)).toEqual(["market.support_email", "market.support_email"]);
     expect(await fillSupportEmail(db, "other@fourthgeneration.technology")).toEqual([]);
+  });
+});
+
+describe("the launch catalogue on a new production server", () => {
+  /** Records every write; the database starts with the given number of products. */
+  function fakeDb(products: number) {
+    const writes: { model: string; create: Record<string, unknown> }[] = [];
+    const model = (name: string) => ({
+      upsert: async ({ create }: { create: Record<string, unknown> }) => (writes.push({ model: name, create }), create),
+      count: async () => products,
+      findMany: async () => [{ code: "bw" }, { code: "za" }],
+    });
+    const db = new Proxy({}, { get: (_, name: string) => model(name) });
+    return { db: db as never, writes };
+  }
+
+  it("loads families, categories, products and domain endings without prices or rates, for the WHMCS sync to link", async () => {
+    const { db, writes } = fakeDb(0);
+    expect(await loadLaunchCatalogue(db)).toBe(true);
+    const products = writes.filter((w) => w.model === "product");
+    expect(products).toHaveLength(PRODUCTS.length);
+    expect(products.every((p) => p.create.billingProductId === null)).toBe(true);
+    expect(writes.some((w) => w.model === "tld")).toBe(true);
+    expect(writes.some((w) => w.model === "fxRate" || w.model === "priceBookEntry")).toBe(false);
+  });
+
+  it("does nothing once the database has products", async () => {
+    const { db, writes } = fakeDb(3);
+    expect(await loadLaunchCatalogue(db)).toBe(false);
+    expect(writes).toHaveLength(0);
   });
 });

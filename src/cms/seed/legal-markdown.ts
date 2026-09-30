@@ -1,6 +1,6 @@
 /**
  * Turns the legal drafts (a small part of Markdown: # and ## headings,
- * paragraphs, "- " lists, tables, **bold** and email addresses) into the
+ * paragraphs, "- " and "1. " lists, tables, **bold** and email addresses) into the
  * website editor's rich text, for seeding. The "DRAFT FOR LEGAL REVIEW"
  * and "Last updated" lines become the page's own fields.
  */
@@ -74,6 +74,10 @@ export function legalFromMarkdown(source: string): SeedLegal {
       const items: LexicalNode[] = [];
       while (i < lines.length && lines[i].trim().startsWith("- ")) items.push(element("listitem", inline(lines[i++].trim().slice(2).trim()), { value: items.length + 1 }));
       nodes.push(element("list", items, { listType: "bullet", tag: "ul", start: 1 }));
+    } else if (/^\d+\. /.test(line)) {
+      const items: LexicalNode[] = [];
+      while (i < lines.length && /^\d+\. /.test(lines[i].trim())) items.push(element("listitem", inline(lines[i++].trim().replace(/^\d+\. /, "")), { value: items.length + 1 }));
+      nodes.push(element("list", items, { listType: "number", tag: "ol", start: 1 }));
     } else if (line.startsWith("|")) {
       const rows: string[][] = [];
       while (i < lines.length && lines[i].trim().startsWith("|")) {

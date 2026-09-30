@@ -188,6 +188,43 @@ describe.skipIf(!hasDb || !process.env.PAYLOAD_SECRET)("the website editor (Payl
     });
   });
 
+  describe("insights", () => {
+    const signedIn = async (role: WebsiteRole) => {
+      const p = await person("STAFF", "SUPPORT", role);
+      return (await payload.auth({ headers: new Headers({ cookie: p.cookie }) })).user!;
+    };
+    const paragraph = (words: number) => ({
+      root: { type: "root", version: 1, direction: null, format: "", indent: 0, children: [{ type: "paragraph", version: 1, direction: null, format: "", indent: 0, children: [{ type: "text", version: 1, text: Array(words).fill("word").join(" "), format: 0, detail: 0, mode: "normal", style: "" }] }] },
+    });
+    const data = (slug: string) => ({ title: "Why tested backups matter", slug, topic: "resilience" as const, summary: "A backup you have never restored is a hope, not a plan.", body: paragraph(900) as never });
+    afterAll(async () => {
+      await payload.delete({ collection: "insights", where: { slug: { like: "test-" } } });
+    });
+
+    it("lets Editors draft and Publishers publish, dates the first publish, works out the reading time and audits it", async () => {
+      const editor = await signedIn("EDITOR");
+      const pub = await signedIn("PUBLISHER");
+      const slug = `test-${Math.random().toString(36).slice(2, 10)}`;
+      const draft = await payload.create({ collection: "insights", draft: true, data: data(slug), user: editor, overrideAccess: false });
+      expect(draft).toMatchObject({ _status: "draft", readingMinutes: 5 });
+      expect(draft.publishedAt ?? null).toBeNull();
+      await expect(payload.update({ collection: "insights", id: draft.id, data: { _status: "published" }, user: editor, overrideAccess: false })).rejects.toThrow();
+      expect((await payload.find({ collection: "insights", where: { slug: { equals: slug } }, overrideAccess: false })).totalDocs).toBe(0);
+
+      const live = await payload.update({ collection: "insights", id: draft.id, data: { _status: "published" }, user: pub, overrideAccess: false });
+      expect(live.publishedAt).toBeTruthy();
+      expect((await payload.find({ collection: "insights", where: { slug: { equals: slug } }, overrideAccess: false })).totalDocs).toBe(1);
+      const again = await payload.update({ collection: "insights", id: draft.id, data: { summary: "Changed.", _status: "published" }, user: pub, overrideAccess: false });
+      expect(again.publishedAt).toBe(live.publishedAt);
+      expect(await db.staffAuditEvent.findFirst({ where: { action: "website.insight-published", data: { path: ["slug"], equals: slug } } })).not.toBeNull();
+    });
+
+    it("won't publish an insight with a price typed into it", async () => {
+      const slug = `test-${Math.random().toString(36).slice(2, 10)}`;
+      await expect(payload.create({ collection: "insights", data: { ...data(slug), summary: "Only P 99 a month." } })).rejects.toThrow();
+    });
+  });
+
   describe("legal text, header and footer", () => {
     const signedIn = async (role: WebsiteRole) => {
       const p = await person("STAFF", "SUPPORT", role);
@@ -198,7 +235,7 @@ describe.skipIf(!hasDb || !process.env.PAYLOAD_SECRET)("the website editor (Payl
       const { seedWebsite } = await import("../src/cms/seed");
       await seedWebsite(payload);
       expect(await seedWebsite(payload)).toBeNull();
-      for (const slug of ["home", "pricing", "security"]) {
+      for (const slug of ["home", "pricing", "security", "quote"]) {
         expect((await payload.count({ collection: "pages", where: { slug: { equals: slug } } })).totalDocs, slug).toBe(1);
       }
       expect((await payload.count({ collection: "legal" })).totalDocs).toBeGreaterThanOrEqual(5);
@@ -228,6 +265,16 @@ describe.skipIf(!hasDb || !process.env.PAYLOAD_SECRET)("the website editor (Payl
         expect(live._status).toBe("published");
         expect(Date.parse(live.updatedAt!)).toBeGreaterThanOrEqual(Date.parse(current.updatedAt!));
       }
+    });
+
+    // Drafts save as they are; the checks run when they are published.
+    it("keeps the footer's social links to their own sites and its phone numbers well formed", async () => {
+      await expect(payload.updateGlobal({ slug: "footer", data: { _status: "published", social: { linkedin: "https://evil.example.com/linkedin.com" } } })).rejects.toThrow(/LinkedIn page/);
+      await expect(payload.updateGlobal({ slug: "footer", data: { _status: "published", social: { facebook: "http://www.facebook.com/fgt" } } })).rejects.toThrow();
+      await expect(payload.updateGlobal({ slug: "footer", data: { _status: "published", contact: { whatsapp: "call us" } } })).rejects.toThrow();
+      const ok = await payload.updateGlobal({ slug: "footer", draft: true, data: { social: { linkedin: "https://www.linkedin.com/company/fourth-generation" }, contact: { whatsapp: "+267 71 000 000" } } });
+      expect(ok.social?.linkedin).toBe("https://www.linkedin.com/company/fourth-generation");
+      await payload.updateGlobal({ slug: "footer", draft: true, data: { social: { linkedin: null, facebook: null }, contact: { whatsapp: null } } });
     });
   });
 });

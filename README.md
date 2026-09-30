@@ -275,7 +275,7 @@ npm run cms:generate                # the editor's import map and TypeScript typ
 
 A production server applies pending editor migrations when it starts,
 and gives the editor its first content (`src/cms/seed`): the home,
-pricing and security pages in every market, Botswana's legal text
+pricing, security and quote pages in every market, Botswana's legal text
 (`src/cms/seed/legal`), and the header and footer, all as the site
 showed them before. Each part is added once and never overwrites an
 editor's work; `npm run cms:seed` does the same on a development database.
@@ -289,11 +289,22 @@ drafts until a Publisher publishes them (now or scheduled). The Live
 Preview button shows the draft at phone and desktop widths; it goes
 through /preview, which turns on draft mode only for website staff.
 The home page is `home`; any other page is /<market>/<address>. The
-pricing page takes its heading and panel from the editor's `pricing`
-page around the live price tables, and the security page shows the
+pricing page takes its heading, the words over the domain prices (Price
+tables block) and its panel from the editor's `pricing` page around the
+live price tables, the quote page its heading and the panel beside the
+form from the `quote` page, and the security page shows the
 market's data protection text (Legal pages) or else the `security` page.
 Legal text never falls back to another market's. While the editor has
 none of these, the site shows the built-in ones.
+
+Insights are articles at /<market>/insights/<address>, with a topic, a
+summary, a reading time worked out from their length, and a related
+product from the catalogue. The Insights strip block shows the three
+newest published ones and hides itself while there are none. The footer's
+contact details (email, phone, hours, address, WhatsApp) fall back to the
+market's settings in the staff console when left empty; its LinkedIn and
+Facebook links show only when set. The header, footer and insights can be
+scheduled like pages.
 
 Uploaded images go to `MEDIA_DIR` (a volume in `docker-compose.prod.yml`)
 and are served at /media. Storage sits behind `src/cms/storage`, so object

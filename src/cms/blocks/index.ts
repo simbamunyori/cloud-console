@@ -1,6 +1,7 @@
 import type { Block, Field } from "payload";
 import { heading, icon, image, link, richText, text, textarea, tone } from "../fields";
 import { TOKENS_HELP } from "../tokens";
+import { INSIGHT_TOPICS } from "../topics";
 
 /**
  * The page blocks. Each is one section of a page, drawn with the brand's
@@ -221,4 +222,42 @@ export const AssistantNotice: Block = {
   ],
 };
 
-export const PAGE_BLOCKS: Block[] = [PageIntro, Hero, DomainSearch, FeatureCards, ServicesGrid, Pricing, Text, ImageText, Faq, Testimonials, LogoStrip, CallToAction, AssistantNotice];
+export const InsightsStrip: Block = {
+  slug: "insightsStrip",
+  labels: { singular: "Insights strip", plural: "Insights strips" },
+  interfaceName: "InsightsStripBlock",
+  admin: { disableBlockName: true },
+  fields: [
+    ...heading(),
+    tone,
+    {
+      name: "topic",
+      label: "Only this topic",
+      type: "select",
+      options: INSIGHT_TOPICS.map((t) => ({ ...t })),
+      admin: { description: "Optional. Leave empty for the newest insights on any topic." },
+    },
+    link("more", "Link under the insights"),
+  ],
+  // The three newest published insights for the market. The section stays hidden while there are none.
+};
+
+export const PriceTables: Block = {
+  slug: "priceTables",
+  labels: { singular: "Price tables", plural: "Price tables" },
+  interfaceName: "PriceTablesBlock",
+  admin: { disableBlockName: true },
+  fields: [
+    {
+      type: "collapsible",
+      label: "Words around the price tables",
+      admin: { initCollapsed: false, description: "For the pricing page only: its tables list every live product and domain ending, with prices live from the market's price book." },
+      fields: [
+        text("domainsHeading", { label: "Heading over the domain prices", maxLength: 60 }),
+        textarea("domainsIntro", { label: "Line under that heading", maxLength: 160 }),
+      ],
+    },
+  ],
+};
+
+export const PAGE_BLOCKS: Block[] = [PageIntro, Hero, DomainSearch, FeatureCards, ServicesGrid, Pricing, PriceTables, Text, ImageText, Faq, Testimonials, LogoStrip, InsightsStrip, CallToAction, AssistantNotice];

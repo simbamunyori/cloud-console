@@ -16,6 +16,7 @@ export interface TextMarket {
   name: string;
   supportEmail: string;
   dataProtectionLaw?: string | null;
+  currency?: string;
 }
 
 export function fill(text: string, m: TextMarket): string {
@@ -23,7 +24,8 @@ export function fill(text: string, m: TextMarket): string {
     .replaceAll("{market}", m.name)
     .replaceAll("{support-email}", m.supportEmail)
     .replaceAll("{data-protection-law}", m.dataProtectionLaw ?? "data protection law")
-    .replaceAll("{deletion-notice-days}", String(DELETION_NOTICE_DAYS));
+    .replaceAll("{deletion-notice-days}", String(DELETION_NOTICE_DAYS))
+    .replaceAll("{currency}", m.currency ?? "your currency");
 }
 
 type Node = {

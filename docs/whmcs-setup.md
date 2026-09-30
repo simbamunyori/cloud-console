@@ -178,6 +178,11 @@ To run the sync from a checkout of the console with the environment set:
   changes. You must be console staff allowed to manage pricing; the run is
   written to the staff audit log with every change.
 
+On the production server the same commands are `console whmcs-sync` and
+`console whmcs-sync --apply --staff you@fourthgeneration.technology`.
+A new server's catalogue has no WHMCS products yet: the first applied sync
+creates them and links each one.
+
 It also sets each domain ending's register, renew and transfer prices
 through the API (`CreateOrUpdateTLD`). If two markets that are switched on
 share a currency (Zimbabwe and International are both USD) and approved

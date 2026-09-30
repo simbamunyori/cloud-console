@@ -25,13 +25,33 @@ export interface FrameContent {
   tagline: string | null;
   columns: { heading: string; links: FrameLink[] }[];
   contactHeading: string;
+  /** The market's contact details, with the editor's where it set them. */
+  contact: { email: string; phone: string | null; hours: string; address: string | null };
+  /** LinkedIn, Facebook and WhatsApp, each only when set. */
+  social: FrameLink[];
+}
+
+export interface FrameMarketContact {
+  code: string;
+  supportEmail: string;
+  supportPhone?: string | null;
+  supportHours?: string;
 }
 
 type LinkRow = { link?: CmsLinkValue | null };
 type HeaderData = { groups?: { icon?: string | null; title?: string | null; blurb?: string | null; links?: LinkRow[] | null }[] | null; menuNote?: string | null; menuLink?: CmsLinkValue | null; pages?: LinkRow[] | null };
-type FooterData = { tagline?: string | null; columns?: { heading?: string | null; links?: LinkRow[] | null }[] | null; contactHeading?: string | null };
+type FooterData = {
+  tagline?: string | null;
+  columns?: { heading?: string | null; links?: LinkRow[] | null }[] | null;
+  contactHeading?: string | null;
+  contact?: { email?: string | null; phone?: string | null; whatsapp?: string | null; hours?: string | null; address?: string | null } | null;
+  social?: { linkedin?: string | null; facebook?: string | null } | null;
+};
 
-export function frameContent(header: HeaderData, footer: FooterData, market: { code: string; supportEmail: string }): FrameContent {
+const clean = (v: string | null | undefined) => v?.trim() || null;
+
+/** `details` is the footer the contact and social links come from, when the links fall back to the built-in footer. */
+export function frameContent(header: HeaderData, footer: FooterData, market: FrameMarketContact, details: FooterData = footer): FrameContent {
   const resolve = (link: CmsLinkValue | null | undefined): FrameLink | null => {
     const href = linkHref(link, market);
     return href ? { label: link!.label!, href } : null;
@@ -48,5 +68,16 @@ export function frameContent(header: HeaderData, footer: FooterData, market: { c
     tagline: footer.tagline ?? null,
     columns: (footer.columns ?? []).flatMap((c) => (c.heading ? [{ heading: c.heading, links: all(c.links) }] : [])),
     contactHeading: footer.contactHeading || "Talk to us",
+    contact: {
+      email: clean(details.contact?.email) ?? market.supportEmail,
+      phone: clean(details.contact?.phone) ?? market.supportPhone ?? null,
+      hours: clean(details.contact?.hours) ?? market.supportHours ?? "",
+      address: clean(details.contact?.address),
+    },
+    social: [
+      ...(clean(details.social?.linkedin) ? [{ label: "LinkedIn", href: clean(details.social?.linkedin)! }] : []),
+      ...(clean(details.social?.facebook) ? [{ label: "Facebook", href: clean(details.social?.facebook)! }] : []),
+      ...(clean(details.contact?.whatsapp) ? [{ label: "WhatsApp", href: `https://wa.me/${clean(details.contact?.whatsapp)!.replace(/\D/g, "")}` }] : []),
+    ],
   };
 }

@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { cache } from "react";
 import { company } from "@/config/app";
+import { selection } from "@/server/cms/catalogue-options";
 import { SERVICES, type ServiceCard } from "@/config/site";
 import { todayIn } from "@/lib/dates";
 import { applyBps, money, type Money } from "@/lib/domain/money";
@@ -69,6 +70,12 @@ export const selected = (prices: SitePrice[], sel: { categories?: string[]; prod
 /** The cheapest of the selected products, or null when none is on sale in the market. */
 export function lowestPrice(prices: SitePrice[], sel: Parameters<typeof selected>[1]): SitePrice | null {
   return selected(prices, sel).sort((a, b) => (a.price.amountMinor < b.price.amountMinor ? -1 : 1))[0] ?? null;
+}
+
+/** The first on-sale product a catalogue choice names, with where to read about it, or null. */
+export async function relatedProduct(code: string, value: unknown): Promise<(SitePrice & { href: string }) | null> {
+  const product = selected(await sitePrices(code), selection(value))[0];
+  return product ? { ...product, href: `/${code}/pricing#cat-${product.categoryKey}` } : null;
 }
 
 /** Each service card with its lowest monthly price in the market's book. */

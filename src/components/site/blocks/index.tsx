@@ -21,6 +21,7 @@ import { lowestPrice, selected, siteMarket, sitePrices, taxNote } from "@/server
 import { CATCH_ALL } from "@/lib/domain/markets";
 import { DomainSearch, type HomeMarket } from "../home";
 import { SiteHero } from "../hero";
+import { InsightsStripSection } from "../insights";
 import { AssistantNotice as AssistantNoticeText, PageIntro as PageIntroHeader, ProseSection } from "../prose";
 import { fill, SiteRichText, type TextMarket } from "../rich-text";
 import {
@@ -395,6 +396,8 @@ function Block({ block, ctx }: { block: AnyBlock; ctx: BlockContext }) {
       return <LogoStrip block={block} ctx={ctx} />;
     case "callToAction":
       return <CallToAction block={block} ctx={ctx} />;
+    case "insightsStrip":
+      return <InsightsStripSection block={block} ctx={ctx} />;
     case "assistantNotice":
       return (
         <Section tone="plain" labelledBy={`${ctx.id}-title`}>

@@ -11,10 +11,10 @@ import { auditPublished, editorsWriteDrafts, publishingAccess } from "../publish
  */
 
 /** Addresses the site already uses, which a page can't take. */
-export const RESERVED_SLUGS = ["legal", "preview", "admin", "app", "media", "quote"];
+export const RESERVED_SLUGS = ["legal", "preview", "admin", "app", "media", "insights"];
 
-/** Pages with their own address and extras: pricing shows the price tables under its sections. */
-export const SPECIAL_SLUGS = ["home", "pricing", "security"];
+/** Pages with their own address and extras: pricing shows the price tables, quote the quote form. */
+export const SPECIAL_SLUGS = ["home", "pricing", "security", "quote"];
 
 /** "home" is the market's home page; any other slug is /<market>/<slug>. */
 export const pagePath = (slug: string | null | undefined) => (!slug || slug === "home" ? "" : `/${slug}`);
@@ -53,7 +53,7 @@ export const Pages: CollectionConfig = {
       required: true,
       unique: true,
       index: true,
-      admin: { position: "sidebar", description: "home is the market's home page, pricing and security are those pages. Anything else becomes /<market>/<address>, e.g. about." },
+      admin: { position: "sidebar", description: "home is the market's home page; pricing, security and quote are those pages. Anything else becomes /<market>/<address>, e.g. about." },
       validate: (value: unknown) => {
         const v = String(value ?? "");
         if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(v)) return "Lower-case letters, numbers and single dashes, e.g. about-us.";

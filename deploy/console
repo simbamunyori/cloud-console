@@ -5,7 +5,8 @@
 #   console status                         which release is live, and its health
 #   console logs                           follow the app's log
 #   console create-admin "Name" email      create a staff Admin (asks for a password)
-#   console backup                         take a backup now (also copied off-site)
+#   console whmcs-sync [--apply --staff you@...]  put approved prices into WHMCS
+#   console backup                         take a backup now (off-site too once set up)
 #   console restore-test                   prove the newest backup restores
 #   console rollback <release>             start an earlier release again
 #   console releases                       list the releases kept on the server
@@ -27,6 +28,10 @@ case "${1:-}" in
     need_current
     compose "$current" exec app node ops.cjs create-admin "${@:2}"
     ;;
+  whmcs-sync)
+    need_current
+    compose "$current" exec app node ops.cjs whmcs-sync "${@:2}"
+    ;;
   backup) need_current; compose "$current" run --rm backup /backup.sh ;;
   restore-test) need_current; compose "$current" run --rm backup /restore-test.sh ;;
   releases) ls -1t "$home/releases" ;;
@@ -38,5 +43,5 @@ case "${1:-}" in
     ln -sfn "$home/releases/$to" "$home/current"
     echo "Started $to. Database changes made by later releases stay in place."
     ;;
-  *) sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//'; exit 1 ;;
+  *) sed -n '2,13p' "$0" | sed 's/^# \{0,1\}//'; exit 1 ;;
 esac
