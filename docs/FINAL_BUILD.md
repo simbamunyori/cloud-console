@@ -185,6 +185,18 @@ New partner products follow the same path: I sign a partner, a staff member adds
 
 ---
 
+## Milestone 9b: existing client migration (before launch)
+
+Bring existing clients over from Odoo before launch, without changing what they pay or when they pay it.
+
+1. **Import tool** from the Odoo exports (customers, contacts, active services, domains, unpaid invoices), with a dry-run report I approve before anything is written.
+2. **Legacy prices:** each migrated service maps to the closest catalogue product but keeps the customer's existing price as a per-service recurring price, flagged "legacy price", with an optional review date. Price book changes never alter legacy prices. Services with no matching product go into a hidden "Legacy services" product group. New customers always use the price books.
+3. **Opening balances** for unpaid invoices, and next due dates carried over so nobody is billed early, late or twice.
+4. **Services hosted elsewhere** (Contabo, SiteGround, other): each service records its location (provider, server or account, notes). Suspend, unsuspend and cancel create staff tasks with reminders instead of automatic actions, and the customer sees the service like any other. A "move to our servers" action switches it to automatic management later.
+5. **Welcome emails** inviting migrated customers to the console, sent only when I choose the cutover date.
+
+---
+
 ## Milestone 10: launch
 
 1. Final checks: test purchases end to end (domain, Microsoft 365 fulfilled by hand, bank transfer), accessibility and Lighthouse checks, screenshots at 390 and 1440 px, light and dark.
