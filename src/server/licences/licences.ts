@@ -115,6 +115,30 @@ export function unusedLicences(tenants: TenantView[]): UnusedLicence[] {
   return tenants.flatMap((t) => t.licences.filter((l) => l.unused > 0).map((l) => ({ vendorLabel: t.vendorLabel, name: l.name, unused: l.unused, purchased: l.purchased })));
 }
 
+// ─── Seats ───────────────────────────────────────────────────────────
+
+/**
+ * The tenant licence a billed service pays for: the one named like it
+ * ("Microsoft 365 Business Standard"), with how many are held or about to
+ * be. Null when the account has no such licence recorded.
+ */
+export async function licenceForService(db: Pick<TenantDb, "tenantLicence" | "licenceChange">, serviceName: string) {
+  const licence = await db.tenantLicence.findFirst({ where: { name: serviceName }, include: { _count: { select: { assignments: true } } } });
+  if (!licence) return null;
+  const waiting = await db.licenceChange.count({ where: { licenceId: licence.id, status: "PENDING", kind: { in: ["ASSIGN", "ADD_USER"] } } });
+  return { id: licence.id, name: licence.name, purchased: licence.purchased, inUse: licence._count.assignments + waiting };
+}
+
+/** Refuses to lower a service's seats below the licences people hold. */
+export function assertSeatFloor(licence: { name: string; inUse: number } | null, to: number) {
+  if (!licence || to >= licence.inUse) return;
+  throw new DomainError(
+    "invalid",
+    `${licence.inUse} people hold ${licence.name}. Take back ${licence.inUse - to} in Users and licences before lowering to ${to}.`,
+    "quantity",
+  );
+}
+
 // ─── Customer changes ────────────────────────────────────────────────
 
 export type ChangeInput =

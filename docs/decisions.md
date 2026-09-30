@@ -126,6 +126,10 @@ What the console assumes, decided or leaves out, for review before launch. Each 
 83. **Changes go through a tenant provider, set by `TENANT_PROVIDER`.** `stub` applies a change at once (demos, CI) and is listed as a placeholder in production. `manual` makes each change a Productivity task for staff and shows it as waiting; marking the task done applies it. Owners and admins make changes. The Microsoft (CSP and Graph) and Google (Reseller and Directory) providers replace `manual` once those accounts are signed.
 84. **Until then staff keep the copy in step with the partner portal** at /admin/customers/(id)/licences: link a tenant, record licence counts (never below the number in use) and record people. Provisioning and Admin staff can edit; every step is in the customer's activity log.
 
+85. **Seats never drop below the licences in use** (Phase 3, part 2). Lowering a service's seats is refused while more people hold that licence, and says how many to take back first. A seat change sets the tenant's licence count to the new number.
+86. **A nightly licence check compares billed seats, licences bought and licences held** for every tenant (03:30 Gaborone). Each gap becomes one staff task, not repeated while it is open.
+87. **Setting a tenant up is a checklist the customer sees.** Staff start a setup (new tenant or transfer) with the vendor's domain verification value. The customer sees the DNS records with a Check now button (the domain counts as proven the first time the verification record is found), books the day their email moves (at least two working days out, one staff task that follows any rebooking), and for a transfer works through four steps: two theirs, two ours. Customers can ask for a transfer themselves from the empty Users and licences page. Staff finish the setup.
+
 ## Carried over from the Phase 1 go-ahead
 
 Checked for Change Request 01, section 6:

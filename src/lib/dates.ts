@@ -121,3 +121,23 @@ export function mondayOf(d: Date): Date {
 export function formatShortWeekday(d: Date): string {
   return `${WEEKDAYS[d.getUTCDay()].slice(0, 3)} ${formatDay(d)}`;
 }
+
+/** The instant a wall-clock time falls on in a time zone: "2026-10-09" at "17:00" in Africa/Gaborone. Null when either is malformed. */
+export function zonedTime(dateOnly: string, hhmm: string, timeZone: string): Date | null {
+  const day = parseDateOnly(dateOnly);
+  const m = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(hhmm);
+  if (!day || !m) return null;
+  const wall = day.getTime() + (Number(m[1]) * 60 + Number(m[2])) * 60_000;
+  const offset = (at: number) => {
+    const p = Object.fromEntries(
+      new Intl.DateTimeFormat("en-GB", { timeZone, year: "numeric", month: "numeric", day: "numeric", hour: "numeric", minute: "numeric", hourCycle: "h23" })
+        .formatToParts(new Date(at))
+        .map((x) => [x.type, Number(x.value)]),
+    );
+    return Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute) - Math.floor(at / 60_000) * 60_000;
+  };
+  // Twice, so a guess on the wrong side of a clock change settles.
+  let at = wall - offset(wall);
+  at = wall - offset(at);
+  return new Date(at);
+}

@@ -180,6 +180,7 @@ model Organisation {
   tenantUsers        TenantUser[]
   licenceAssignments LicenceAssignment[]
   licenceChanges     LicenceChange[]
+  tenantOnboardings  TenantOnboarding[]
 }
 
 enum UserKind {
@@ -871,12 +872,52 @@ model Tenant {
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 
-  organisation Organisation    @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  organisation Organisation      @relation(fields: [organisationId], references: [id], onDelete: Restrict)
   licences     TenantLicence[]
   users        TenantUser[]
   changes      LicenceChange[]
+  onboarding   TenantOnboarding?
 
   @@unique([organisationId, vendor])
+}
+
+enum OnboardingKind {
+  /// A tenant we set up from nothing.
+  NEW
+  /// The customer's existing subscription, brought across from another provider.
+  TRANSFER
+}
+
+/// Getting a tenant ready: the DNS records the customer adds, the email
+/// move they book, and for a transfer, the checklist. Finished by staff.
+model TenantOnboarding {
+  id                String         @id @default(cuid())
+  organisationId    String
+  tenantId          String         @unique
+  kind              OnboardingKind
+  /// The vendor's domain verification value, e.g. MS=ms48213377, from the partner portal.
+  verificationValue String?
+  domainVerifiedAt  DateTime?
+  dnsCheckedAt      DateTime?
+  /// The last check, record by record.
+  dnsResults        Json?
+  /// For a transfer: the vendor's link for accepting us as partner.
+  partnerInviteUrl  String?
+  /// Where their email is now, e.g. "Google Workspace" or "Our web host".
+  migrationSource   String?
+  migrationStartsAt DateTime?
+  migrationNotes    String?
+  migrationTaskId   String?
+  /// Checklist items done, by key: { at, by }.
+  checklist         Json           @default("{}")
+  completedAt       DateTime?
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  tenant       Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([organisationId])
 }
 
 /// A kind of licence the tenant holds, and how many were bought.

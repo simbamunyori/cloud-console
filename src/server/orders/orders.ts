@@ -12,6 +12,7 @@ import { audienceFor } from "@/server/catalogue/visibility";
 import { connectorFor } from "@/server/connectors/registry";
 import type { TenantDb } from "@/server/db";
 import { queueEmail } from "@/server/email/outbox";
+import { assertSeatFloor, licenceForService } from "@/server/licences/licences";
 import { assertCan, DomainError, type Actor } from "@/server/org/access";
 import { audit, customerAudit } from "@/server/org/audit";
 import { hasLegalText } from "@/server/cms/legal";
@@ -191,6 +192,8 @@ async function quantityChange(deps: OrderDeps, serviceId: string, rawQuantity: s
   if (!product || !product.quantityAllowed) throw new DomainError("invalid", "The number of users can't be changed for this service. Contact support to change it.");
   const to = parseQuantity(product, rawQuantity);
   if (to === service.quantity) throw new DomainError("invalid", `It already has ${to}.`, "quantity");
+  // Seats never drop below the licences people hold in the tenant.
+  if (to < service.quantity) assertSeatFloor(await licenceForService(deps.db, service.name), to);
   const month = monthOf(todayIn(deps.organisation.timeZone, deps.now));
   // Existing customers keep adding users at the book price, even if the product is no longer offered to new ones.
   const unitPrice = await approvedPrice(catalogueDb(deps.db), marketOf(deps), productItem(product.slug), month);
@@ -256,6 +259,8 @@ export async function changeQuantity(deps: OrderDeps, serviceId: string, quantit
       now,
     );
     const updated = await tx.order.update({ where: { id: order.id }, data: { expectedBy: result.expectedBy } });
+    // The tenant's licence count follows what the customer pays for; the nightly check flags any gap with the vendor.
+    await tx.tenantLicence.updateMany({ where: { name: change.serviceName }, data: { purchased: change.to } });
     await audit(
       tx,
       customerAudit(deps.actor, deps.organisation.id, {

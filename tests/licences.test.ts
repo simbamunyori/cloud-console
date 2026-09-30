@@ -1,6 +1,12 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import { completeTask } from "../src/server/admin/tasks";
+import { monthOf } from "../src/lib/domain/pricing";
+import { scopedBilling } from "../src/server/billing/scoped";
+import { seedStubCatalogue } from "../src/server/billing/stub/catalogue";
 import { StubBillingAdapter } from "../src/server/billing/stub/stub-adapter";
+import { seedCatalogue } from "../src/server/catalogue/seed-data";
+import { reconcileLicences, RECONCILE_KIND } from "../src/server/licences/reconcile";
+import { changeQuantity, placeOrder, type OrderDeps } from "../src/server/orders/orders";
 import { linkTenant, recordLicence, recordTenantUser, requestLicenceChange, tenantOverview, unusedLicences } from "../src/server/licences/licences";
 import { ManualTenantProvider, StubTenantProvider } from "../src/server/licences/provider";
 import type { StaffActor } from "../src/server/staff/access";
@@ -129,5 +135,54 @@ describe.skipIf(!hasDb)("users and licences", () => {
     await expect(linkTenant({ db, staff: await staff("FINANCE") }, o.organisationId, { vendor: "GOOGLE", primaryDomain: "tlokweng.com" })).rejects.toMatchObject({ code: "forbidden" });
     const log = await o.tenant.auditEvent.findMany({ where: { action: { startsWith: "tenant." } } });
     expect(log.every((e) => e.actorKind === "STAFF" && e.visibleToCustomer)).toBe(true);
+  });
+
+  describe("seats and the nightly check", () => {
+    beforeAll(async () => {
+      const ids = await seedStubCatalogue(db);
+      const prev = new Date();
+      prev.setUTCMonth(prev.getUTCMonth() - 1);
+      await seedCatalogue(db, ids, [monthOf(prev), monthOf(new Date())]);
+    });
+
+    /** Microsoft 365 Business Standard with 3 seats, live, and a tenant where all 3 are held. */
+    async function withSeats() {
+      const o = await withTenant();
+      const billing = await scopedBilling(db, stubBilling, o.organisationId);
+      const organisation = await db.organisation.findUniqueOrThrow({ where: { id: o.organisationId } });
+      const deps: OrderDeps = { db: o.tenant, billing, organisation, actor: o.owner };
+      const order = await placeOrder(deps, { slug: "microsoft-365-business-standard", quantity: 3, options: { domain: "tlokweng.co.bw" }, startNow: true });
+      await completeTask({ db, adapter: stubBilling, staff: o.provisioning }, (await db.provisioningTask.findFirstOrThrow({ where: { orderId: order.id } })).id);
+      await requestLicenceChange(o.tenant, { organisationId: o.organisationId, organisationName: "Tlokweng Traders", actor: o.owner, provider: new StubTenantProvider() }, { kind: "ASSIGN", tenantUserId: o.scanner.id, licenceId: o.standard.id });
+      return { ...o, deps, serviceId: order.billingServiceIds[0] };
+    }
+
+    it("never lowers seats below the licences people hold, and keeps the tenant's count in step", async () => {
+      const o = await withSeats();
+      await expect(changeQuantity(o.deps, o.serviceId, 2)).rejects.toMatchObject({ code: "invalid", field: "quantity", message: "3 people hold Microsoft 365 Business Standard. Take back 1 in Users and licences before lowering to 2." });
+      await requestLicenceChange(o.tenant, { organisationId: o.organisationId, organisationName: "Tlokweng Traders", actor: o.owner, provider: new StubTenantProvider() }, { kind: "REMOVE_USER", tenantUserId: o.kabo.id });
+      await changeQuantity(o.deps, o.serviceId, 2);
+      expect((await db.tenantLicence.findUniqueOrThrow({ where: { id: o.standard.id } })).purchased).toBe(2);
+      await changeQuantity(o.deps, o.serviceId, 4);
+      expect((await db.tenantLicence.findUniqueOrThrow({ where: { id: o.standard.id } })).purchased).toBe(4);
+    });
+
+    it("opens one staff task for each gap between billing and the tenant", async () => {
+      const o = await withSeats();
+      const mine = (gaps: Awaited<ReturnType<typeof reconcileLicences>>) => gaps.filter((g) => g.organisationId === o.organisationId);
+      expect(mine(await reconcileLicences(db, stubBilling))).toEqual([]);
+
+      // The portal shows 2 bought though billing charges for 3, and 3 people hold one.
+      await db.tenantLicence.update({ where: { id: o.standard.id }, data: { purchased: 2 } });
+      const gaps = mine(await reconcileLicences(db, stubBilling));
+      expect(gaps.map((g) => g.problem).sort()).toEqual(["billing-differs", "over-assigned"]);
+      await reconcileLicences(db, stubBilling);
+      const tasks = await db.provisioningTask.findMany({ where: { organisationId: o.organisationId, kind: RECONCILE_KIND }, orderBy: { title: "asc" } });
+      expect(tasks.map((t) => t.title)).toEqual([
+        "3 people hold Microsoft 365 Business Standard but 2 are bought (Tlokweng Traders)",
+        "Microsoft 365 Business Standard: billed for 3, tenant has 2 (Tlokweng Traders)",
+      ]);
+      expect(tasks[1].instructions).toMatch(/buy the rest: the customer is already paying for them/);
+    });
   });
 });

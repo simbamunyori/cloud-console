@@ -9,10 +9,13 @@ import { PageHeader } from "@/components/ui/page-header";
 import { formatMoment } from "@/lib/dates";
 import { cn } from "@/lib/cn";
 import { tenantOverview, type LicenceView, type PendingView } from "@/server/licences/licences";
+import { onboardings } from "@/server/licences/onboarding";
 import { MANUAL_CHANGE_HOURS, tenantProvider } from "@/server/licences/provider";
 import { can } from "@/server/org/access";
 import { requireMember } from "@/server/org/context";
 import { AddPerson, PersonActions } from "./forms";
+import { TransferForm } from "./setup-forms";
+import { SetupPanel } from "./setup-panel";
 
 export const metadata: Metadata = { title: "Users and licences" };
 
@@ -43,7 +46,7 @@ function LicenceCard({ l }: { l: LicenceView }) {
 
 export default async function LicencesPage() {
   const { db, actor, organisation } = await requireMember();
-  const tenants = await tenantOverview(db);
+  const [tenants, setups] = await Promise.all([tenantOverview(db), onboardings(db)]);
   const manage = can(actor, "manageLicences");
   const provider = tenantProvider();
 
@@ -62,16 +65,19 @@ export default async function LicencesPage() {
                 Once we set up Microsoft 365 or Google Workspace for you, or bring the one you already have across, everyone in it and their licences show here. Unused licences are flagged so you stop paying for them.
               </p>
             </div>
-            <div className="flex flex-wrap gap-3">
-              <Button asChild>
-                <Link href="/app/marketplace">Browse the marketplace</Link>
-              </Button>
-              <Button asChild variant="secondary">
-                <Link href="/app/support/new">Ask us to bring yours across</Link>
-              </Button>
-            </div>
+            <Button asChild>
+              <Link href="/app/marketplace">Set up something new</Link>
+            </Button>
           </CardBody>
         </Card>
+        {manage ? (
+          <Card aria-labelledby="transfer-title" className="mt-6">
+            <CardHeader id="transfer-title" title="Already have Microsoft 365 or Google Workspace?" description="We bring it across as it is: the same people, email and files. You only change who bills you." />
+            <CardBody>
+              <TransferForm />
+            </CardBody>
+          </Card>
+        ) : null}
       </>
     );
   }
@@ -88,6 +94,7 @@ export default async function LicencesPage() {
           const removed = t.users.filter((u) => !u.enabled);
           const unused = t.licences.reduce((n, l) => n + l.unused, 0);
           const options = t.licences.map((l) => ({ id: l.id, name: l.name, free: l.free }));
+          const setup = setups.find((o) => o.tenantId === t.id && !o.completedAt);
           return (
             <section key={t.id} aria-labelledby={`tenant-${t.id}`} className="flex flex-col gap-5">
               <div className="flex flex-wrap items-end justify-between gap-3">
@@ -101,6 +108,8 @@ export default async function LicencesPage() {
                   </p>
                 </div>
               </div>
+
+              {setup ? <SetupPanel o={setup} manage={manage} timeZone={organisation.timeZone} /> : null}
 
               {unused > 0 ? (
                 <div className="flex items-start gap-3 rounded-lg border border-warning bg-warning-soft px-4 py-3 text-callout">
@@ -125,6 +134,11 @@ export default async function LicencesPage() {
 
               <Card aria-labelledby={`people-${t.id}`}>
                 <CardHeader id={`people-${t.id}`} title={`People (${active.length})`} action={manage ? <AddPerson tenantId={t.id} domain={t.primaryDomain} licences={options} /> : undefined} />
+                {!active.length && !t.pendingUsers.length ? (
+                  <CardBody>
+                    <p className="text-ink-muted">{setup ? "Your people show here once we've checked what's in your subscription." : "No one yet."}</p>
+                  </CardBody>
+                ) : null}
                 <ul className="divide-y divide-border">
                   {t.pendingUsers.map((p) => (
                     <li key={p.id} className="flex flex-col gap-2 px-5 py-4 sm:flex-row sm:items-center sm:px-6">

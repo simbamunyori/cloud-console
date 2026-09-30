@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addMonths, daysBetween, endOfMonth, formatDay, formatLongDate, formatMoment, formatRange, parseDateOnly, startOfMonth, todayIn, toDateOnly } from "./dates";
+import { addMonths, daysBetween, endOfMonth, formatDay, formatLongDate, formatMoment, formatRange, parseDateOnly, startOfMonth, todayIn, toDateOnly, zonedTime } from "./dates";
 
 describe("dates", () => {
   it("parses only real calendar dates", () => {
@@ -51,5 +51,15 @@ describe("addMonths", () => {
   it("counts days between dates", () => {
     expect(daysBetween(d("2026-09-01"), d("2026-10-01"))).toBe(30);
     expect(daysBetween(d("2026-10-01"), d("2026-09-01"))).toBe(-30);
+  });
+});
+
+describe("zonedTime", () => {
+  it("turns a wall-clock time in a time zone into an instant", () => {
+    expect(zonedTime("2026-10-09", "17:00", "Africa/Gaborone")?.toISOString()).toBe("2026-10-09T15:00:00.000Z");
+    expect(zonedTime("2026-10-09", "08:30", "UTC")?.toISOString()).toBe("2026-10-09T08:30:00.000Z");
+    expect(zonedTime("2026-07-01", "09:00", "Europe/London")?.toISOString()).toBe("2026-07-01T08:00:00.000Z");
+    expect(zonedTime("2026-13-01", "09:00", "UTC")).toBeNull();
+    expect(zonedTime("2026-10-09", "25:00", "UTC")).toBeNull();
   });
 });
