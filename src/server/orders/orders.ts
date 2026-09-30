@@ -298,9 +298,20 @@ export async function searchDomains(
   query: string,
   month: string,
 ): Promise<DomainResult[]> {
+  return findDomains(catalogueDb(db), (name) => billing.checkDomain(name), market, query, month);
+}
+
+/** The search itself, for the console (a customer's billing) and the public site (the shared adapter). */
+export async function findDomains(
+  catalogue: PrismaClient,
+  check: (name: string) => Promise<DomainAvailability>,
+  market: { code: string; currency: string; highlightedTlds: string[] },
+  query: string,
+  month: string,
+): Promise<DomainResult[]> {
   const q = query.trim().toLowerCase().replace(/^https?:\/\//, "").replace(/^www\./, "").replace(/\/.*$/, "");
   if (!q) return [];
-  const offers = await tldOffers(catalogueDb(db), market, month);
+  const offers = await tldOffers(catalogue, market, month);
   const byLength = [...offers].sort((a, b) => b.tld.length - a.tld.length);
   const ending = byLength.find((o) => q.endsWith(o.tld));
   const label = ending ? q.slice(0, -ending.tld.length) : q.includes(".") ? q.slice(0, q.indexOf(".")) : q;
@@ -308,12 +319,12 @@ export async function searchDomains(
   const names = [...new Set([q.includes(".") ? q : null, ...offers.slice(0, SUGGESTIONS).map((o) => label + o.tld)].filter((n): n is string => Boolean(n)))];
   const results: DomainResult[] = [];
   for (const name of names) {
-    const check = await billing.checkDomain(name).catch((e) => {
+    const found = await check(name).catch((e) => {
       if (e instanceof BillingError && e.code === "invalid") return { name, supported: false, available: false };
       throw e;
     });
-    const offer = byLength.find((o) => check.name.endsWith(o.tld));
-    results.push({ ...check, supported: check.supported && Boolean(offer), price: offer?.register ?? null });
+    const offer = byLength.find((o) => found.name.endsWith(o.tld));
+    results.push({ ...found, supported: found.supported && Boolean(offer), price: offer?.register ?? null });
   }
   return results;
 }

@@ -7,3 +7,5 @@ rmSync("public/brand", { recursive: true, force: true });
 mkdirSync("public/brand", { recursive: true });
 cpSync("brand/logo", "public/brand/logo", { recursive: true });
 cpSync("brand/icons/web", "public/brand/icons", { recursive: true });
+// Thebe, our software, in its own brand (docs/design).
+cpSync("brand/thebe", "public/brand/thebe", { recursive: true });

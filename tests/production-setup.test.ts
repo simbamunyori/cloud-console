@@ -70,13 +70,14 @@ describe("SUPPORT_EMAIL on a new server", () => {
 });
 
 describe("the launch catalogue on a new production server", () => {
-  /** Records every write; the database starts with the given number of products. */
-  function fakeDb(products: number) {
+  /** Records every write; the database starts with the given number of products, and the plans unless told otherwise. */
+  function fakeDb(products: number, plans = products > 0) {
     const writes: { model: string; create: Record<string, unknown> }[] = [];
     const model = (name: string) => ({
       upsert: async ({ create }: { create: Record<string, unknown> }) => (writes.push({ model: name, create }), create),
       count: async () => products,
       findMany: async () => [{ code: "bw" }, { code: "za" }],
+      findUnique: async () => (plans ? { key: "plans" } : null),
     });
     const db = new Proxy({}, { get: (_, name: string) => model(name) });
     return { db: db as never, writes };
@@ -96,5 +97,14 @@ describe("the launch catalogue on a new production server", () => {
     const { db, writes } = fakeDb(3);
     expect(await loadLaunchCatalogue(db)).toBe(false);
     expect(writes).toHaveLength(0);
+  });
+
+  it("adds only the plans, without prices, to a server that loaded the catalogue before them", async () => {
+    const { db, writes } = fakeDb(3, false);
+    expect(await loadLaunchCatalogue(db)).toBe(true);
+    const products = writes.filter((w) => w.model === "product");
+    expect(products.map((p) => p.create.slug)).toEqual(PRODUCTS.filter((p) => p.category === "plans").map((p) => p.slug));
+    expect(products.every((p) => p.create.status === "INTERNAL")).toBe(true);
+    expect(writes.some((w) => w.model === "tld" || w.model === "priceBookEntry")).toBe(false);
   });
 });

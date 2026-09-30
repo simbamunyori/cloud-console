@@ -64,6 +64,15 @@ async function main() {
             if (!path) continue;
             await page.goto(`${BASE}${path}`, { waitUntil: "load" });
             await settled(page);
+            // Sections below the fold (defer-render) take their real height only once
+            // they have been in view, so scroll through the page before measuring it.
+            await page.evaluate(async () => {
+              for (let y = 0; y < document.documentElement.scrollHeight; y += 600) {
+                window.scrollTo(0, y);
+                await new Promise((r) => requestAnimationFrame(() => r(null)));
+              }
+              window.scrollTo(0, 0);
+            });
             // Grow the window to the page's height rather than stitching a full-page
             // capture, so the sticky sidebar and header sit as they would on a tall screen.
             const height = Math.min(MAX_HEIGHT, await page.evaluate(() => document.documentElement.scrollHeight));

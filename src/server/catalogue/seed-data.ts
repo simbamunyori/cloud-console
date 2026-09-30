@@ -98,6 +98,46 @@ export const CATEGORIES: CategorySeed[] = [
   { key: "public-cloud", name: "Public cloud", description: "Microsoft Azure, set up and looked after by us.", familyKey: "public-cloud", marginBps: 1500, sortOrder: 5 },
   { key: "our-software", name: "Our software", description: "Software we build and run on our own platform.", familyKey: "our-software", marginBps: 0, sortOrder: 6 },
   { key: "services", name: "Services", description: "Help from our team, every month.", familyKey: "services", marginBps: 0, sortOrder: 7 },
+  { key: "plans", name: "Plans", description: "One price for the whole business: a monthly price per business plus a price per user.", familyKey: "services", marginBps: 0, sortOrder: 8 },
+];
+
+/** The three plans, each a price per business and a price per user. Their words are the home page's comparison table. */
+export const PLAN_SLUGS = ["plan-start", "plan-grow", "plan-protect"] as const;
+export type PlanSlug = (typeof PLAN_SLUGS)[number];
+
+const plan = (key: "start" | "grow" | "protect", name: string, summary: string, includes: string[], base: bigint, perUser: bigint): ProductSeed[] => [
+  {
+    slug: `plan-${key}`,
+    category: "plans",
+    name: `${name} plan`,
+    summary,
+    includes: [...includes, "Setup, migration, support and management by our team"],
+    excludes: ["Microsoft 365 and Google Workspace licences, which are their own lines on your invoice"],
+    unitLabel: "per business",
+    cost: [0n, "BWP"],
+    // Demo prices for development. The launch catalogue loads plans as internal: staff set the real prices and put them live.
+    fixedPrice: [base, "BWP"],
+    setupHours: 16,
+    commitmentNote: "Billed monthly. Cancel any time with a month's notice.",
+    billing: `plan-${key}`,
+    status: "INTERNAL",
+  },
+  {
+    slug: `plan-${key}-users`,
+    category: "plans",
+    name: `${name} plan, users`,
+    summary: `Each person using the ${name} plan.`,
+    includes: ["Everything in the plan for one more person"],
+    excludes: [],
+    unitLabel: "per user",
+    quantityAllowed: true,
+    cost: [0n, "BWP"],
+    fixedPrice: [perUser, "BWP"],
+    setupHours: 4,
+    commitmentNote: SEAT_TERMS,
+    billing: `plan-${key}-users`,
+    status: "INTERNAL",
+  },
 ];
 
 const m365 = (slug: string, name: string, cost: bigint, billing: StubProductKey, summary: string, includes: string[]): ProductSeed => ({
@@ -345,6 +385,9 @@ export const PRODUCTS: ProductSeed[] = [
     commitmentNote: "Billed monthly. Three months' notice to cancel.",
     billing: "managed-support",
   },
+  ...plan("start", "Start", "A domain, a basic mailbox and a website builder, set up by our team.", ["1 domain name", "Basic mailbox", "Website builder"], 95000n, 22000n),
+  ...plan("grow", "Grow", "Microsoft 365 or Google Workspace, signatures on every device and daily backup.", ["1 domain name", "Microsoft 365 or Google Workspace", "Website builder with online store", "Branded signatures on every device", "Daily backup", "Priority support"], 148000n, 35000n),
+  ...plan("protect", "Protect", "Business Premium, device protection, disaster recovery and advanced email security.", ["1 domain name", "Microsoft 365 Business Premium", "Website builder with online store", "Device protection and monitoring", "Advanced email security", "Daily backup and disaster recovery", "Urgent issues answered around the clock"], 240000n, 52000n),
   {
     slug: DOMAIN_PRODUCT_SLUG,
     category: "web",
@@ -397,7 +440,8 @@ export const PLACEHOLDER_RATES: { base: string; quote: string; rateMicros: bigin
  * any empty price book with the suggestions for the first month given, as
  * if approved.
  */
-export async function seedCatalogue(db: PrismaClient, billingIds: Partial<Record<StubProductKey, string>> | "sync", months: string[]) {
+export async function seedCatalogue(db: PrismaClient, billingIds: Partial<Record<StubProductKey, string>> | "sync", months: string[], only?: (p: ProductSeed) => boolean) {
+  const partial = Boolean(only);
   const allMarkets = (await db.market.findMany({ orderBy: { sortOrder: "asc" }, select: { code: true } })).map((m) => m.code);
   for (const f of FAMILIES) {
     await db.productFamily.upsert({ where: { key: f.key }, update: {}, create: { ...f, status: f.status ?? "LIVE" } });
@@ -406,6 +450,7 @@ export async function seedCatalogue(db: PrismaClient, billingIds: Partial<Record
     await db.productCategory.upsert({ where: { key: c.key }, update: {}, create: c });
   }
   for (const [i, p] of PRODUCTS.entries()) {
+    if (only && !only(p)) continue;
     const billingProductId = billingIds === "sync" ? null : billingIds[p.billing];
     if (billingProductId === undefined) throw new Error(`No billing product for ${p.slug}.`);
     await db.product.upsert({
@@ -435,7 +480,8 @@ export async function seedCatalogue(db: PrismaClient, billingIds: Partial<Record
       },
     });
   }
-  for (const [i, t] of TLDS.entries()) {
+  // Adding a few products (the plans) leaves the domain endings as staff keep them.
+  for (const [i, t] of partial ? [] : TLDS.entries()) {
     await db.tld.upsert({
       where: { tld: t.tld },
       update: { sortOrder: i },
@@ -491,7 +537,18 @@ async function seedPriceBook(db: PrismaClient, marketCode: string, month: string
  * show on the site. Returns whether it loaded anything.
  */
 export async function loadLaunchCatalogue(db: PrismaClient): Promise<boolean> {
-  if (await db.product.count()) return false;
+  if (await db.product.count()) return addPlans(db);
   await seedCatalogue(db, "sync", []);
+  return true;
+}
+
+/**
+ * The plans came after the launch catalogue: a server that loaded it
+ * before gets them once, as internal products without prices. Nothing
+ * else is touched. Returns whether it added them.
+ */
+async function addPlans(db: PrismaClient): Promise<boolean> {
+  if (await db.productCategory.findUnique({ where: { key: "plans" } })) return false;
+  await seedCatalogue(db, "sync", [], (p) => p.category === "plans");
   return true;
 }

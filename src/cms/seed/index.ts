@@ -34,6 +34,14 @@ export async function seedWebsite(payload: Payload): Promise<string | null> {
   };
 
   await once("home", "the home page", page("home", "Home", homeLayout));
+  // Milestone 3 (docs/FINAL_BUILD.md): the home page, header and footer as designed replace the first versions, once.
+  // Earlier versions stay in each document's version history.
+  await once("home-designed", "the home page as designed", async () => {
+    const { docs } = await payload.find({ collection: "pages", where: { slug: { equals: "home" } }, limit: 1, overrideAccess: true, draft: true });
+    if (!docs[0]) return page("home", "Home", homeLayout)();
+    for (const l of MARKET_LOCALES) await payload.update({ collection: "pages", id: docs[0].id, locale: l.code, data: { layout: homeLayout(l.code), _status: "published" }, overrideAccess: true });
+    return true;
+  });
   await once("pricing", "the pricing page", page("pricing", "Pricing", pricingLayout));
   await once("security", "the security page", page("security", "Security", securityLayout));
   await once("quote", "the quote page", page("quote", "Ask for a quote", quoteLayout));
@@ -61,6 +69,14 @@ export async function seedWebsite(payload: Payload): Promise<string | null> {
   });
   await once("footer", "the footer", async () => {
     await payload.updateGlobal({ slug: "footer", data: { ...DEFAULT_FOOTER, _status: "published" }, overrideAccess: true });
+    return true;
+  });
+  await once("header-designed", "the header as designed", async () => {
+    for (const l of MARKET_LOCALES) await payload.updateGlobal({ slug: "header", locale: l.code, data: { ...DEFAULT_HEADER, _status: "published" }, overrideAccess: true });
+    return true;
+  });
+  await once("footer-designed", "the footer as designed", async () => {
+    for (const l of MARKET_LOCALES) await payload.updateGlobal({ slug: "footer", locale: l.code, data: { ...DEFAULT_FOOTER, _status: "published" }, overrideAccess: true });
     return true;
   });
 

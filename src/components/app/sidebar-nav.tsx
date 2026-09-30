@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  Activity,
   Boxes,
   ChartColumn,
   Globe,
@@ -52,6 +53,7 @@ const ICONS = {
   quotes: FileText,
   website: SquarePen,
   staff: UserCog,
+  status: Activity,
 };
 
 export interface NavItem {

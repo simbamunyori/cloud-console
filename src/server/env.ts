@@ -43,8 +43,16 @@ const schema = z.object({
   GEOLITE2_DB_PATH: optionalText(),
   /** Comma-separated IPs or IPv4 ranges (CIDR) allowed to open /admin. Empty allows any address. */
   ADMIN_IP_ALLOWLIST: z.string().default(""),
-  /** The service status page linked from the site footer. The link is hidden while this is unset. */
+  /** An outside service status page. While unset, the site's status links go to its own /status page. */
   STATUS_PAGE_URL: optionalUrl(),
+  /** Thebe's sign-up or trial page ("Try Thebe"). The button is hidden while this is unset. */
+  THEBE_TRY_URL: optionalUrl(),
+  /** Thebe's own website ("Learn more about Thebe"). Hidden while unset. */
+  THEBE_URL: optionalUrl(),
+  /** Where to book a Thebe demo, for the Expense management menu. Hidden while unset. */
+  THEBE_DEMO_URL: optionalUrl(),
+  /** NSMC's website, for the on-site IT line. The line is hidden while this is unset. */
+  NSMC_URL: optionalUrl(),
   /** Set to "off" to stop background jobs on this server. */
   CONSOLE_JOBS: z.enum(["on", "off"]).default("on"),
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),

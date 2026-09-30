@@ -11,7 +11,7 @@ import { auditPublished, editorsWriteDrafts, publishingAccess } from "../publish
  */
 
 /** Addresses the site already uses, which a page can't take. */
-export const RESERVED_SLUGS = ["legal", "preview", "admin", "app", "media", "insights"];
+export const RESERVED_SLUGS = ["legal", "preview", "admin", "app", "media", "insights", "status", "help", "newsletter", "cart"];
 
 /** Pages with their own address and extras: pricing shows the price tables, quote the quote form. */
 export const SPECIAL_SLUGS = ["home", "pricing", "security", "quote"];

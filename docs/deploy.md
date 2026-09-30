@@ -41,6 +41,8 @@ On the server everything lives in `/opt/console`:
 | `WHMCS_API_IDENTIFIER`, `WHMCS_API_SECRET` | The console's API credential (docs/whmcs-setup.md, step 4) |
 | `WHMCS_SYNC_SECRET` | The price sync addon's shared secret (docs/whmcs-setup.md, step 6) |
 | `OFFSITE_S3_*` | Off-site backup storage. For Cloudflare R2: create a bucket, then an API token with Object Read & Write on it; the endpoint is `https://<account id>.r2.cloudflarestorage.com`. Any S3-compatible storage works: for Contabo Object Storage set `OFFSITE_S3_PROVIDER=Other` and the endpoint from its panel (for example `https://eu2.contabostorage.com`). Optional until real customer data goes in: while the access key is empty, backups stay on the server only and deploys carry on |
+| `THEBE_TRY_URL`, `THEBE_URL`, `THEBE_DEMO_URL` | Thebe's trial page, website and demo booking page. Each Thebe button stays hidden until its address is set, and the Expense management menu until `THEBE_URL` is |
+| `NSMC_URL` | NSMC's website. The on-site IT line in the home page's team section stays hidden until it is set |
 | `ANTHROPIC_API_KEY` | Optional. Switches the support assistant on |
 | `ADMIN_IP_ALLOWLIST` | Optional. Office addresses allowed to open `/admin` |
 

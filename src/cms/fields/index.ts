@@ -91,15 +91,16 @@ export function link(name: string, label: string, o: { required?: boolean } = {}
           { label: "A page in this market (e.g. /pricing)", value: "market" },
           { label: "A page anywhere on this site (e.g. /sign-up)", value: "site" },
           { label: "An email to the market's support address", value: "email" },
+          { label: "Thebe's website (hidden until it is set up)", value: "thebe" },
         ],
       },
       {
         name: "path",
         type: "text",
         label: "Page",
-        admin: { condition: (_, s) => s?.to !== "email", description: "Starts with /. For this market's pricing page: /pricing" },
+        admin: { condition: (_, s) => s?.to !== "email" && s?.to !== "thebe", description: "Starts with /. For this market's pricing page: /pricing" },
         validate: (value: unknown, { siblingData }: { siblingData?: { label?: string; to?: string } }) => {
-          if (!siblingData?.label || siblingData.to === "email") return true;
+          if (!siblingData?.label || siblingData.to === "email" || siblingData.to === "thebe") return true;
           return typeof value === "string" && /^\/[\w\-./#?=&%]*$/.test(value) && !value.startsWith("//") ? true : "Enter a page on this site, starting with /.";
         },
       },

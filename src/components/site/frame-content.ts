@@ -1,30 +1,41 @@
 import { linkHref, type CmsLinkValue } from "./links";
 
-/** The header's menu and the footer's links, with every address worked out for the market. */
+/** The header's menus and the footer's links, with every address worked out for the market. */
 
 export interface FrameLink {
   label: string;
   href: string;
 }
 
-export interface MenuGroupView {
+export interface MenuLinkView extends FrameLink {
+  description: string | null;
+}
+
+export type FeatureKind = "domainSearch" | "partnerBadge" | "websitePreview" | "thebe" | "support" | "note";
+
+export interface FeatureView {
+  kind: FeatureKind;
+  heading: string | null;
+  text: string | null;
+  link: FrameLink | null;
+}
+
+export interface MenuView {
   id: string;
-  icon: string;
-  title: string;
-  blurb: string;
-  links: FrameLink[];
-  /** "From P 100.00 per user a month", from the market's price book. */
-  from?: string | null;
+  label: string;
+  /** Shown at the right, beside Get started (Support). */
+  right: boolean;
+  columns: { heading: string | null; links: MenuLinkView[] }[];
+  feature: FeatureView | null;
 }
 
 export interface FrameContent {
-  groups: MenuGroupView[];
-  menuNote: string | null;
-  menuLink: FrameLink | null;
-  pages: FrameLink[];
+  menus: MenuView[];
+  /** Plain links beside the menus (Plans). */
+  links: FrameLink[];
+  newsletter: { heading: string; text: string | null } | null;
   tagline: string | null;
   columns: { heading: string; links: FrameLink[] }[];
-  contactHeading: string;
   /** The market's contact details, with the editor's where it set them. */
   contact: { email: string; phone: string | null; hours: string; address: string | null };
   /** LinkedIn, Facebook and WhatsApp, each only when set. */
@@ -36,38 +47,76 @@ export interface FrameMarketContact {
   supportEmail: string;
   supportPhone?: string | null;
   supportHours?: string;
+  /** Thebe's website, for links that go there (THEBE_URL). */
+  thebeUrl?: string | null;
+}
+
+/** What decides whether a link shows: its products on sale, and the help centre having articles. */
+export interface FrameGates {
+  onSale: (products: unknown) => boolean;
+  helpOpen: boolean;
 }
 
 type LinkRow = { link?: CmsLinkValue | null };
-type HeaderData = { groups?: { icon?: string | null; title?: string | null; blurb?: string | null; links?: LinkRow[] | null }[] | null; menuNote?: string | null; menuLink?: CmsLinkValue | null; pages?: LinkRow[] | null };
+type MenuLinkRow = LinkRow & { description?: string | null; products?: unknown };
+type HeaderData = {
+  menus?:
+    | {
+        label?: string | null;
+        right?: boolean | null;
+        columns?: { heading?: string | null; links?: MenuLinkRow[] | null }[] | null;
+        feature?: { kind?: string | null; heading?: string | null; text?: string | null; link?: CmsLinkValue | null } | null;
+      }[]
+    | null;
+  links?: MenuLinkRow[] | null;
+};
 type FooterData = {
+  newsletter?: { heading?: string | null; text?: string | null } | null;
   tagline?: string | null;
   columns?: { heading?: string | null; links?: LinkRow[] | null }[] | null;
-  contactHeading?: string | null;
   contact?: { email?: string | null; phone?: string | null; whatsapp?: string | null; hours?: string | null; address?: string | null } | null;
   social?: { linkedin?: string | null; facebook?: string | null } | null;
 };
 
 const clean = (v: string | null | undefined) => v?.trim() || null;
 
+const hasProducts = (value: unknown) => {
+  const v = value as { categories?: unknown[]; products?: unknown[] } | null | undefined;
+  return Boolean(v && ((v.categories?.length ?? 0) > 0 || (v.products?.length ?? 0) > 0));
+};
+
 /** `details` is the footer the contact and social links come from, when the links fall back to the built-in footer. */
-export function frameContent(header: HeaderData, footer: FooterData, market: FrameMarketContact, details: FooterData = footer): FrameContent {
+export function frameContent(header: HeaderData, footer: FooterData, market: FrameMarketContact, gates: FrameGates, details: FooterData = footer): FrameContent {
+  const help = `/${market.code}/help`;
   const resolve = (link: CmsLinkValue | null | undefined): FrameLink | null => {
     const href = linkHref(link, market);
-    return href ? { label: link!.label!, href } : null;
+    if (!href) return null;
+    if (!gates.helpOpen && (href === help || href.startsWith(`${help}/`) || href.startsWith(`${help}#`))) return null;
+    return { label: link!.label!, href };
   };
   const all = (rows: LinkRow[] | null | undefined) => (rows ?? []).flatMap((r) => resolve(r.link) ?? []);
+  const menuLinks = (rows: MenuLinkRow[] | null | undefined): MenuLinkView[] =>
+    (rows ?? []).flatMap((r) => {
+      if (hasProducts(r.products) && !gates.onSale(r.products)) return [];
+      const l = resolve(r.link);
+      return l ? [{ ...l, description: clean(r.description) }] : [];
+    });
+
   return {
-    groups: (header.groups ?? []).flatMap((g, i) => {
-      const links = all(g.links);
-      return g.title && links.length ? [{ id: `group-${i + 1}`, icon: g.icon ?? "boxes", title: g.title, blurb: g.blurb ?? "", links }] : [];
+    menus: (header.menus ?? []).flatMap((m, i) => {
+      const columns = (m.columns ?? []).map((c) => ({ heading: clean(c.heading), links: menuLinks(c.links) })).filter((c) => c.links.length);
+      if (!m.label || !columns.length) return [];
+      const f = m.feature;
+      const feature: FeatureView | null = f?.kind ? { kind: f.kind as FeatureKind, heading: clean(f.heading), text: clean(f.text), link: resolve(f.link) } : null;
+      return [{ id: `menu-${i + 1}`, label: m.label, right: Boolean(m.right), columns, feature }];
     }),
-    menuNote: header.menuNote ?? null,
-    menuLink: resolve(header.menuLink),
-    pages: all(header.pages),
-    tagline: footer.tagline ?? null,
-    columns: (footer.columns ?? []).flatMap((c) => (c.heading ? [{ heading: c.heading, links: all(c.links) }] : [])),
-    contactHeading: footer.contactHeading || "Talk to us",
+    links: menuLinks(header.links).map(({ label, href }) => ({ label, href })),
+    newsletter: clean(footer.newsletter?.heading) ? { heading: clean(footer.newsletter?.heading)!, text: clean(footer.newsletter?.text) } : null,
+    tagline: clean(footer.tagline),
+    columns: (footer.columns ?? []).flatMap((c) => {
+      const links = all(c.links);
+      return c.heading && links.length ? [{ heading: c.heading, links }] : [];
+    }),
     contact: {
       email: clean(details.contact?.email) ?? market.supportEmail,
       phone: clean(details.contact?.phone) ?? market.supportPhone ?? null,

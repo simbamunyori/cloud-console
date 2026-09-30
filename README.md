@@ -154,7 +154,9 @@ the UI and never sent to the assistant.
 | `CONSOLE_JOBS` | No | `off` stops background jobs on this server, for extra app servers |
 | `POSTGRES_PASSWORD`, `DOMAIN` | Production compose | Database password, and the domain Caddy gets a certificate for |
 | `SEED_DEMO` | No | `yes` lets the seed run in production. Don't |
-| `STATUS_PAGE_URL` | Recommended | The service status page linked from the site footer. The link is hidden while unset |
+| `STATUS_PAGE_URL` | No | An outside service status page. While unset, the site's status links go to its own `/status` page, which staff run at `/admin/status` |
+| `THEBE_TRY_URL`, `THEBE_URL`, `THEBE_DEMO_URL` | Recommended | Thebe's trial page, website and demo booking page, for the home page's Thebe section and the Expense management menu. Each button hides while its address is unset, and the menu's links need `THEBE_URL` |
+| `NSMC_URL` | Recommended | NSMC's website, for the on-site IT line in the home page's team section. The line hides while unset |
 | `SUPPORT_EMAIL` | Production set-up | Filled into every market still on the development support address when a release starts |
 | `OFFSITE_S3_ENDPOINT`, `OFFSITE_S3_BUCKET`, `OFFSITE_S3_ACCESS_KEY_ID`, `OFFSITE_S3_SECRET_ACCESS_KEY`, `OFFSITE_S3_PROVIDER` | Production | Where the nightly backups are copied off the server (Cloudflare R2 or any S3-compatible storage) |
 | `ALLOW_PLACEHOLDERS` | Demo servers only | In production the server refuses to start while a development placeholder is set: no real `SMTP_URL`, a `support@localhost` market email, the demo bank details, seeded exchange rates, the demo accounts, or a localhost `APP_URL` or `MAIL_FROM`. It lists each one and where to fix it. `yes` starts anyway with a warning, for demo and CI servers. CI proves the refusal on every run with `scripts/check-placeholder-refusal.sh` |

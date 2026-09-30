@@ -27,6 +27,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     { href: "/admin/cloud-usage", label: "Azure usage", icon: "spend", needs: "manageCloudSpend" },
     { href: "/admin/pricing", label: "Pricing", icon: "pricing", needs: "managePricing" },
     { href: "/admin/markets", label: "Markets", icon: "markets", needs: "manageMarkets" },
+    { href: "/admin/status", label: "Service status", icon: "status", needs: "manageStatus" },
     { href: "/admin/waitlist", label: "Waiting list", icon: "waitlist", needs: "viewCustomers", badge: counts.waitlist || undefined },
     { href: "/admin/staff", label: "Staff", icon: "staff", needs: "manageStaff" },
   ];

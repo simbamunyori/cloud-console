@@ -19,8 +19,9 @@ function scheme(base, extra) {
   return vars;
 }
 
-const light = scheme(tokens.light, tokens.console.light);
-const dark = scheme(tokens.dark, tokens.console.dark);
+const site = (colours) => Object.fromEntries(Object.entries(colours).map(([k, v]) => [`--site-${kebab(k)}`, v]));
+const light = { ...scheme(tokens.light, tokens.console.light), ...site(tokens.site.light) };
+const dark = { ...scheme(tokens.dark, tokens.console.dark), ...site(tokens.site.dark) };
 
 const shared = {
   "--brand-navy": tokens.brand.navy,
@@ -31,13 +32,20 @@ const shared = {
   "--brand-gradient": tokens.brand.gradient,
   "--font-family": tokens.font.family,
   "--font-family-mono": tokens.font.mono,
+  "--font-family-thebe": tokens.font.thebe,
+  "--font-family-showcase-serif": tokens.font.showcaseSerif,
   "--tracking-headline": tokens.font.headlineTracking,
   "--tracking-label": tokens.font.labelTracking,
   "--radius-token-sm": tokens.radius.sm,
   "--radius-token-md": tokens.radius.md,
   "--radius-token-lg": tokens.radius.lg,
+  "--radius-token-device": tokens.radius.device,
   "--space-unit": tokens.space["1"],
 };
+for (const [brand, colours] of Object.entries(tokens.demo)) {
+  if (brand.startsWith("$")) continue;
+  for (const [k, v] of Object.entries(colours)) shared[`--demo-${brand}-${kebab(k)}`] = v;
+}
 for (const [k, v] of Object.entries(tokens.layout)) shared[`--layout-${kebab(k)}`] = v;
 for (const [k, v] of Object.entries(tokens.motion)) shared[`--motion-${k}`] = v;
 for (const [k, v] of Object.entries(tokens.space)) shared[`--space-${k}`] = v;

@@ -4,7 +4,7 @@ import { settled } from "./support/pages";
 import { signIn } from "./support/signed-in";
 
 /**
- * The menus that open: the site's Services menu and phone menu, and the
+ * The menus that open: the site's header menus and phone menu, and the
  * console's notifications and help. Each opens from the keyboard, closes
  * on Escape, and passes axe while open, in both themes.
  */
@@ -19,15 +19,16 @@ for (const scheme of ["light", "dark"] as const) {
   test.describe(`${scheme} theme`, () => {
     test.use({ colorScheme: scheme });
 
-    test("the Services menu opens from the keyboard and closes on Escape", async ({ page }) => {
+    test("the Domains menu opens from the keyboard and closes on Escape", async ({ page }) => {
       await page.setViewportSize({ width: 1440, height: 900 });
       await page.goto("/bw");
       await settled(page);
-      const button = page.getByRole("button", { name: "Services" });
+      const button = page.getByRole("button", { name: "Domains" });
       await button.focus();
-      await page.keyboard.press("Enter");
+      // Keyboard focus opens it; Enter opens it too.
+      if ((await button.getAttribute("aria-expanded")) !== "true") await page.keyboard.press("Enter");
       await expect(button).toHaveAttribute("aria-expanded", "true");
-      for (const title of ["Productivity", "Servers", "Security", "Web and domains", "Applications"]) await expect(page.getByRole("heading", { name: title, exact: true })).toBeVisible();
+      for (const title of ["Your name online", "Included"]) await expect(page.getByRole("heading", { name: title, exact: true })).toBeVisible();
       expect(await axe(page)).toEqual([]);
       await page.keyboard.press("Escape");
       await expect(button).toHaveAttribute("aria-expanded", "false");
@@ -44,11 +45,13 @@ for (const scheme of ["light", "dark"] as const) {
       await page.getByRole("button", { name: "Open menu" }).click();
       const menu = page.getByRole("dialog", { name: "Menu" });
       await expect(menu).toBeVisible();
-      await expect(menu.getByRole("link", { name: "Pricing" })).toBeVisible();
-      // Security is already a service family above; the page links don't repeat it.
-      await expect(menu.getByRole("link", { name: "Security", exact: true })).toHaveCount(0);
-      // "Get started" stays pinned in view at the bottom, however long the list.
-      await expect(menu.getByRole("link", { name: "Get started" })).toBeInViewport();
+      // Every header menu opens in place, and the status page is one tap away.
+      for (const name of ["Domains", "Email", "Websites", "Security", "Support"]) await expect(menu.getByText(name, { exact: true }).first()).toBeVisible();
+      await menu.getByText("Domains", { exact: true }).first().click();
+      await expect(menu.getByRole("link", { name: /Register a domain/ })).toBeVisible();
+      await expect(menu.getByRole("link", { name: "Service status" })).toBeVisible();
+      // "Sign in" stays pinned in view at the bottom, however long the list; "Get started" stays in the header.
+      await expect(menu.getByRole("link", { name: "Sign in" })).toBeInViewport();
       expect(await axe(page)).toEqual([]);
       await page.keyboard.press("Escape");
       await expect(menu).toBeHidden();

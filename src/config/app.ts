@@ -8,6 +8,8 @@ export const company = {
   name: "Fourth Generation Technologies",
   /** How it appears on invoices and statements. */
   legalName: "Fourth Generation Technologies (Pty) Ltd",
+  /** Botswana company registration, on the footer and legal pages. */
+  registrationNumber: "BW00001816431",
   country: "BW",
   tagline: "Managed cloud for business.",
   /** How the admin console writes amounts and dates for staff, in whatever currency. */

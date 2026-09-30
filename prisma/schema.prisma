@@ -1581,3 +1581,58 @@ model BudgetAlert {
   @@unique([subscriptionId, month, level])
   @@index([organisationId])
 }
+
+// ─── Service status and newsletter (Milestone 3) ──────────────────────
+
+enum IncidentImpact {
+  /// Working, but slower or partly unavailable.
+  DEGRADED
+  /// Not working.
+  OUTAGE
+  /// Planned work.
+  MAINTENANCE
+}
+
+/// Something wrong (or planned) with our services, shown in the site's status strip while open.
+model Incident {
+  id         String         @id @default(cuid())
+  title      String
+  impact     IncidentImpact
+  /// Plain words for customers: what is affected and what we are doing.
+  message    String?
+  startedAt  DateTime       @default(now())
+  resolvedAt DateTime?
+  /// "system" when opened by the console's own checks.
+  openedBy   String
+  resolvedBy String?
+  /// Set on incidents the console's own checks open, e.g. "check:billing", so they resolve themselves.
+  checkKey   String?
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+
+  @@index([resolvedAt, startedAt])
+  @@index([checkKey, resolvedAt])
+}
+
+/// Someone who asked for the monthly insights email. Receives it only once confirmed (double opt-in).
+model NewsletterSubscriber {
+  id               String    @id @default(cuid())
+  email            String    @unique
+  /// The market they signed up from, for the right edition.
+  marketCode       String
+  /// The words they agreed to, as shown.
+  consentText      String
+  consentAt        DateTime
+  ipAddress        String?
+  /// SHA-256 of the link in the confirmation email; cleared once used.
+  confirmTokenHash String?   @unique
+  confirmSentAt    DateTime?
+  confirmedAt      DateTime?
+  /// The one-click unsubscribe link's token (stays valid for good).
+  unsubscribeToken String    @unique
+  unsubscribedAt   DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@index([confirmedAt, unsubscribedAt])
+}
