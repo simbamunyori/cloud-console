@@ -84,7 +84,6 @@ export function Thapelo({ market, greeting, quickReplies, consentText, privacyHr
           type="button"
           aria-label="Chat with Thapelo"
           aria-expanded={open}
-          aria-controls={open ? `${id}-panel` : undefined}
           onClick={() => store(open ? "closed" : "open")}
           className="pointer-events-auto flex size-14 shrink-0 items-center justify-center rounded-full bg-brand text-on-brand shadow-elevation-3 hover:bg-brand-hover lg:size-15"
         >
