@@ -38,6 +38,7 @@ export default async function CustomerPage({ params }: { params: Promise<{ id: s
   const markets = staffCan(staff, "manageMarkets") ? await listMarkets(prisma) : null;
   const market = await prisma.market.findUniqueOrThrow({ where: { code: org.billingMarket } });
   const tenants = await tenantOverview(prisma, org.id);
+  const [cloudSubs, openTips] = await Promise.all([prisma.cloudSubscription.findMany({ where: { organisationId: org.id }, select: { name: true }, orderBy: { name: "asc" } }), prisma.savingTip.count({ where: { organisationId: org.id, status: "OPEN" } })]);
 
   return (
     <>
@@ -144,6 +145,24 @@ export default async function CustomerPage({ params }: { params: Promise<{ id: s
               <p className="text-ink-muted">No tenant linked.</p>
             </CardBody>
           )}
+        </Card>
+
+        <Card aria-labelledby="spend-title">
+          <CardHeader
+            id="spend-title"
+            title="Azure and savings"
+            action={
+              <Link href={`/admin/customers/${org.id}/spend`} className="text-callout text-link hover:underline">
+                {cloudSubs.length ? "Cloud spend" : "Link a subscription"}
+              </Link>
+            }
+          />
+          <CardBody>
+            <p className="text-ink-muted">
+              {cloudSubs.length ? `${cloudSubs.length} Azure ${cloudSubs.length === 1 ? "subscription" : "subscriptions"}: ${cloudSubs.map((s) => s.name).join(", ")}.` : "No Azure subscription linked."}{" "}
+              {openTips ? `${openTips} ${openTips === 1 ? "way" : "ways"} to save showing.` : ""}
+            </p>
+          </CardBody>
         </Card>
 
         <Card aria-labelledby="orders-title">

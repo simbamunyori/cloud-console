@@ -6,6 +6,7 @@ import { Amount } from "@/components/ui/amount";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
 import { formatDay, formatMonth } from "@/lib/dates";
+import { money } from "@/lib/domain/money";
 import { requireBilling } from "@/server/billing/context";
 import { SecurityScoreCard } from "@/components/app/security-score";
 import { tenantOverview, unusedLicences } from "@/server/licences/licences";
@@ -26,7 +27,9 @@ export default async function HomePage() {
   const monthly = monthlyTotal(services, currency);
   const next = nextInvoice(services, domains, currency);
   const owed = amountOwed(invoices, currency);
-  const attention = attentionItems(invoices, services, domains, today, locale, unusedLicences(tenants));
+  const tips = await db.savingTip.findMany({ where: { status: "OPEN", currency }, select: { monthlyMinor: true } });
+  const savings = tips.length ? { count: tips.length, monthly: money(tips.reduce((n, t) => n + t.monthlyMinor, 0n), currency) } : null;
+  const attention = attentionItems(invoices, services, domains, today, locale, unusedLicences(tenants), savings);
   const recent = invoices.slice(0, 3);
   const liveDomains = domains.filter((d) => d.status === "active" || d.status === "pending" || d.status === "pending_transfer");
   const renewal = liveDomains.map((d) => d.expiresOn).sort((a, b) => a.getTime() - b.getTime())[0];

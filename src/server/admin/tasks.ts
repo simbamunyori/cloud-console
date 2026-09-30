@@ -1,6 +1,7 @@
 import type { PrismaClient, TaskStatus } from "@prisma/client";
 import { BillingError, type BillingAdapter } from "@/server/billing/adapter";
 import { queueEmail } from "@/server/email/outbox";
+import { SAVING_TASK } from "@/server/spend/tips";
 import { applyChangesForTask } from "@/server/licences/licences";
 import { DomainError } from "@/server/org/access";
 import { audit } from "@/server/org/audit";
@@ -88,6 +89,8 @@ export async function completeTask(deps: StaffDeps, taskId: string, input: { not
     await audit(tx, staffAudit(deps.staff, task.organisationId, { action: "task.done", summary: `Done: ${task.title}`, targetType: "Order", targetId: task.orderId ?? undefined, data: note ? { note } : undefined }));
     // A licence change waits on its task: the console's copy of the tenant changes now.
     if (task.kind === "licence_change") await applyChangesForTask(tx, task.id, now);
+    // A saving the customer asked for is made once its task is done.
+    if (task.kind === SAVING_TASK) await tx.savingTip.updateMany({ where: { taskId: task.id, organisationId: task.organisationId }, data: { status: "DONE" } });
     if (finishesOrder) {
       await tx.order.update({ where: { id: order.id }, data: { status: "ACTIVE" } });
       await audit(tx, staffAudit(deps.staff, task.organisationId, { action: "order.ready", summary: `Order ${order.reference} is ready`, targetType: "Order", targetId: order.id }));

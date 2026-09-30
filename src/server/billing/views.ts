@@ -66,8 +66,27 @@ export function unusedCost(services: Service[], l: UnusedLicenceFact): Money | n
 }
 
 /** Things someone should look at, most urgent first. */
-export function attentionItems(invoices: InvoiceSummary[], services: Service[], domains: Domain[], today: Date, locale: string, unused: UnusedLicenceFact[] = []): AttentionItem[] {
+export function attentionItems(
+  invoices: InvoiceSummary[],
+  services: Service[],
+  domains: Domain[],
+  today: Date,
+  locale: string,
+  unused: UnusedLicenceFact[] = [],
+  /** Other ways to save we found or staff added, still open. */
+  savings: { count: number; monthly: Money } | null = null,
+): AttentionItem[] {
   const items: AttentionItem[] = [];
+  if (savings && savings.count > 0) {
+    items.push({
+      key: "savings",
+      tone: "info",
+      title: savings.count === 1 ? "A way to spend less on Azure" : `${savings.count} ways to spend less on Azure`,
+      detail: `About ${formatMoney(savings.monthly, locale)} a month.`,
+      href: "/app/spend",
+      actionLabel: "See savings",
+    });
+  }
   for (const l of unused) {
     const cost = unusedCost(services, l);
     items.push({

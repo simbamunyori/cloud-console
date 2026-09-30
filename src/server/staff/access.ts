@@ -30,7 +30,9 @@ export type StaffPermission =
   /** Create and change product families, categories and products, and mark our own test organisations. */
   | "manageCatalogue"
   /** Work the Quotes queue: price requests, send quotes and close them. */
-  | "manageQuotes";
+  | "manageQuotes"
+  /** Link Azure subscriptions, import usage files and add ways to save. */
+  | "manageCloudSpend";
 
 const ALLOWED: Record<StaffPermission, StaffRole[]> = {
   viewCustomers: ["SUPPORT", "PROVISIONING", "FINANCE", "ADMIN"],
@@ -42,6 +44,7 @@ const ALLOWED: Record<StaffPermission, StaffRole[]> = {
   manageStaff: ["ADMIN"],
   manageCatalogue: ["ADMIN"],
   manageQuotes: ["SUPPORT", "ADMIN"],
+  manageCloudSpend: ["PROVISIONING", "FINANCE", "ADMIN"],
 };
 
 export function staffCan(actor: Pick<StaffActor, "staffRole">, permission: StaffPermission): boolean {
