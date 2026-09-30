@@ -3,6 +3,7 @@ import { formatLongDate, formatMoment, formatMonth } from "@/lib/dates";
 import { formatMoney, fromJson, type MoneyJson } from "@/lib/domain/money";
 import { company } from "@/config/app";
 import { newToken, hashToken } from "@/server/auth/tokens";
+import { issueEmail } from "@/server/newsletter/issues";
 import { newConfirmLink } from "@/server/newsletter/newsletter";
 import type { EmailBody } from "./layout";
 
@@ -22,7 +23,7 @@ export interface TemplateContext {
   timeZone: string;
 }
 
-export type Rendered = { subject: string; body: EmailBody } | null;
+export type Rendered = { subject: string; body: EmailBody; headers?: Record<string, string> } | null;
 
 type Template = (payload: Record<string, unknown>, ctx: TemplateContext) => Promise<Rendered>;
 
@@ -274,6 +275,23 @@ export const TEMPLATES: Record<string, Template> = {
         ],
         button: { label: "Confirm my subscription", url: link.url },
         footnote: `The link works for 7 days. If you didn't ask for this, ignore this email and you won't hear from us. To make sure we never email this address, use ${link.unsubscribe}`,
+      },
+    };
+  },
+
+  /** The monthly newsletter, one copy per subscriber, with one-click unsubscribe (RFC 8058). */
+  async "newsletter.issue"(p, ctx) {
+    const e = await issueEmail(ctx.db, ctx.appUrl, str(p.issueId), str(p.subscriberId));
+    if (!e) return null;
+    return {
+      subject: e.subject,
+      headers: e.headers,
+      body: {
+        heading: e.heading,
+        paragraphs: e.intro ? [e.intro] : [],
+        items: e.items,
+        button: { label: "See every insight", url: e.more },
+        footnote: `You get this because you asked for our monthly insights email. Unsubscribe at any time: ${e.unsubscribe}`,
       },
     };
   },

@@ -82,6 +82,31 @@ async function main() {
     await db.user.upsert({ where: { email: s.email }, update: {}, create: { ...s, kind: "STAFF", passwordHash } });
   }
 
+  // A launch kit (Milestone 7) a Publisher has approved, so the demo has a product page to show.
+  const kitProduct = await db.product.findUnique({ where: { slug: "microsoft-365-business-standard" } });
+  if (kitProduct?.status === "LIVE" && !(await db.launchKit.findUnique({ where: { productId: kitProduct.id } }))) {
+    const admin = await db.user.findUniqueOrThrow({ where: { email: "staff@example.co.bw" } });
+    await db.launchKit.create({
+      data: {
+        productId: kitProduct.id,
+        campaign: "launch-microsoft-365-business-standard",
+        audience: "Teams of 2 to 300 people who want email on their own name and the Office desktop apps, without running their own servers.",
+        faq: [
+          { question: "Can we keep our existing email address?", answer: "Yes. We move your mail across to Microsoft 365 on your own domain, with nothing lost." },
+          { question: "How many computers can each person use?", answer: "Each person can install the Office desktop apps on up to 5 computers." },
+          { question: "Can we add people later?", answer: "Yes. Add or remove people from your console, and the next invoice follows." },
+        ],
+        linkedinText: "Microsoft 365 Business Standard is now available from Fourth Generation Technologies: email on your own name, the Office desktop apps and Teams, set up and looked after by our team.",
+        draftedAt: new Date(),
+        pageApprovedAt: new Date(),
+        pageApprovedById: admin.id,
+        linkedinApprovedAt: new Date(),
+        linkedinApprovedById: admin.id,
+      },
+    });
+    console.log("Demo launch kit: Microsoft 365 Business Standard, approved.");
+  }
+
   if (await db.membership.findFirst({ where: { user: { email: "demo@kgalehill.co.bw" } } })) {
     console.log("The demo organisation is already there; leaving it as it is.");
     return;

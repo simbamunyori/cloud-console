@@ -5,7 +5,7 @@ import { formatMoney } from "@/lib/domain/money";
 import { richTextPlain } from "@/lib/rich-text-plain";
 import { cms, marketLocale } from "@/server/site/cms";
 import { storeSearch } from "@/server/site/domain-store";
-import { sitePrices, taxNote } from "@/server/site/site";
+import { productPage, productPageSlugs, productPath, sitePrices, taxNote } from "@/server/site/site";
 import type { KnowledgeSource, SalesSettings } from "./assistant";
 import { rank } from "./rank";
 
@@ -40,10 +40,11 @@ interface Doc {
 async function documents(code: string): Promise<Doc[]> {
   const payload = await cms();
   const base = { locale: marketLocale(code), fallbackLocale: DEFAULT_LOCALE, depth: 0, overrideAccess: true } as const;
-  const [help, insights, pages] = await Promise.all([
+  const [help, insights, pages, productPages] = await Promise.all([
     payload.find({ collection: "help", where: published, limit: 300, ...base }),
     payload.find({ collection: "insights", where: published, sort: "-publishedAt", limit: 100, ...base }),
     payload.find({ collection: "pages", where: published, limit: 300, ...base }),
+    productPageSlugs(code).then((slugs) => Promise.all(slugs.map((slug) => productPage(code, slug)))),
   ]);
   const docs: Doc[] = [];
   for (const h of help.docs) if (h.title && h.body) docs.push({ kind: "help", title: h.title, url: `/${code}/help/${h.slug}`, text: `${h.summary ?? ""}\n${richTextPlain(h.body)}` });
@@ -55,6 +56,13 @@ async function documents(code: string): Promise<Doc[]> {
         if (item.question) docs.push({ kind: "faq", title: item.question, url: `/${code}${p.slug === "home" ? "" : `/${p.slug}`}`, text: richTextPlain(item.answer) });
       }
     }
+  }
+  // Product pages a Publisher approved: who each is for, and its questions.
+  for (const page of productPages) {
+    if (!page) continue;
+    const url = productPath(code, page.product.slug);
+    if (page.audience) docs.push({ kind: "faq", title: `Who ${page.product.name} is for`, url, text: page.audience });
+    for (const f of page.faq) docs.push({ kind: "faq", title: f.question, url, text: f.answer });
   }
   return docs;
 }

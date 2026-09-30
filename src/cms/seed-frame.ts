@@ -141,6 +141,7 @@ export const DEFAULT_HEADER = {
           heading: "Get help",
           links: [
             item(market("Help centre", "/help"), "Answers to common questions."),
+            item(market("Insights", "/insights"), "Practical advice on security, backup and running your business online."),
             item({ link: { label: "Contact us", to: "email", subject: "Question" } }, "Email our support team."),
             item(market("Service status", "/status"), "Whether everything is working normally."),
           ],
@@ -167,7 +168,7 @@ export const DEFAULT_FOOTER = {
         market("Expense management", "/#thebe"),
       ],
     },
-    { heading: "Company", links: [market("Pricing", "/pricing"), market("Ask for a quote", "/quote")] },
+    { heading: "Company", links: [market("Pricing", "/pricing"), market("Insights", "/insights"), market("Ask for a quote", "/quote")] },
     { heading: "Trust", links: [market("Service status", "/status"), market("Security", "/security"), market("Service providers", "/legal/service-providers"), market("Legal", "/legal/terms")] },
     {
       heading: "Support",

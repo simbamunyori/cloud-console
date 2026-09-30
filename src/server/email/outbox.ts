@@ -83,7 +83,7 @@ export async function deliverDue(
         continue;
       }
       const { text, html } = renderEmail(rendered.body, e.APP_URL);
-      await adapter.send({ to: row.toAddress, subject: rendered.subject, text, html });
+      await adapter.send({ to: row.toAddress, subject: rendered.subject, text, html, ...(rendered.headers ? { headers: rendered.headers } : {}) });
       await db.outboundEmail.update({ where: { id: row.id }, data: { status: "SENT", sentAt: now, subject: rendered.subject, lastError: null } });
       sent++;
     } catch (err) {

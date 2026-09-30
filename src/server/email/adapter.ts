@@ -7,6 +7,8 @@ export interface EmailMessage {
   subject: string;
   text: string;
   html: string;
+  /** Extra headers, e.g. List-Unsubscribe on the newsletter. */
+  headers?: Record<string, string>;
 }
 
 /** Anything that can deliver an email: SMTP now, an email API later. */

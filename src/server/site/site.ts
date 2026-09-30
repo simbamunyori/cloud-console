@@ -12,6 +12,7 @@ import { monthOf } from "@/lib/domain/pricing";
 import { marketplace, tldOffers } from "@/server/catalogue/price-book";
 import { prisma } from "@/server/db";
 import { env } from "@/server/env";
+import { faqOf } from "@/server/launch/kits";
 import { CATCH_ALL, cachedMarkets } from "@/server/markets/markets";
 
 /** What the public site needs, read once per request. */
@@ -72,10 +73,44 @@ export function lowestPrice(prices: SitePrice[], sel: Parameters<typeof selected
   return selected(prices, sel).sort((a, b) => (a.price.amountMinor < b.price.amountMinor ? -1 : 1))[0] ?? null;
 }
 
+/** A product's own page on the site. */
+export const productPath = (code: string, slug: string) => `/${code}/products/${slug}`;
+
+/** Products whose page a website Publisher approved (Milestone 7). */
+export const approvedProductPages = cache(async () => {
+  const kits = await prisma.launchKit.findMany({ where: { pageApprovedAt: { not: null } }, select: { product: { select: { slug: true } } } });
+  return new Set(kits.map((k) => k.product.slug));
+});
+
+/** Where to read about a product: its own page once approved, otherwise its family on the pricing page. */
+export async function productHref(code: string, p: { slug: string; categoryKey: string }) {
+  return (await approvedProductPages()).has(p.slug) ? productPath(code, p.slug) : `/${code}/pricing#cat-${p.categoryKey}`;
+}
+
+/**
+ * A product page: only for a product on sale in the market (priced, or
+ * sold by quote) whose page a Publisher approved. Otherwise null.
+ */
+export const productPage = cache(async (code: string, slug: string) => {
+  const m = await siteMarket(code);
+  const kit = await prisma.launchKit.findFirst({ where: { pageApprovedAt: { not: null }, product: { slug } } });
+  if (!kit) return null;
+  const entry = (await marketplace(prisma as unknown as PrismaClient, m, siteMonth(m))).flatMap((c) => c.products).find((e) => e.product.slug === slug);
+  if (!entry) return null;
+  return { m, product: entry.product, price: entry.price ? shownPrice(m, entry.price) : null, audience: kit.audience, faq: faqOf(kit.faq) };
+});
+
+/** The approved product pages on sale in a market, for the sitemap. */
+export async function productPageSlugs(code: string): Promise<string[]> {
+  const m = await siteMarket(code);
+  const approved = await approvedProductPages();
+  return (await marketplace(prisma as unknown as PrismaClient, m, siteMonth(m))).flatMap((c) => c.products.map((e) => e.product.slug)).filter((s) => approved.has(s));
+}
+
 /** The first on-sale product a catalogue choice names, with where to read about it, or null. */
 export async function relatedProduct(code: string, value: unknown): Promise<(SitePrice & { href: string }) | null> {
   const product = selected(await sitePrices(code), selection(value))[0];
-  return product ? { ...product, href: `/${code}/pricing#cat-${product.categoryKey}` } : null;
+  return product ? { ...product, href: await productHref(code, product) } : null;
 }
 
 /** Each service card with its lowest monthly price in the market's book. */

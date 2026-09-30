@@ -9,6 +9,7 @@ import { salesSettings } from "@/server/sales/knowledge";
 import { CONSENT_TEXT } from "@/server/sales/leads";
 import { salesModel } from "@/server/sales/model";
 import { currentTheme } from "@/server/theme";
+import { CampaignBeacon } from "./campaign-beacon";
 import { linkHref } from "./links";
 import { LivePreview } from "./live-preview";
 import { SiteFrame } from "./site-frame";
@@ -49,6 +50,7 @@ export async function SitePage({ code, path, children }: { code: string; path: s
     >
       {drafts ? <LivePreview /> : null}
       {children}
+      <CampaignBeacon />
       {sales ? <Thapelo market={market.code} greeting={sales.greeting} quickReplies={sales.quickReplies} consentText={CONSENT_TEXT} privacyHref={`/${market.code}/legal/privacy`} /> : null}
     </SiteFrame>
   );
