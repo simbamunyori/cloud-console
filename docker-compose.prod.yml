@@ -64,8 +64,8 @@ services:
       retries: 10
 
   # The database and uploaded images, every night at BACKUP_AT (UTC): an
-  # encrypted file in ./backups on the server, and a copy off-site when
-  # OFFSITE_S3_BUCKET is set (any S3-compatible storage, e.g. Cloudflare R2).
+  # encrypted file in ./backups on the server, and a copy off-site once
+  # OFFSITE_S3_BUCKET and its access key are set (any S3-compatible storage).
   backup:
     image: cloud-console-backup:latest
     build:

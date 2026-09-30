@@ -141,6 +141,7 @@ What the console assumes, decided or leaves out, for review before launch. Each 
 96. **Backups go off-site to S3-compatible storage, Cloudflare R2 by default**, encrypted before they leave the server, kept 30 days in both places. Every Monday a workflow backs up, downloads the newest off-site copy and restores it into a scratch database to prove it works.
 97. **Card payments are off in production until a real card company is connected.** The stub card company would mark an invoice paid for a test number, so a production server hides the card button, refuses to start a card payment and has no test card page. Customers pay by bank transfer until DPO (PR #3) is live.
 98. **A production server needs a real mail server** (`SMTP_URL`) and starts only with one. The first staff Admin is created on the server with `console create-admin`; `SUPPORT_EMAIL` fills the markets' support address on the first start.
+99. **Off-site backups are optional until real customer data goes in.** Off-site storage counts as set up only once it has a bucket and an access key; until then nightly backups stay on the server, the restore test uses the newest copy there, and a deploy never fails for lack of off-site storage. Off-site storage (Contabo Object Storage is the plan) must be in place before the Milestone 9b migration loads real customers.
 
 ## Carried over from the Phase 1 go-ahead
 

@@ -5,7 +5,9 @@
 #   2. creating the staff Admin from the command line;
 #   3. a second deploy, which backs up first;
 #   4. a release that never becomes healthy, which must roll back to (3);
-#   5. a restore test from the off-site copy (a folder here, S3 in production).
+#   5. a restore test from the off-site copy (a folder here, S3 in production);
+#   6. a backup and restore test while off-site storage is not set up yet
+#      (bucket named but no access key), which must stay on the server.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -63,5 +65,13 @@ step "5. Restore test from the off-site copy"
 bash deploy/console restore-test | tee "$home/restore.log"
 grep -q "restore-test: OK" "$home/restore.log"
 grep -q "users 1," "$home/restore.log"
+
+step "6. Backups stay on the server while off-site storage is not set up"
+no_offsite=(-e RCLONE_CONFIG_OFFSITE_TYPE=s3 -e RCLONE_CONFIG_OFFSITE_ACCESS_KEY_ID= -e OFFSITE_S3_BUCKET=fgt-console-backups)
+docker compose -p console -f "$home/current/docker-compose.prod.yml" --env-file "$home/.env" run --rm "${no_offsite[@]}" backup /backup.sh | tee "$home/local.log"
+grep -q "on the server only" "$home/local.log"
+docker compose -p console -f "$home/current/docker-compose.prod.yml" --env-file "$home/.env" run --rm "${no_offsite[@]}" backup /restore-test.sh | tee "$home/local-restore.log"
+grep -q "testing the copy on the server" "$home/local-restore.log"
+grep -q "restore-test: OK" "$home/local-restore.log"
 
 step "Rehearsal passed"
