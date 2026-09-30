@@ -3,6 +3,7 @@
 import type { UserKind } from "@prisma/client";
 import { redirect } from "next/navigation";
 import { authDeps, clearSessionCookie, currentSession, readSessionToken, requestContext, setSessionCookie } from "@/server/auth/next";
+import { countForCampaign } from "@/server/campaigns/cookie";
 import {
   acceptInvitationAsExistingUser,
   acceptInvitationAsNewUser,
@@ -79,6 +80,7 @@ export async function signUpAction(_prev: FormState, form: FormData): Promise<Fo
     );
     await setSessionCookie(result.token);
     if (identity) await clearPending();
+    await countForCampaign("SIGN_UP", result.organisationId);
     // Opens the organisation's billing account now. If the billing engine
     // is down, it is opened the first time billing is used instead.
     await ensureBillingAccount(prisma, billingAdapter(), result.organisationId).catch((err) => console.error("Billing account not opened at sign-up:", err));

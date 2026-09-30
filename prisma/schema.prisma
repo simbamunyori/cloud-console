@@ -672,9 +672,10 @@ model Product {
   createdAt          DateTime        @default(now())
   updatedAt          DateTime        @updatedAt
 
-  category ProductCategory @relation(fields: [categoryKey], references: [key], onDelete: Restrict)
-  orders   Order[]
-  quotes   Quote[]
+  category  ProductCategory @relation(fields: [categoryKey], references: [key], onDelete: Restrict)
+  orders    Order[]
+  quotes    Quote[]
+  launchKit LaunchKit?
 }
 
 /// A domain ending we sell, with what the registrar charges us.
@@ -1764,4 +1765,84 @@ model Lead {
 
   @@index([status, createdAt])
   @@index([purgeAfter])
+}
+
+// ─── Launch kits, campaigns and the newsletter (final build, Milestone 7) ─
+
+/// Prepared when a product goes live: its public page, an insight
+/// draft, a LinkedIn post and tracked links. Nothing in it reaches the
+/// public until a website Publisher approves it.
+model LaunchKit {
+  id                   String    @id @default(cuid())
+  productId            String    @unique
+  /// The campaign tag on every link in the kit, e.g. "launch-m365-standard".
+  campaign             String    @unique
+  /// "Who it is for" on the product page.
+  audience             String    @default("")
+  /// Questions and answers for the product page: [{ question, answer }].
+  faq                  Json      @default("[]")
+  /// When a Publisher approved the product page; until then it isn't shown.
+  pageApprovedAt       DateTime?
+  pageApprovedById     String?
+  /// The insight draft in the website editor (its id there).
+  insightId            String?
+  linkedinText         String    @default("")
+  /// When a Publisher approved the LinkedIn post for staff to copy.
+  linkedinApprovedAt   DateTime?
+  linkedinApprovedById String?
+  /// When the AI drafts were written, or why they couldn't be.
+  draftedAt            DateTime?
+  draftError           String?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+}
+
+enum CampaignEventKind {
+  VISIT
+  LEAD
+  QUOTE
+  SIGN_UP
+}
+
+/// What a tracked link brought: a visit, then any lead, quote request or
+/// sign-up from the same browser. Orders are counted through sign-ups.
+model CampaignEvent {
+  id        String            @id @default(cuid())
+  campaign  String
+  source    String?
+  medium    String?
+  kind      CampaignEventKind
+  /// The lead or quote reference, or the organisation id for a sign-up.
+  ref       String?
+  createdAt DateTime          @default(now())
+
+  @@index([campaign, kind])
+}
+
+enum NewsletterIssueStatus {
+  DRAFT
+  SENT
+}
+
+/// A monthly newsletter for one market, prepared from recent insights.
+/// A website Publisher reads it and sends it.
+model NewsletterIssue {
+  id         String                @id @default(cuid())
+  market     String
+  /// The month it covers, e.g. "2026-09".
+  month      String
+  subject    String
+  intro      String
+  /// The insights in it, in order: [{ id, title, summary, url }].
+  items      Json
+  status     NewsletterIssueStatus @default(DRAFT)
+  sentAt     DateTime?
+  sentById   String?
+  recipients Int                   @default(0)
+  createdAt  DateTime              @default(now())
+  updatedAt  DateTime              @updatedAt
+
+  @@unique([market, month])
 }

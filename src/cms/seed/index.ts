@@ -119,5 +119,32 @@ export async function seedWebsite(payload: Payload): Promise<string | null> {
     return true;
   });
 
+  // Milestone 7: Insights in the Support menu and the footer's Company column, added to what is there.
+  await once("frame-insights", "Insights links in the header and footer", async () => {
+    const isInsights = (row: { link?: { to?: string | null; path?: string | null } | null }) => row.link?.to === "market" && row.link.path === "/insights";
+    const [menuItem] = DEFAULT_HEADER.menus.find((m) => m.label === "Support")!.columns[0].links.filter(isInsights);
+    const [footerItem] = DEFAULT_FOOTER.columns.find((c) => c.heading === "Company")!.links.filter(isInsights);
+    let changed = false;
+    for (const l of MARKET_LOCALES) {
+      const header = await payload.findGlobal({ slug: "header", locale: l.code, depth: 0, overrideAccess: true });
+      const support = header.menus?.find((m) => m.label === "Support");
+      const column = support?.columns?.[0];
+      if (column && !header.menus!.some((m) => m.columns?.some((c) => c.links?.some(isInsights)))) {
+        column.links = [...(column.links ?? []), menuItem];
+        await payload.updateGlobal({ slug: "header", locale: l.code, data: { menus: header.menus, _status: "published" }, overrideAccess: true });
+        changed = true;
+      }
+      const footer = await payload.findGlobal({ slug: "footer", locale: l.code, depth: 0, overrideAccess: true });
+      const company = footer.columns?.find((c) => c.heading === "Company");
+      if (company && !footer.columns!.some((c) => c.links?.some(isInsights))) {
+        const links = company.links ?? [];
+        company.links = [...links.slice(0, 1), footerItem, ...links.slice(1)];
+        await payload.updateGlobal({ slug: "footer", locale: l.code, data: { columns: footer.columns, _status: "published" }, overrideAccess: true });
+        changed = true;
+      }
+    }
+    return changed;
+  });
+
   return done.length ? `Added to the website editor: ${done.join(", ")}.` : null;
 }

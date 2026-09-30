@@ -46,7 +46,7 @@ On the server everything lives in `/opt/console`:
 | `MICROSOFT_CLIENT_ID`, `MICROSOFT_CLIENT_SECRET`, `MICROSOFT_STAFF_TENANT_ID` | Sign in with Microsoft for customers and staff (docs/sign-in-setup.md, section 1). The buttons stay hidden until set |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Sign in with Google for customers (docs/sign-in-setup.md, section 2) |
 | `STAFF_PASSWORD_SIGN_IN` | Optional. `yes` keeps staff passwords working once staff sign in with Microsoft |
-| `ANTHROPIC_API_KEY` | Optional. Switches the support assistant and Thapelo, the website assistant, on |
+| `ANTHROPIC_API_KEY` | Optional. Switches the support assistant and Thapelo, the website assistant, on, and writes launch kit drafts (plain drafts from the catalogue without it) |
 | `ADMIN_IP_ALLOWLIST` | Optional. Office addresses allowed to open `/admin` |
 
 The rest are set by the script: `APP_URL`, the generated secrets, `BILLING_ADAPTER=whmcs`, `WHMCS_ENVIRONMENT=production`, `TENANT_PROVIDER=manual`, and `PAYMENT_ADAPTER=stub`, which keeps card payments off in production until the DPO account is live. The app refuses to start while any setting is a development placeholder, and says which.

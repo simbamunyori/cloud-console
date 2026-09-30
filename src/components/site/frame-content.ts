@@ -51,10 +51,12 @@ export interface FrameMarketContact {
   thebeUrl?: string | null;
 }
 
-/** What decides whether a link shows: its products on sale, and the help centre having articles. */
+/** What decides whether a link shows: its products on sale, and the help centre and Insights having articles. */
 export interface FrameGates {
   onSale: (products: unknown) => boolean;
   helpOpen: boolean;
+  /** False while nothing is published on the Insights page; links to it hide. Shown when left out. */
+  insightsOpen?: boolean;
 }
 
 type LinkRow = { link?: CmsLinkValue | null };
@@ -88,10 +90,13 @@ const hasProducts = (value: unknown) => {
 /** `details` is the footer the contact and social links come from, when the links fall back to the built-in footer. */
 export function frameContent(header: HeaderData, footer: FooterData, market: FrameMarketContact, gates: FrameGates, details: FooterData = footer): FrameContent {
   const help = `/${market.code}/help`;
+  const insights = `/${market.code}/insights`;
+  const under = (href: string, base: string) => href === base || href.startsWith(`${base}/`) || href.startsWith(`${base}#`) || href.startsWith(`${base}?`);
   const resolve = (link: CmsLinkValue | null | undefined): FrameLink | null => {
     const href = linkHref(link, market);
     if (!href) return null;
-    if (!gates.helpOpen && (href === help || href.startsWith(`${help}/`) || href.startsWith(`${help}#`))) return null;
+    if (!gates.helpOpen && under(href, help)) return null;
+    if (gates.insightsOpen === false && under(href, insights)) return null;
     return { label: link!.label!, href };
   };
   const all = (rows: LinkRow[] | null | undefined) => (rows ?? []).flatMap((r) => resolve(r.link) ?? []);

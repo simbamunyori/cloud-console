@@ -42,6 +42,8 @@ export const LIMITS = {
   salesPerDay: { max: 3000, windowMs: 24 * 60 * 60_000 },
   /** "Talk to a person" and follow-up requests from one address. */
   leadPerIp: { max: 5, windowMs: 60 * 60_000 },
+  /** Tracked-link visits recorded from one address. */
+  campaignVisitPerIp: { max: 30, windowMs: 10 * 60_000 },
 } satisfies Record<string, Limit>;
 
 export class RateLimitedError extends Error {

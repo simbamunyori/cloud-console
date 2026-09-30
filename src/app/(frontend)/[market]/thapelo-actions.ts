@@ -2,6 +2,7 @@
 
 import { cookies } from "next/headers";
 import { requestContext } from "@/server/auth/next";
+import { countForCampaign } from "@/server/campaigns/cookie";
 import { prisma } from "@/server/db";
 import { runSoon } from "@/server/jobs/boss";
 import { DomainError } from "@/server/org/access";
@@ -93,6 +94,7 @@ export async function thapeloContactAction(_prev: ContactState, form: FormData):
       },
       { token: (await cookies()).get(COOKIE)?.value, ipAddress: (await requestContext()).ipAddress ?? null },
     );
+    await countForCampaign("LEAD", reference);
     await runSoon("email-deliver").catch(() => undefined);
     return { reference };
   } catch (e) {
