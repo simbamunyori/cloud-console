@@ -25,6 +25,7 @@ type PlaceholderEnv = Pick<Env, "APP_URL" | "MAIL_FROM"> & {
   /** Whether each WHMCS secret is set; the values never come here. */
   WHMCS_API_IDENTIFIER_SET?: boolean;
   WHMCS_API_SECRET_SET?: boolean;
+  SALES_ASSISTANT_DEMO?: string;
 };
 
 /** Each placeholder still set, in words that say where to fix it. Empty when there are none. */
@@ -36,6 +37,7 @@ export async function findPlaceholders(db: Pick<PrismaClient, "market" | "fxRate
     if (missing.length) found.push(`BILLING_ADAPTER is whmcs but ${missing.join(", ")} ${missing.length === 1 ? "is" : "are"} not set (see docs/whmcs-setup.md).`);
     if (e.WHMCS_ENVIRONMENT !== "production") found.push("WHMCS_ENVIRONMENT is not production, so this console points at the test WHMCS. Reset WHMCS and set it to production (docs/whmcs-setup.md, section 9).");
   }
+  if (e.SALES_ASSISTANT_DEMO === "yes") found.push("SALES_ASSISTANT_DEMO is yes, so Thapelo gives scripted answers. Remove it; Thapelo uses ANTHROPIC_API_KEY.");
   if (e.TENANT_PROVIDER === "stub") found.push("TENANT_PROVIDER is stub, which changes demo tenants only. Set it to manual so licence changes reach staff as tasks.");
   if (isLocalhost(e.APP_URL)) found.push(`APP_URL is ${e.APP_URL}. Set the console's public address.`);
   if (isLocalhost(e.MAIL_FROM)) found.push(`MAIL_FROM is ${e.MAIL_FROM}. Set a real sending address.`);

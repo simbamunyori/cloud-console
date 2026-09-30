@@ -146,8 +146,9 @@ the UI and never sent to the assistant.
 | `WHMCS_SYNC_SECRET` | For the price sync, secret | Shared with the sync addon in WHMCS |
 | `WHMCS_SYNC_URL` | No | The sync addon's address, if not beside `WHMCS_API_URL` |
 | `PAYMENT_ADAPTER` | No | `stub` only, until the card gateway is chosen |
-| `ANTHROPIC_API_KEY` | Optional, secret | Switches the support assistant on. Without it, the assistant page offers a ticket instead |
+| `ANTHROPIC_API_KEY` | Optional, secret | Switches the support assistant and Thapelo, the website assistant, on. Without it, the assistant page offers a ticket instead and Thapelo stays hidden |
 | `ANTHROPIC_MODEL` | No | Model the assistant uses (default `claude-sonnet-5`) |
+| `SALES_ASSISTANT_DEMO` | Demo and CI only | `yes` gives Thapelo, the website assistant, scripted answers. Refused in production |
 | `GEO_COUNTRY_HEADER` | No | Header the CDN puts the visitor's country in (default `cf-ipcountry`, Cloudflare's) |
 | `GEOLITE2_DB_PATH` | No | Path to a MaxMind GeoLite2 Country `.mmdb` file, for country detection without a CDN header |
 | `ADMIN_IP_ALLOWLIST` | Recommended in production | Comma-separated addresses or IPv4 ranges (CIDR) allowed to open `/admin`. Empty allows any address |

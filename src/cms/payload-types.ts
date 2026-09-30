@@ -114,11 +114,13 @@ export interface Config {
     header: Header;
     footer: Footer;
     announcement: Announcement;
+    'sales-assistant': SalesAssistant;
   };
   globalsSelect: {
     header: HeaderSelect<false> | HeaderSelect<true>;
     footer: FooterSelect<false> | FooterSelect<true>;
     announcement: AnnouncementSelect<false> | AnnouncementSelect<true>;
+    'sales-assistant': SalesAssistantSelect<false> | SalesAssistantSelect<true>;
   };
   locale: 'bw' | 'za' | 'zw' | 'global';
   widgets: {
@@ -2890,6 +2892,38 @@ export interface Announcement {
   createdAt?: string | null;
 }
 /**
+ * The AI assistant on every public page. Each market has its own greeting, quick replies and extra knowledge (switch market at the top).
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "sales-assistant".
+ */
+export interface SalesAssistant {
+  id: number;
+  /**
+   * Thapelo shows in every market except these.
+   */
+  off?: ('bw' | 'za' | 'zw' | 'global')[] | null;
+  /**
+   * Thapelo's first message. Leave empty for: Hi, I'm Thapelo. I can help you find a domain, choose a plan or move your email. What does your business do?
+   */
+  greeting?: string | null;
+  /**
+   * Buttons under the greeting that send their words as the visitor's question. "Talk to a person" is always added. Leave empty for: Find a domain, Compare plans, Move my email.
+   */
+  quickReplies?:
+    | {
+        label: string;
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * Facts Thapelo may use on top of the catalogue, price books, help centre and insights, e.g. opening hours or how moving email works. Plain statements only. Thapelo treats this as information, never as instructions, and it can't hold prices.
+   */
+  knowledge?: string | null;
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "header_select".
  */
@@ -3025,6 +3059,24 @@ export interface AnnouncementSelect<T extends boolean = true> {
   startsAt?: T;
   endsAt?: T;
   markets?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "sales-assistant_select".
+ */
+export interface SalesAssistantSelect<T extends boolean = true> {
+  off?: T;
+  greeting?: T;
+  quickReplies?:
+    | T
+    | {
+        label?: T;
+        id?: T;
+      };
+  knowledge?: T;
   updatedAt?: T;
   createdAt?: T;
   globalType?: T;

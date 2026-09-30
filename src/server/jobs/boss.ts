@@ -8,6 +8,7 @@ import { billingAdapter } from "@/server/billing";
 import { applyDefaultPoNumbers } from "@/server/billing/po";
 import { StubBillingAdapter } from "@/server/billing/stub/stub-adapter";
 import { reconcileLicences } from "@/server/licences/reconcile";
+import { purgeSales } from "@/server/sales/leads";
 import { checkBudgets } from "@/server/spend/budgets";
 import { checkBilling } from "@/server/status/status";
 import { todayIn } from "@/lib/dates";
@@ -38,6 +39,8 @@ const JOBS: Job[] = [
   { name: "budget-check", cron: "0 7 * * *", run: () => checkBudgets(prisma, todayIn(DEFAULT_TIME_ZONE)) },
   // The site's status: ordering and invoices depend on the billing system answering.
   { name: "status-check-billing", cron: "*/5 * * * *", run: () => checkBilling(prisma, () => billingAdapter().getTldPricing("BWP")) },
+  // Thapelo's chats and leads past their keep-until date (Privacy Notice).
+  { name: "sales-purge", cron: "45 3 * * *", run: () => purgeSales(prisma) },
 ];
 
 /** Later milestones add their jobs here (billing sync, purges). */

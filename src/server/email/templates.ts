@@ -200,6 +200,45 @@ export const TEMPLATES: Record<string, Template> = {
     };
   },
 
+  async "lead.new"(p, ctx) {
+    const lead = await ctx.db.lead.findUnique({ where: { id: str(p.leadId) } });
+    if (!lead) return null;
+    return {
+      subject: `${lead.source === "PERSON" ? "Talk to a person" : "Follow-up request"} from ${lead.company ?? lead.name} (${lead.reference})`,
+      body: {
+        heading: lead.source === "PERSON" ? "A visitor wants to talk to a person" : "A visitor asked us to get back to them",
+        paragraphs: [`${lead.name}${lead.company ? ` of ${lead.company}` : ""} left their details in a chat with Thapelo. The whole conversation is on the lead.`],
+        facts: [
+          ["Reference", lead.reference],
+          ["Email", lead.email],
+          ["Phone", lead.phone ?? "None"],
+          ["Market", lead.market],
+          ["What they need", lead.need],
+        ],
+        button: { label: "Open the lead", url: `${ctx.appUrl}/admin/leads/${encodeURIComponent(lead.reference)}` },
+      },
+    };
+  },
+
+  async "lead.received"(p, ctx) {
+    const lead = await ctx.db.lead.findUnique({ where: { id: str(p.leadId) } });
+    if (!lead) return null;
+    return {
+      subject: "We'll be in touch",
+      body: {
+        heading: "Thanks for getting in touch",
+        paragraphs: [
+          "Someone from our team will contact you, usually within one working day.",
+          "We keep your details and your conversation with Thapelo for 12 months so we can help you, and then delete them. Reply to this email if you'd like them deleted sooner.",
+        ],
+        facts: [
+          ["Reference", lead.reference],
+          ["What you asked about", lead.need],
+        ],
+      },
+    };
+  },
+
   async "quote.requested"(p, ctx) {
     const quote = await ctx.db.quote.findUnique({ where: { id: str(p.quoteId) }, include: { product: { select: { name: true } } } });
     if (!quote) return null;

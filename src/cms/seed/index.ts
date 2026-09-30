@@ -87,6 +87,21 @@ export async function seedWebsite(payload: Payload): Promise<string | null> {
     return added;
   });
 
+  // Milestone 6 added Thapelo to the privacy notice and the providers list.
+  // Only drafts nobody has edited since they were seeded are refreshed.
+  await once("legal-bw-thapelo", "Thapelo in the privacy notice", async () => {
+    let changed = false;
+    for (const kind of ["privacy", "service-providers"] as const) {
+      const { docs } = await payload.find({ collection: "legal", where: { kind: { equals: kind } }, locale: DEFAULT_LOCALE, limit: 1, depth: 0, overrideAccess: true });
+      const doc = docs[0];
+      if (!doc || doc.approvedByLegal || Math.abs(Date.parse(doc.updatedAt) - Date.parse(doc.createdAt)) > 60_000) continue;
+      const { updated, body } = legalFromMarkdown(BW_LEGAL[kind]);
+      await payload.update({ collection: "legal", id: doc.id, locale: DEFAULT_LOCALE, data: { updated, body: body as never, _status: "published" }, overrideAccess: true });
+      changed = true;
+    }
+    return changed;
+  });
+
   await once("header", "the header", async () => {
     await payload.updateGlobal({ slug: "header", data: { ...DEFAULT_HEADER, _status: "published" }, overrideAccess: true });
     return true;

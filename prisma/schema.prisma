@@ -1686,3 +1686,82 @@ model NewsletterSubscriber {
 
   @@index([confirmedAt, unsubscribedAt])
 }
+
+// ─── Thapelo, the sales assistant on the public site ─────────────────
+// docs/FINAL_BUILD.md, Milestone 6. Visitors aren't signed in: a chat is
+// found by a random token kept in the visitor's cookie (only its hash is
+// stored). Chats and leads are deleted on the schedule in the Privacy
+// Notice (purgeAfter).
+
+model SalesChat {
+  id           String    @id @default(cuid())
+  tokenHash    String    @unique
+  market       String
+  /// The page the chat started on, e.g. /bw/pricing.
+  startedOn    String?
+  handedOverAt DateTime?
+  purgeAfter   DateTime
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  messages SalesChatMessage[]
+  lead     Lead?
+
+  @@index([purgeAfter])
+}
+
+model SalesChatMessage {
+  id        String        @id @default(cuid())
+  chatId    String
+  role      AssistantRole
+  text      String
+  /// What Thapelo looked up in this turn, for staff reading the lead.
+  toolTrace Json?
+  createdAt DateTime      @default(now())
+
+  chat SalesChat @relation(fields: [chatId], references: [id], onDelete: Cascade)
+
+  @@index([chatId, createdAt])
+}
+
+enum LeadStatus {
+  NEW
+  CONTACTED
+  CLOSED
+}
+
+enum LeadSource {
+  /// The visitor left their details for follow-up.
+  ASSISTANT
+  /// The visitor pressed "Talk to a person".
+  PERSON
+}
+
+/// Someone on the public site who asked to be contacted, with their consent.
+model Lead {
+  id          String     @id @default(cuid())
+  reference   String     @unique
+  market      String
+  source      LeadSource
+  status      LeadStatus @default(NEW)
+  name        String
+  email       String
+  phone       String?
+  company     String?
+  /// What they're after, in their words or Thapelo's summary.
+  need        String
+  /// The exact consent wording they agreed to, and when.
+  consentText String
+  consentAt   DateTime
+  chatId      String?    @unique
+  handledById String?
+  handledAt   DateTime?
+  purgeAfter  DateTime
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  chat SalesChat? @relation(fields: [chatId], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+  @@index([purgeAfter])
+}

@@ -51,7 +51,7 @@ export async function recentOrders(db: PrismaClient) {
 
 /** Counts for the staff overview. */
 export async function staffOverview(db: PrismaClient, now = new Date()) {
-  const [openTasks, lateTasks, eft, settingUp, tickets, waitlist, quotes] = await Promise.all([
+  const [openTasks, lateTasks, eft, settingUp, tickets, waitlist, quotes, leads] = await Promise.all([
     db.provisioningTask.count({ where: { status: { in: ["OPEN", "IN_PROGRESS"] } } }),
     db.provisioningTask.count({ where: { status: { in: ["OPEN", "IN_PROGRESS"] }, expectedBy: { lt: now } } }),
     db.eftPayment.count({ where: { status: "AWAITING_CONFIRMATION" } }),
@@ -59,6 +59,7 @@ export async function staffOverview(db: PrismaClient, now = new Date()) {
     db.ticket.count({ where: { status: "OPEN", deletedAt: null } }),
     db.waitlistEntry.count({ where: { contactedAt: null } }),
     db.quote.count({ where: { status: "NEW" } }),
+    db.lead.count({ where: { status: "NEW" } }),
   ]);
-  return { openTasks, lateTasks, eft, settingUp, tickets, waitlist, quotes };
+  return { openTasks, lateTasks, eft, settingUp, tickets, waitlist, quotes, leads };
 }

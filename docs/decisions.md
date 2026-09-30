@@ -166,6 +166,14 @@ What the console assumes, decided or leaves out, for review before launch. Each 
 121. **Round-trip state lives in short-lived sealed cookies**, not the database: the Microsoft or Google state, nonce and PKCE verifier (10 minutes, used once), an account waiting to be linked or signed up (15 minutes), and each passkey challenge (5 minutes, used once, tied to its purpose and person). They are encrypted with the server key, so the browser can't read or change them.
 122. **Microsoft and Google start from links**, not forms, because the content security policy only lets forms post to this site. Staff use `/admin/auth/...`, so the admin address allowlist applies to them too.
 123. **No SMS codes**, as the final build asks.
+124. **Thapelo answers only from tools that read the public site** (final build, Milestone 6): the catalogue with this market's price book, the help centre, FAQ sections on published pages, published insights, and domain checks. The extra knowledge staff write goes in fenced off as information. There is no tool that reads any account, and the model never sees a customer record.
+125. **Prices are never the model's own.** It quotes what `list_products` or `check_domain` returned, and an order button only appears for a product slug that is on sale. Its answers lose em dashes and exclamation marks whatever the model writes.
+126. **Contact details go in a form, never the chat.** "Talk to a person" is always under the chat and needs the consent tick; it creates one lead per chat with the whole conversation, emails the market's support address and a receipt to the visitor, and staff work it at `/admin/leads`.
+127. **Chats are kept 90 days after the last message, leads and their chats 12 months after staff last touched them**, then a nightly job (`sales-purge`) deletes them. The privacy notice says so; unedited drafts of it and the providers list were refreshed once.
+128. **A visitor's chat is found by a random token in an httpOnly cookie** (only its hash is stored), per market, so it follows them between pages and nobody else can read it. There is no sign-in.
+129. **Thapelo is rate limited** per address (30 questions in 10 minutes), per chat (60 a day) and in total (3,000 a day, to cap the AI bill); leads are limited to 5 an hour per address, and the form has a hidden field for bots.
+130. **Thapelo shows only when the AI service is set up** (`ANTHROPIC_API_KEY`) and the market isn't switched off in the website editor (Thapelo, under Assistant). Demo and CI servers can set `SALES_ASSISTANT_DEMO=yes` for scripted answers through the real tools; a production server refuses to start with it.
+131. **Open on desktop, a bubble on phones**, as designed. Minimising is remembered on the device; a link to `#thapelo` opens it.
 
 ## Carried over from the Phase 1 go-ahead
 

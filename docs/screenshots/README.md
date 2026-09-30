@@ -66,6 +66,8 @@ Refresh with `npm run screenshots -- --commit` against a running console with th
 | admin-orders | [view](staff/admin-orders-390-light.webp) | [view](staff/admin-orders-390-dark.webp) | [view](staff/admin-orders-1440-light.webp) | [view](staff/admin-orders-1440-dark.webp) |
 | admin-quotes | [view](staff/admin-quotes-390-light.webp) | [view](staff/admin-quotes-390-dark.webp) | [view](staff/admin-quotes-1440-light.webp) | [view](staff/admin-quotes-1440-dark.webp) |
 | admin-quote | [view](staff/admin-quote-390-light.webp) | [view](staff/admin-quote-390-dark.webp) | [view](staff/admin-quote-1440-light.webp) | [view](staff/admin-quote-1440-dark.webp) |
+| admin-leads | [view](staff/admin-leads-390-light.webp) | [view](staff/admin-leads-390-dark.webp) | [view](staff/admin-leads-1440-light.webp) | [view](staff/admin-leads-1440-dark.webp) |
+| admin-lead | [view](staff/admin-lead-390-light.webp) | [view](staff/admin-lead-390-dark.webp) | [view](staff/admin-lead-1440-light.webp) | [view](staff/admin-lead-1440-dark.webp) |
 | admin-payments | [view](staff/admin-payments-390-light.webp) | [view](staff/admin-payments-390-dark.webp) | [view](staff/admin-payments-1440-light.webp) | [view](staff/admin-payments-1440-dark.webp) |
 | admin-catalogue | [view](staff/admin-catalogue-390-light.webp) | [view](staff/admin-catalogue-390-dark.webp) | [view](staff/admin-catalogue-1440-light.webp) | [view](staff/admin-catalogue-1440-dark.webp) |
 | admin-catalogue-product | [view](staff/admin-catalogue-product-390-light.webp) | [view](staff/admin-catalogue-product-390-dark.webp) | [view](staff/admin-catalogue-product-1440-light.webp) | [view](staff/admin-catalogue-product-1440-dark.webp) |

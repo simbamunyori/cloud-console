@@ -7,6 +7,7 @@
  * It refuses to run in production unless SEED_DEMO=yes, because the demo
  * accounts have a published password.
  */
+import { createHash, randomBytes } from "node:crypto";
 import { type Prisma, PrismaClient } from "@prisma/client";
 import { addDays, addMonths, startOfMonth, todayIn } from "../src/lib/dates";
 import { money } from "../src/lib/domain/money";
@@ -25,6 +26,7 @@ import { openTicket } from "../src/server/support/tickets";
 import { addSaving } from "../src/server/spend/tips";
 import { importUsage, linkSubscription } from "../src/server/spend/usage";
 import { requestQuote, saveQuote, sendQuote } from "../src/server/quotes/quotes";
+import { createLead } from "../src/server/sales/leads";
 import { syncStubTaxRules } from "../src/server/markets/tax-sync";
 
 const db = new PrismaClient();
@@ -289,6 +291,31 @@ async function main() {
     ],
   });
   await sendQuote({ db, staff: staffActor }, asked.reference);
+
+  // A lead from Thapelo, the website's assistant, with its conversation.
+  const chatToken = randomBytes(24).toString("base64url");
+  await db.salesChat.create({
+    data: {
+      tokenHash: createHash("sha256").update(chatToken).digest("hex"),
+      market: "bw",
+      startedOn: "/bw",
+      purgeAfter: addDays(today, 90),
+      messages: {
+        create: [
+          { role: "USER", text: "We're a logistics company with 8 staff. What do you suggest for email?" },
+          { role: "ASSISTANT", text: "Grow fits best: Microsoft 365 for 8 users, branded signatures and daily backup. Would you like to talk to someone about moving your email?", toolTrace: [{ tool: "list_products", input: {} }] },
+          { role: "USER", text: "Yes please, someone should call me." },
+          { role: "ASSISTANT", text: "You can leave your details in the form below and someone from our team will contact you.", toolTrace: [{ tool: "offer_contact", input: { reason: "person", summary: "8 staff, wants Microsoft 365 and help moving email" } }] },
+        ],
+      },
+    },
+  });
+  await createLead(
+    db,
+    { code: "bw", supportEmail: "support@example.co.bw" },
+    { name: "Kagiso Molefe", email: "kagiso@kgalelogistics.example", phone: "+267 71 000 000", company: "Kgale Logistics", need: "8 staff, wants Microsoft 365 and help moving email", consent: true, reason: "person" },
+    { token: chatToken, ipAddress: null },
+  );
 
   const invoices = await stub.listInvoices(clientId);
   console.log(`Demo organisation: Kgale Hill Logistics, ${invoices.length} invoices from ${start.toISOString().slice(0, 10)}.`);

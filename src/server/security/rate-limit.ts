@@ -34,6 +34,14 @@ export const LIMITS = {
   assistantPerUser: { max: 20, windowMs: 10 * 60_000 },
   /** Questions to the assistant from one organisation in a day. */
   assistantPerOrg: { max: 300, windowMs: 24 * 60 * 60_000 },
+  /** Questions to Thapelo, the website's assistant, from one address. */
+  salesPerIp: { max: 30, windowMs: 10 * 60_000 },
+  /** Questions in one Thapelo chat in a day. */
+  salesPerChat: { max: 60, windowMs: 24 * 60 * 60_000 },
+  /** Questions to Thapelo from everyone in a day, to cap the AI bill. */
+  salesPerDay: { max: 3000, windowMs: 24 * 60 * 60_000 },
+  /** "Talk to a person" and follow-up requests from one address. */
+  leadPerIp: { max: 5, windowMs: 60 * 60_000 },
 } satisfies Record<string, Limit>;
 
 export class RateLimitedError extends Error {
