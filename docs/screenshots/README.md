@@ -49,6 +49,7 @@ Refresh with `npm run screenshots -- --commit` against a running console with th
 | assistant | [view](customer/assistant-390-light.webp) | [view](customer/assistant-390-dark.webp) | [view](customer/assistant-1440-light.webp) | [view](customer/assistant-1440-dark.webp) |
 | team | [view](customer/team-390-light.webp) | [view](customer/team-390-dark.webp) | [view](customer/team-1440-light.webp) | [view](customer/team-1440-dark.webp) |
 | licences | [view](customer/licences-390-light.webp) | [view](customer/licences-390-dark.webp) | [view](customer/licences-1440-light.webp) | [view](customer/licences-1440-dark.webp) |
+| spend | [view](customer/spend-390-light.webp) | [view](customer/spend-390-dark.webp) | [view](customer/spend-1440-light.webp) | [view](customer/spend-1440-dark.webp) |
 | security | [view](customer/security-390-light.webp) | [view](customer/security-390-dark.webp) | [view](customer/security-1440-light.webp) | [view](customer/security-1440-dark.webp) |
 | settings | [view](customer/settings-390-light.webp) | [view](customer/settings-390-dark.webp) | [view](customer/settings-1440-light.webp) | [view](customer/settings-1440-dark.webp) |
 
@@ -71,6 +72,7 @@ Refresh with `npm run screenshots -- --commit` against a running console with th
 | admin-catalogue-new-product | [view](staff/admin-catalogue-new-product-390-light.webp) | [view](staff/admin-catalogue-new-product-390-dark.webp) | [view](staff/admin-catalogue-new-product-1440-light.webp) | [view](staff/admin-catalogue-new-product-1440-dark.webp) |
 | admin-catalogue-preview | [view](staff/admin-catalogue-preview-390-light.webp) | [view](staff/admin-catalogue-preview-390-dark.webp) | [view](staff/admin-catalogue-preview-1440-light.webp) | [view](staff/admin-catalogue-preview-1440-dark.webp) |
 | admin-catalogue-family | [view](staff/admin-catalogue-family-390-light.webp) | [view](staff/admin-catalogue-family-390-dark.webp) | [view](staff/admin-catalogue-family-1440-light.webp) | [view](staff/admin-catalogue-family-1440-dark.webp) |
+| admin-cloud-usage | [view](staff/admin-cloud-usage-390-light.webp) | [view](staff/admin-cloud-usage-390-dark.webp) | [view](staff/admin-cloud-usage-1440-light.webp) | [view](staff/admin-cloud-usage-1440-dark.webp) |
 | admin-pricing | [view](staff/admin-pricing-390-light.webp) | [view](staff/admin-pricing-390-dark.webp) | [view](staff/admin-pricing-1440-light.webp) | [view](staff/admin-pricing-1440-dark.webp) |
 | admin-markets | [view](staff/admin-markets-390-light.webp) | [view](staff/admin-markets-390-dark.webp) | [view](staff/admin-markets-1440-light.webp) | [view](staff/admin-markets-1440-dark.webp) |
 | admin-market | [view](staff/admin-market-390-light.webp) | [view](staff/admin-market-390-dark.webp) | [view](staff/admin-market-1440-light.webp) | [view](staff/admin-market-1440-dark.webp) |

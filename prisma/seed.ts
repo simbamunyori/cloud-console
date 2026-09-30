@@ -22,6 +22,8 @@ import { tenantDb } from "../src/server/db";
 import { placeOrder } from "../src/server/orders/orders";
 import { linkTenant, recordLicence, recordTenantUser } from "../src/server/licences/licences";
 import { openTicket } from "../src/server/support/tickets";
+import { addSaving } from "../src/server/spend/tips";
+import { importUsage, linkSubscription } from "../src/server/spend/usage";
 import { requestQuote, saveQuote, sendQuote } from "../src/server/quotes/quotes";
 import { syncStubTaxRules } from "../src/server/markets/tax-sync";
 
@@ -220,6 +222,41 @@ async function main() {
     const person = await recordTenantUser(recorder, org.id, { tenantId: ms.id, name, email: mailbox(name), licenceIds: i < 10 ? [standard.id] : [] });
     await db.tenantUser.update({ where: { id: person.id }, data: { lastSignInAt: i === 10 ? null : addDays(today, -(i % 4)), enabled: i !== 11 } });
   }
+
+  // Azure: a subscription with two months of usage, uploaded as staff
+  // would upload the Partner Center file. The test servers were switched
+  // off ten days ago but their disks still cost money, which shows as a
+  // saving; staff also found an oversized server in Azure Advisor.
+  const finance = await db.user.findUniqueOrThrow({ where: { email: "finance@example.co.bw" } });
+  const cloudStaff = { userId: finance.id, name: finance.name, staffRole: "FINANCE" as const };
+  const SUB = "3f2b8c1e-0a4d-4b7e-9c61-2d5e8f7a1b90";
+  await linkSubscription({ db, staff: cloudStaff }, org.id, { subscriptionId: SUB, name: "Kgale Hill production", margin: "15" });
+  for (let back = 0; back <= 2; back++) {
+    const month = addMonths(startOfMonth(today), -back).toISOString().slice(0, 7);
+    await db.fxRate.upsert({ where: { month_base_quote: { month, base: "USD", quote: "BWP" } }, update: {}, create: { month, base: "USD", quote: "BWP", rateMicros: 13_450_000n } });
+  }
+  const usageRows = ["EntitlementId,UsageDate,MeterCategory,ResourceUri,BillingPreTaxTotal,BillingCurrency"];
+  const vm = (group: string, name: string) => `/subscriptions/${SUB}/resourceGroups/${group}/providers/Microsoft.Compute/virtualMachines/${name}`;
+  const disk = (group: string, name: string) => `/subscriptions/${SUB}/resourceGroups/${group}/providers/Microsoft.Compute/disks/${name}`;
+  const ip = (group: string, name: string) => `/subscriptions/${SUB}/resourceGroups/${group}/providers/Microsoft.Network/publicIPAddresses/${name}`;
+  const firstUsageDay = addMonths(startOfMonth(today), -2);
+  for (let d = firstUsageDay; d < today; d = addDays(d, 1)) {
+    const day = d.toISOString().slice(0, 10);
+    const wobble = ((d.getUTCDate() * 7) % 5) / 10;
+    usageRows.push(`${SUB},${day},Virtual Machines,${vm("kgale-erp", "erp-app-01")},${(9.6 + wobble).toFixed(4)},USD`);
+    usageRows.push(`${SUB},${day},Storage,${disk("kgale-erp", "erp-app-01-os")},0.7700,USD`);
+    usageRows.push(`${SUB},${day},Bandwidth,${vm("kgale-erp", "erp-app-01")},${(0.4 + wobble / 2).toFixed(4)},USD`);
+    usageRows.push(`${SUB},${day},Storage,/subscriptions/${SUB}/resourceGroups/kgale-backups/providers/Microsoft.Storage/storageAccounts/kgalebackups,1.1200,USD`);
+    if (d < addDays(today, -10)) usageRows.push(`${SUB},${day},Virtual Machines,${vm("kgale-test", "test-web-01")},3.8400,USD`);
+    usageRows.push(`${SUB},${day},Storage,${disk("kgale-test", "test-web-01-os")},0.6400,USD`);
+    usageRows.push(`${SUB},${day},Virtual Network,${ip("kgale-test", "test-web-01-ip")},0.1200,USD`);
+  }
+  await importUsage({ db, staff: cloudStaff }, "DailyRatedUsage_KgaleHill.csv", usageRows.join("\n"));
+  await addSaving({ db, staff: cloudStaff }, org.id, {
+    title: "The ERP server is bigger than it needs to be",
+    detail: "erp-app-01 has used under a fifth of its processors for the last month. A size down keeps plenty of headroom and halves its cost. We'd make the change on a Sunday morning, with about five minutes of downtime.",
+    monthly: "2300.00",
+  });
 
   // Quotes: a request from the website for staff to price, and a quote sent to the demo organisation.
   await requestQuote(

@@ -2,6 +2,7 @@
 
 import {
   Boxes,
+  ChartColumn,
   Globe,
   Hourglass,
   Building2,
@@ -33,6 +34,7 @@ const ICONS = {
   marketplace: ShoppingBag,
   services: Server,
   billing: ReceiptText,
+  spend: ChartColumn,
   support: LifeBuoy,
   team: Users,
   licences: KeyRound,

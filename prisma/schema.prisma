@@ -181,6 +181,10 @@ model Organisation {
   licenceAssignments LicenceAssignment[]
   licenceChanges     LicenceChange[]
   tenantOnboardings  TenantOnboarding[]
+  invoiceSpend       InvoiceSpend[]
+  cloudSubscriptions CloudSubscription[]
+  cloudUsage         CloudUsage[]
+  savingTips         SavingTip[]
 }
 
 enum UserKind {
@@ -1400,4 +1404,135 @@ model StubCardCharge {
   lastFour    String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+}
+
+/// An invoice's charges grouped by what they were for, kept so the spend
+/// views don't read every invoice from billing on each visit. Read again
+/// when the invoice's status or total changes.
+model InvoiceSpend {
+  id             String   @id @default(cuid())
+  organisationId String
+  invoiceId      String
+  /// First day of the month the invoice was issued in.
+  month          DateTime @db.Date
+  status         String
+  totalMinor     BigInt
+  currency       String
+  /// [{ category, label, amountMinor }], before VAT. amountMinor is a string.
+  lines          Json
+  readAt         DateTime @default(now())
+
+  organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+
+  @@unique([organisationId, invoiceId])
+  @@index([organisationId, month])
+}
+
+enum CloudVendor {
+  AZURE
+}
+
+/// A customer's Azure subscription, which usage files are matched to.
+model CloudSubscription {
+  id             String      @id @default(cuid())
+  organisationId String
+  vendor         CloudVendor @default(AZURE)
+  /// Azure's subscription id (a GUID), stored lower-cased. One customer each.
+  subscriptionId String      @unique
+  name           String
+  /// Our margin on usage, in basis points: 1,500 is 15%.
+  marginBps      Int
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  usage        CloudUsage[]
+
+  @@index([organisationId])
+}
+
+/// One resource's usage on one day for one kind of meter, from an imported
+/// usage file. Re-importing a day replaces it.
+model CloudUsage {
+  id             String   @id @default(cuid())
+  organisationId String
+  subscriptionId String
+  day            DateTime @db.Date
+  resourceGroup  String
+  /// The resource's name, the last part of its id.
+  resource       String
+  /// e.g. "Microsoft.Compute/virtualMachines", or "" when the file has none.
+  resourceType   String
+  /// Azure's meter category, e.g. "Virtual Machines" or "Storage".
+  category       String
+  /// What it cost us, in the file's currency.
+  costMinor      BigInt
+  costCurrency   String
+  /// What the customer pays: cost plus margin, in their currency.
+  priceMinor     BigInt
+  currency       String
+  importId       String
+
+  organisation Organisation      @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  subscription CloudSubscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  import       CloudUsageImport  @relation(fields: [importId], references: [id], onDelete: Restrict)
+
+  @@unique([subscriptionId, day, resourceGroup, resource, category])
+  @@index([organisationId, day])
+}
+
+/// A usage file staff uploaded. One file can cover many customers.
+model CloudUsageImport {
+  id           String    @id @default(cuid())
+  fileName     String
+  rowsRead     Int
+  rowsImported Int
+  firstDay     DateTime? @db.Date
+  lastDay      DateTime? @db.Date
+  /// Subscriptions in the file that no customer has, and other notes.
+  notes        Json      @default("[]")
+  importedById String
+  createdAt    DateTime  @default(now())
+
+  usage CloudUsage[]
+}
+
+enum SavingSource {
+  /// Found by the console, e.g. servers switched off whose disks still cost money.
+  AUTO
+  /// Added by staff, e.g. from Azure Advisor.
+  STAFF
+}
+
+enum SavingStatus {
+  OPEN
+  /// The customer asked us to make the change; a staff task is open.
+  ASKED
+  DONE
+  DISMISSED
+}
+
+/// A way the customer could spend less, with what it would save a month.
+model SavingTip {
+  id             String       @id @default(cuid())
+  organisationId String
+  /// Found tips are keyed by what they are about, so a new import updates
+  /// the same tip instead of adding another.
+  key            String
+  source         SavingSource
+  title          String
+  detail         String
+  monthlyMinor   BigInt
+  currency       String
+  status         SavingStatus @default(OPEN)
+  taskId         String?
+  createdById    String?
+  decidedById    String?
+  decidedAt      DateTime?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+
+  @@unique([organisationId, key])
 }

@@ -55,6 +55,7 @@ export const PAGES: PageSpec[] = [
   { name: "assistant", audience: "customer", path: "/app/support/assistant" },
   { name: "team", audience: "customer", path: "/app/team" },
   { name: "licences", audience: "customer", path: "/app/licences" },
+  { name: "spend", audience: "customer", path: "/app/spend" },
   { name: "security", audience: "customer", path: "/app/security" },
   { name: "settings", audience: "customer", path: "/app/settings" },
 
@@ -73,6 +74,7 @@ export const PAGES: PageSpec[] = [
   { name: "admin-catalogue-new-product", audience: "staff", path: "/admin/catalogue/products/new" },
   { name: "admin-catalogue-preview", audience: "staff", path: "/admin/catalogue/products/local-data-copy/preview?market=bw" },
   { name: "admin-catalogue-family", audience: "staff", path: "/admin/catalogue/families/servers" },
+  { name: "admin-cloud-usage", audience: "staff", path: "/admin/cloud-usage" },
   { name: "admin-pricing", audience: "staff", path: "/admin/pricing" },
   { name: "admin-markets", audience: "staff", path: "/admin/markets" },
   { name: "admin-market", audience: "staff", path: "/admin/markets/bw" },

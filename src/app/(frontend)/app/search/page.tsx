@@ -20,6 +20,7 @@ const PAGES = [
   { label: "Find a domain", href: "/app/marketplace/domains", words: "domain name register transfer" },
   { label: "Services", href: "/app/services", words: "services subscriptions licences users domains" },
   { label: "Billing", href: "/app/billing", words: "billing invoices pay payments card bank transfer eft" },
+  { label: "Cloud spend", href: "/app/spend", words: "cloud spend costs forecast savings azure usage budget waste" },
   { label: "Statements", href: "/app/billing/statements", words: "statement balance" },
   { label: "Support", href: "/app/support", words: "support help tickets" },
   { label: "Ask the assistant", href: "/app/support/assistant", words: "assistant ai question help" },

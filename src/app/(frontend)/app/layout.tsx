@@ -20,6 +20,7 @@ const NAV: NavItem[] = [
   { href: "/app/services", label: "Services", icon: "services" },
   { href: "/app/licences", label: "Users and licences", icon: "licences" },
   { href: "/app/billing", label: "Billing", icon: "billing" },
+  { href: "/app/spend", label: "Cloud spend", icon: "spend" },
   { href: "/app/support", label: "Support", icon: "support" },
   { href: "/app/team", label: "Team", icon: "team" },
   { href: "/app/security", label: "Security", icon: "security" },
