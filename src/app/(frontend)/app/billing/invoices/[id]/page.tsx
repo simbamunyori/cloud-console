@@ -19,6 +19,7 @@ import { orderInvoiceIds } from "@/server/orders/orders";
 import { can } from "@/server/org/access";
 import { eftDetails } from "@/server/markets/markets";
 import { isPayable } from "@/server/payments/card";
+import { cardPaymentsOn } from "@/server/payments/live";
 import { payByCardAction } from "../../actions";
 import { EftReportForm, PoForm, PrintButton } from "./invoice-forms";
 
@@ -80,6 +81,7 @@ export default async function InvoicePage({ params, searchParams }: { params: Pr
   const payable = isPayable(invoice);
   const canPay = payable && can(actor, "pay");
   const bank = payable ? eftDetails(market) : null;
+  const byCard = market.paymentMethods.includes("card") && cardPaymentsOn();
   const waiting = eftReports.find((r) => r.status === "AWAITING_CONFIRMATION");
   const cardMessage = card === "failed" ? { tone: "negative" as const, text: `${lastCard?.failureReason ?? "The card payment didn't go through."} Nothing was taken. You can try again or pay by bank transfer.` } : card ? CARD_MESSAGE[card] : undefined;
   // The market's registered office, one part per line as on a letterhead.
@@ -253,15 +255,17 @@ export default async function InvoicePage({ params, searchParams }: { params: Pr
 
         {canPay ? (
           <Card aria-labelledby="pay-title" className="print:hidden">
-            <CardHeader id="pay-title" title={`Pay ${formatMoney(invoice.balance, locale)}`} description="By card now, or by bank transfer from your bank." />
+            <CardHeader id="pay-title" title={`Pay ${formatMoney(invoice.balance, locale)}`} description={byCard ? "By card now, or by bank transfer from your bank." : "By bank transfer from your bank."} />
             <CardBody className="flex flex-col gap-6">
-              <form action={payByCardAction}>
-                <input type="hidden" name="invoiceId" value={invoice.invoiceId} />
-                <Button type="submit" size="lg" className="w-full sm:w-auto">
-                  <CreditCard aria-hidden /> Pay {formatMoney(invoice.balance, locale)} by card
-                </Button>
-              </form>
-              <div className="flex flex-col gap-4 border-t border-border pt-6">
+              {byCard ? (
+                <form action={payByCardAction}>
+                  <input type="hidden" name="invoiceId" value={invoice.invoiceId} />
+                  <Button type="submit" size="lg" className="w-full sm:w-auto">
+                    <CreditCard aria-hidden /> Pay {formatMoney(invoice.balance, locale)} by card
+                  </Button>
+                </form>
+              ) : null}
+              <div className={byCard ? "flex flex-col gap-4 border-t border-border pt-6" : "flex flex-col gap-4"}>
                 <h3 className="text-headline text-ink">Pay by bank transfer (EFT)</h3>
                 {bank ? <BankDetailsList bank={bank} reference={invoice.number} /> : <p className="text-ink-muted">Our bank details will appear here soon. Until then, contact support to pay by EFT.</p>}
                 {!waiting ? (

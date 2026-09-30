@@ -6,6 +6,7 @@ import { Card, CardBody } from "@/components/ui/card";
 import { formatMoney } from "@/lib/domain/money";
 import { prisma } from "@/server/db";
 import { env } from "@/server/env";
+import { cardPaymentsOn } from "@/server/payments/live";
 import { STUB_CARDS, stubCharge } from "@/server/payments/stub-card";
 import { stubCancelAction } from "./actions";
 import { StubPayForm } from "./pay-form";
@@ -19,7 +20,7 @@ const spaced = (n: string) => n.replace(/(\d{4})(?=\d)/g, "$1 ");
 
 /** Stands in for a card company's payment page until a gateway is chosen. */
 export default async function StubGatewayPage({ params }: { params: Promise<{ ref: string }> }) {
-  if (env().PAYMENT_ADAPTER !== "stub") notFound();
+  if (env().PAYMENT_ADAPTER !== "stub" || !cardPaymentsOn()) notFound();
   const { ref } = await params;
   const charge = await stubCharge(prisma, decodeURIComponent(ref));
   if (!charge || charge.status !== "pending") notFound();

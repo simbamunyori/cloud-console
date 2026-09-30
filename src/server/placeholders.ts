@@ -15,6 +15,8 @@ const isLocalhost = (value: string) => /@localhost\b|\/\/localhost\b|\/\/127\.0\
 const allZeros = (value: string | null) => Boolean(value && /^0+$/.test(value.replace(/[\s-]/g, "")));
 
 type PlaceholderEnv = Pick<Env, "APP_URL" | "MAIL_FROM"> & {
+  /** Checked only when given, so older callers and tests keep working. */
+  SMTP_URL?: string | null;
   STATUS_PAGE_URL?: string;
   BILLING_ADAPTER?: Env["BILLING_ADAPTER"];
   TENANT_PROVIDER?: Env["TENANT_PROVIDER"];
@@ -37,6 +39,7 @@ export async function findPlaceholders(db: Pick<PrismaClient, "market" | "fxRate
   if (e.TENANT_PROVIDER === "stub") found.push("TENANT_PROVIDER is stub, which changes demo tenants only. Set it to manual so licence changes reach staff as tasks.");
   if (isLocalhost(e.APP_URL)) found.push(`APP_URL is ${e.APP_URL}. Set the console's public address.`);
   if (isLocalhost(e.MAIL_FROM)) found.push(`MAIL_FROM is ${e.MAIL_FROM}. Set a real sending address.`);
+  if (e.SMTP_URL === null || (e.SMTP_URL !== undefined && isLocalhost(e.SMTP_URL))) found.push("SMTP_URL is not set to a real mail server, so no email would be sent. Set it, e.g. smtps://user:password@mail.example.com:465.");
   if (e.STATUS_PAGE_URL && /\/\/[^/]*example\.com\b/i.test(e.STATUS_PAGE_URL)) found.push(`STATUS_PAGE_URL is ${e.STATUS_PAGE_URL}. Set the real status page, or leave it unset.`);
 
   for (const m of await db.market.findMany({ orderBy: { sortOrder: "asc" } })) {
