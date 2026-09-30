@@ -20,9 +20,18 @@ async function clearTestMarkets() {
   const codes = old.map((m) => m.code);
   await db.organisation.updateMany({ where: { billingMarket: { in: codes } }, data: { billingMarket: "bw", currency: "BWP" } });
   await db.marketChange.deleteMany({ where: { marketCode: { in: codes } } });
-  // Other test files seed price books for every market, test markets included, while these run.
-  await db.priceBookEntry.deleteMany({ where: { marketCode: { in: codes } } });
-  await db.market.deleteMany({ where: { code: { in: codes } } });
+  // Other test files seed price books for every market, test markets included, while these run,
+  // so an entry can land between the two deletes: then clear it and try again.
+  for (let attempt = 1; ; attempt++) {
+    await db.priceBookEntry.deleteMany({ where: { marketCode: { in: codes } } });
+    try {
+      await db.market.deleteMany({ where: { code: { in: codes } } });
+      return;
+    } catch (e) {
+      if (attempt >= 5 || (e as { code?: string }).code !== "P2003") throw e;
+      await new Promise((r) => setTimeout(r, 200 * attempt));
+    }
+  }
 }
 
 function settings(overrides: Partial<MarketSettingsInput> = {}): MarketSettingsInput {
