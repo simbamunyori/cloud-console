@@ -18,6 +18,7 @@ const NAV: NavItem[] = [
   { href: "/app", label: "Home", icon: "home", exact: true },
   { href: "/app/marketplace", label: "Marketplace", icon: "marketplace" },
   { href: "/app/services", label: "Services", icon: "services" },
+  { href: "/app/licences", label: "Users and licences", icon: "licences" },
   { href: "/app/billing", label: "Billing", icon: "billing" },
   { href: "/app/support", label: "Support", icon: "support" },
   { href: "/app/team", label: "Team", icon: "team" },

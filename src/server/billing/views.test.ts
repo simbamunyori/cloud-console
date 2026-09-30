@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { parseDateOnly } from "@/lib/dates";
 import { money } from "@/lib/domain/money";
 import type { Domain, Invoice, InvoiceSummary, Service, Transaction } from "./adapter";
-import { amountOwed, attentionItems, buildStatement, compareInvoices, compareWithPreviousMonthly, invoicesBefore, isMonthly, monthlyTotal, nextInvoice } from "./views";
+import { amountOwed, attentionItems, buildStatement, unusedCost, compareInvoices, compareWithPreviousMonthly, invoicesBefore, isMonthly, monthlyTotal, nextInvoice } from "./views";
 
 const P = (n: bigint) => money(n, "BWP");
 const d = (s: string) => parseDateOnly(s)!;
@@ -51,6 +51,20 @@ describe("billing views", () => {
       ["info", "Managed VPS is being set up"],
     ]);
     expect(items[0].detail.replace(/\u00a0/gu, " ")).toBe("P 10.00 was due 7 days ago.");
+  });
+
+  it("flags unused licences with what they cost a month", () => {
+    const m365 = service({ name: "Microsoft 365 Business Standard", quantity: 12, recurring: P(228000n) });
+    expect(unusedCost([m365], { name: "Microsoft 365 Business Standard", unused: 2 })).toEqual(P(38000n));
+    expect(unusedCost([{ ...m365, status: "cancelled" }], { name: "Microsoft 365 Business Standard", unused: 2 })).toBeNull();
+    const items = attentionItems([], [m365], [], d("2026-09-27"), "en-BW", [
+      { name: "Microsoft 365 Business Standard", unused: 2 },
+      { name: "Google Workspace Business Starter", unused: 1 },
+    ]);
+    expect(items.map((i) => [i.tone, i.title, i.detail.replace(/\u00a0/gu, " "), i.href])).toEqual([
+      ["warning", "2 unused Microsoft 365 Business Standard licences", "About P 380.00 a month for licences no one holds.", "/app/licences"],
+      ["warning", "1 unused Google Workspace Business Starter licence", "Paid for but held by no one.", "/app/licences"],
+    ]);
   });
 
   it("compares an invoice with the previous month's", () => {

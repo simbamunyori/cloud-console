@@ -54,6 +54,7 @@ export const PAGES: PageSpec[] = [
   { name: "new-ticket", audience: "customer", path: "/app/support/new" },
   { name: "assistant", audience: "customer", path: "/app/support/assistant" },
   { name: "team", audience: "customer", path: "/app/team" },
+  { name: "licences", audience: "customer", path: "/app/licences" },
   { name: "security", audience: "customer", path: "/app/security" },
   { name: "settings", audience: "customer", path: "/app/settings" },
 

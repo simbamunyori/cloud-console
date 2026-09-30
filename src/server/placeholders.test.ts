@@ -37,6 +37,8 @@ describe("production placeholders", () => {
 
   it("needs WHMCS billing, fully set up and pointing at production WHMCS", async () => {
     expect(await findPlaceholders(fakeDb(), { ...live, BILLING_ADAPTER: "stub" })).toEqual([expect.stringMatching(/BILLING_ADAPTER is stub/)]);
+    expect(await findPlaceholders(fakeDb(), { ...live, TENANT_PROVIDER: "stub" })).toEqual([expect.stringMatching(/TENANT_PROVIDER is stub/)]);
+    expect(await findPlaceholders(fakeDb(), { ...live, TENANT_PROVIDER: "manual" })).toEqual([]);
     expect(await findPlaceholders(fakeDb(), { ...live, BILLING_ADAPTER: "whmcs", WHMCS_API_URL: "https://billing.example/includes/api.php", WHMCS_ENVIRONMENT: "production" })).toEqual([
       expect.stringMatching(/WHMCS_API_IDENTIFIER, WHMCS_API_SECRET are not set/),
     ]);

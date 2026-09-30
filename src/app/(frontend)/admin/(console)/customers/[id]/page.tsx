@@ -14,6 +14,7 @@ import { billingAdapter } from "@/server/billing";
 import { scopedBilling } from "@/server/billing/scoped";
 import { amountOwed, isOverdue, monthlyTotal } from "@/server/billing/views";
 import { prisma } from "@/server/db";
+import { tenantOverview } from "@/server/licences/licences";
 import { ROLE_LABEL } from "@/server/org/access";
 import { countryName } from "@/lib/countries";
 import { listMarkets } from "@/server/markets/markets";
@@ -36,6 +37,7 @@ export default async function CustomerPage({ params }: { params: Promise<{ id: s
   const [services, invoices] = billing ? await Promise.all([billing.listServices(), billing.listInvoices()]) : [[], []];
   const markets = staffCan(staff, "manageMarkets") ? await listMarkets(prisma) : null;
   const market = await prisma.market.findUniqueOrThrow({ where: { code: org.billingMarket } });
+  const tenants = await tenantOverview(prisma, org.id);
 
   return (
     <>
@@ -109,6 +111,40 @@ export default async function CustomerPage({ params }: { params: Promise<{ id: s
             </ul>
           </Card>
         </div>
+
+        <Card aria-labelledby="tenants-title">
+          <CardHeader
+            id="tenants-title"
+            title="Microsoft 365 and Google Workspace"
+            action={
+              <Link href={`/admin/customers/${org.id}/licences`} className="text-callout text-link hover:underline">
+                {tenants.length ? "Users and licences" : "Link a tenant"}
+              </Link>
+            }
+          />
+          {tenants.length ? (
+            <ul className="divide-y divide-border">
+              {tenants.map((t) => {
+                const unused = t.licences.reduce((n, l) => n + l.unused, 0);
+                return (
+                  <li key={t.id} className="flex flex-wrap items-center gap-3 px-5 py-3 sm:px-6">
+                    <span className="flex min-w-0 flex-1 flex-col">
+                      <span className="text-ink">{t.vendorLabel}</span>
+                      <span className="text-callout text-ink-muted">
+                        {t.primaryDomain}, {t.users.filter((u) => u.enabled).length} people
+                      </span>
+                    </span>
+                    {unused ? <Badge tone="warning">{unused} unused</Badge> : <Badge tone="positive">All licences in use</Badge>}
+                  </li>
+                );
+              })}
+            </ul>
+          ) : (
+            <CardBody>
+              <p className="text-ink-muted">No tenant linked.</p>
+            </CardBody>
+          )}
+        </Card>
 
         <Card aria-labelledby="orders-title">
           <CardHeader id="orders-title" title="Orders" />

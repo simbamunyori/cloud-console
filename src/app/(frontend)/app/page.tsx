@@ -8,6 +8,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { formatDay, formatMonth } from "@/lib/dates";
 import { requireBilling } from "@/server/billing/context";
 import { SecurityScoreCard } from "@/components/app/security-score";
+import { tenantOverview, unusedLicences } from "@/server/licences/licences";
 import { securityFacts } from "@/server/org/security-facts";
 import { securityChecks } from "@/server/org/security-score";
 import { amountOwed, attentionItems, isOverdue, monthlyPrice, monthlyTotal, nextInvoice } from "@/server/billing/views";
@@ -19,13 +20,13 @@ const TONE_CLASS = { negative: "text-negative", warning: "text-warning", info: "
 
 export default async function HomePage() {
   const { organisation, actor, billing, db, today, currency, locale } = await requireBilling();
-  const [services, domains, invoices] = await Promise.all([billing.listServices(), billing.listDomains(), billing.listInvoices()]);
+  const [services, domains, invoices, tenants] = await Promise.all([billing.listServices(), billing.listDomains(), billing.listInvoices(), tenantOverview(db)]);
 
   const live = services.filter((s) => s.status !== "cancelled" && s.status !== "terminated");
   const monthly = monthlyTotal(services, currency);
   const next = nextInvoice(services, domains, currency);
   const owed = amountOwed(invoices, currency);
-  const attention = attentionItems(invoices, services, domains, today, locale);
+  const attention = attentionItems(invoices, services, domains, today, locale, unusedLicences(tenants));
   const recent = invoices.slice(0, 3);
   const liveDomains = domains.filter((d) => d.status === "active" || d.status === "pending" || d.status === "pending_transfer");
   const renewal = liveDomains.map((d) => d.expiresOn).sort((a, b) => a.getTime() - b.getTime())[0];

@@ -20,6 +20,7 @@ import { StubBillingAdapter } from "../src/server/billing/stub/stub-adapter";
 import { scopedBilling } from "../src/server/billing/scoped";
 import { tenantDb } from "../src/server/db";
 import { placeOrder } from "../src/server/orders/orders";
+import { linkTenant, recordLicence, recordTenantUser } from "../src/server/licences/licences";
 import { openTicket } from "../src/server/support/tickets";
 import { requestQuote, saveQuote, sendQuote } from "../src/server/quotes/quotes";
 import { syncStubTaxRules } from "../src/server/markets/tax-sync";
@@ -207,6 +208,18 @@ async function main() {
     { db: tenant, organisation: orgRow, actor: { membershipId: owner.id, userId: owner.userId, name: owner.user.name, role: "OWNER" } },
     { subject: "Shared mailbox for deliveries", body: "Hello, can we add a shared mailbox deliveries@kgalehill.co.bw that Kabo and Lesego can both read? Does it need its own licence?" },
   );
+
+  // Their Microsoft 365 tenant, as staff recorded it: 12 Business Standard
+  // licences, 10 held, one new starter without one yet and one leaver.
+  // Two unused licences show on Home.
+  const setupStaff = await db.user.findUniqueOrThrow({ where: { email: "setup@example.co.bw" } });
+  const recorder = { db, staff: { userId: setupStaff.id, name: setupStaff.name, staffRole: "PROVISIONING" as const } };
+  const ms = await linkTenant(recorder, org.id, { vendor: "MICROSOFT", primaryDomain: "kgalehill.co.bw" });
+  const standard = await recordLicence(recorder, org.id, { tenantId: ms.id, sku: "O365_BUSINESS_STANDARD", name: "Microsoft 365 Business Standard", purchased: 12 });
+  for (const [i, name] of STAFF_NAMES.entries()) {
+    const person = await recordTenantUser(recorder, org.id, { tenantId: ms.id, name, email: mailbox(name), licenceIds: i < 10 ? [standard.id] : [] });
+    await db.tenantUser.update({ where: { id: person.id }, data: { lastSignInAt: i === 10 ? null : addDays(today, -(i % 4)), enabled: i !== 11 } });
+  }
 
   // Quotes: a request from the website for staff to price, and a quote sent to the demo organisation.
   await requestQuote(
