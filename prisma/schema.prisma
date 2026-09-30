@@ -185,6 +185,8 @@ model Organisation {
   cloudSubscriptions CloudSubscription[]
   cloudUsage         CloudUsage[]
   savingTips         SavingTip[]
+  cloudUsageBills    CloudUsageBill[]
+  budgetAlerts       BudgetAlert[]
 }
 
 enum UserKind {
@@ -1442,11 +1444,15 @@ model CloudSubscription {
   name           String
   /// Our margin on usage, in basis points: 1,500 is 15%.
   marginBps      Int
+  /// The customer's monthly budget for this subscription's usage, in their currency.
+  budgetMinor    BigInt?
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
 
-  organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  organisation Organisation     @relation(fields: [organisationId], references: [id], onDelete: Restrict)
   usage        CloudUsage[]
+  bills        CloudUsageBill[]
+  budgetAlerts BudgetAlert[]
 
   @@index([organisationId])
 }
@@ -1535,4 +1541,43 @@ model SavingTip {
   organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Restrict)
 
   @@unique([organisationId, key])
+}
+
+/// A month of a subscription's usage, put on an invoice. One per month,
+/// so usage is never billed twice.
+model CloudUsageBill {
+  id             String   @id @default(cuid())
+  organisationId String
+  subscriptionId String
+  /// First day of the month billed.
+  month          DateTime @db.Date
+  /// Empty while the invoice is being raised.
+  invoiceId      String?
+  amountMinor    BigInt
+  currency       String
+  billedById     String
+  createdAt      DateTime @default(now())
+
+  organisation Organisation      @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  subscription CloudSubscription @relation(fields: [subscriptionId], references: [id], onDelete: Restrict)
+
+  @@unique([subscriptionId, month])
+  @@index([organisationId])
+}
+
+/// A budget warning sent for a subscription's month, so each is sent once.
+model BudgetAlert {
+  id             String   @id @default(cuid())
+  organisationId String
+  subscriptionId String
+  month          DateTime @db.Date
+  /// "forecast" (on course to go over), "80" or "100" (per cent of the budget used).
+  level          String
+  sentAt         DateTime @default(now())
+
+  organisation Organisation      @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  subscription CloudSubscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  @@unique([subscriptionId, month, level])
+  @@index([organisationId])
 }

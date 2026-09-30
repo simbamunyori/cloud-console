@@ -226,11 +226,14 @@ async function main() {
   // Azure: a subscription with two months of usage, uploaded as staff
   // would upload the Partner Center file. The test servers were switched
   // off ten days ago but their disks still cost money, which shows as a
-  // saving; staff also found an oversized server in Azure Advisor.
+  // saving; staff also found an oversized server in Azure Advisor. The
+  // last two months are ready for finance to invoice.
   const finance = await db.user.findUniqueOrThrow({ where: { email: "finance@example.co.bw" } });
   const cloudStaff = { userId: finance.id, name: finance.name, staffRole: "FINANCE" as const };
   const SUB = "3f2b8c1e-0a4d-4b7e-9c61-2d5e8f7a1b90";
-  await linkSubscription({ db, staff: cloudStaff }, org.id, { subscriptionId: SUB, name: "Kgale Hill production", margin: "15" });
+  const linked = await linkSubscription({ db, staff: cloudStaff }, org.id, { subscriptionId: SUB, name: "Kgale Hill production", margin: "15" });
+  // A monthly budget a little over what the subscription usually costs.
+  await db.cloudSubscription.update({ where: { id: linked.id }, data: { budgetMinor: 900000n } });
   for (let back = 0; back <= 2; back++) {
     const month = addMonths(startOfMonth(today), -back).toISOString().slice(0, 7);
     await db.fxRate.upsert({ where: { month_base_quote: { month, base: "USD", quote: "BWP" } }, update: {}, create: { month, base: "USD", quote: "BWP", rateMicros: 13_450_000n } });

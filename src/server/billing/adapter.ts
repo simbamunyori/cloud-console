@@ -91,6 +91,14 @@ export interface OneOffLine {
   amount: Money;
 }
 
+/** An invoice for charges outside any order, such as a month's Azure usage. */
+export interface NewInvoice {
+  lines: { description: string; amount: Money; taxed: boolean }[];
+  /** Payment method system name, e.g. "banktransfer". */
+  paymentMethod: string;
+  dueOn: Date;
+}
+
 export interface PlacedOrder {
   orderId: string;
   invoiceId?: string;
@@ -327,6 +335,8 @@ export interface BillingAdapter {
   // Invoices and payments: GetInvoices, GetInvoice, UpdateInvoice (notes),
   // AddInvoicePayment, GetTransactions, GetPayMethods, AddPayMethod
   listInvoices(clientId: string, filter?: InvoiceFilter): Promise<InvoiceSummary[]>;
+  /** CreateInvoice, unpaid and not emailed: the console tells the customer. */
+  createInvoice(clientId: string, invoice: NewInvoice): Promise<{ invoiceId: string }>;
   getInvoice(clientId: string, invoiceId: string): Promise<Invoice | null>;
   /** WHMCS has no PO field; this writes "PO: X" into the invoice notes. */
   setPurchaseOrder(invoiceId: string, poNumber: string | null): Promise<void>;
@@ -343,6 +353,15 @@ export interface BillingAdapter {
   transferDomain(clientId: string, request: DomainTransferRequest): Promise<PlacedOrder>;
   renewDomain(clientId: string, domainId: string, years: number, paymentMethod: string): Promise<{ orderId: string; invoiceId?: string }>;
   getTldPricing(currency: string): Promise<TldPrice[]>;
+}
+
+/** A new invoice's lines: at least one, in the client's currency, none negative. */
+export function checkInvoiceLines(invoice: NewInvoice, currency: string) {
+  if (!invoice.lines.length) throw new BillingError("invalid", "An invoice needs at least one line.");
+  for (const l of invoice.lines) {
+    if (l.amount.currency !== currency) throw new BillingError("invalid", `This client is billed in ${currency}.`);
+    if (l.amount.amountMinor < 0n) throw new BillingError("invalid", "A charge can't be negative.");
+  }
 }
 
 /** The payment method system names the console uses. */

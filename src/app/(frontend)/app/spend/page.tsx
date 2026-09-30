@@ -9,13 +9,14 @@ import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
 import { cn } from "@/lib/cn";
 import { formatDay, formatMonth, toDateOnly } from "@/lib/dates";
-import { currencyInfo, formatMoney, money } from "@/lib/domain/money";
+import { currencyInfo, currencySymbol, formatMoney, money, toPlainAmount } from "@/lib/domain/money";
 import { requireBilling } from "@/server/billing/context";
 import { can } from "@/server/org/access";
 import { azureMonth, spendOverview } from "@/server/spend/page";
 import { breakdown } from "@/server/spend/spend";
+import { budgetStatus, type BudgetStatus } from "@/server/spend/budgets";
 import { SAVING_HOURS } from "@/server/spend/tips";
-import { SavingActions } from "./forms";
+import { BudgetForm, SavingActions } from "./forms";
 
 export const metadata: Metadata = { title: "Cloud spend" };
 
@@ -31,6 +32,37 @@ function StatCard({ label, children, hint }: { label: string; children: React.Re
   );
 }
 
+/** The month so far against the budget, with the forecast marked. */
+function BudgetBar({ status, fmt }: { status: BudgetStatus; fmt: (minor: bigint) => string }) {
+  const over = status.usedMinor >= status.budgetMinor;
+  const tone = over ? "bg-negative" : status.levels.length ? "bg-warning" : "bg-positive";
+  const pct = (v: bigint) => `${Math.min(100, Number((v * 1000n) / status.budgetMinor) / 10)}%`;
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-3 text-callout">
+        <span className="text-ink">
+          {status.usedPercent}% of the {fmt(status.budgetMinor)} budget
+        </span>
+        <span className={over || status.levels.includes("forecast") ? "font-semibold text-negative" : "text-ink-muted"}>
+          {over ? "Over budget" : `Forecast ${fmt(status.forecastMinor)}`}
+        </span>
+      </div>
+      <div
+        role="progressbar"
+        aria-label="Budget used"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={Math.min(100, status.usedPercent)}
+        aria-valuetext={`${status.usedPercent}% used, forecast ${fmt(status.forecastMinor)}`}
+        className="relative h-2 overflow-hidden rounded-full bg-surface-2"
+      >
+        <div className={cn("h-full rounded-full", tone)} style={{ width: pct(status.usedMinor) }} />
+        {status.forecastMinor > status.usedMinor ? <div aria-hidden className="absolute inset-y-0 w-0.5 bg-ink" style={{ left: pct(status.forecastMinor) }} /> : null}
+      </div>
+    </div>
+  );
+}
+
 export default async function SpendPage({ searchParams }: { searchParams: Promise<{ month?: string }> }) {
   const { db, billing, organisation, actor, today, currency, locale } = await requireBilling();
   const view = await spendOverview(db, billing, organisation.id, currency, today);
@@ -41,6 +73,7 @@ export default async function SpendPage({ searchParams }: { searchParams: Promis
   const found = months.findIndex((m) => toDateOnly(m.month).slice(0, 7) === wanted);
   const selected = found >= 0 ? found : current;
   const manage = can(actor, "order");
+  const canBudget = can(actor, "pay");
 
   const hasSpend = months.some((m) => m.total !== 0n);
   const lastMonth = months[current - 1];
@@ -245,6 +278,10 @@ export default async function SpendPage({ searchParams }: { searchParams: Promis
                     </div>
                     <span className="text-title-2 text-ink tabular-nums">{fmt(s.total)}</span>
                   </div>
+                  {s.budgetMinor ? <BudgetBar status={budgetStatus(s.total, s.lastDay, s.budgetMinor, months[current].month)} fmt={fmt} /> : null}
+                  {canBudget ? (
+                    <BudgetForm subscriptionId={s.id} name={s.name} current={s.budgetMinor ? toPlainAmount(money(s.budgetMinor, currency)) : ""} currencySymbol={currencySymbol(currency, locale)} />
+                  ) : null}
                   {s.groups.length ? (
                     <table className="w-full text-left text-callout">
                       <caption className="sr-only">Usage by resource group</caption>

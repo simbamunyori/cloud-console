@@ -8,6 +8,9 @@ import { billingAdapter } from "@/server/billing";
 import { applyDefaultPoNumbers } from "@/server/billing/po";
 import { StubBillingAdapter } from "@/server/billing/stub/stub-adapter";
 import { reconcileLicences } from "@/server/licences/reconcile";
+import { checkBudgets } from "@/server/spend/budgets";
+import { todayIn } from "@/lib/dates";
+import { DEFAULT_TIME_ZONE } from "@/config/app";
 
 /**
  * Background jobs, on pg-boss in the same PostgreSQL database. Each job
@@ -30,6 +33,8 @@ const JOBS: Job[] = [
   { name: "default-po-numbers", cron: "0 3 * * *", run: () => applyDefaultPoNumbers(prisma, billingAdapter()) },
   // Licences bought, billed and held should agree; each gap becomes a staff task.
   { name: "licence-reconcile", cron: "30 3 * * *", run: () => reconcileLicences(prisma, billingAdapter()) },
+  // Budget warnings, once usage for yesterday is usually in; uploads also check at once.
+  { name: "budget-check", cron: "0 7 * * *", run: () => checkBudgets(prisma, todayIn(DEFAULT_TIME_ZONE)) },
 ];
 
 /** Later milestones add their jobs here (billing sync, purges). */

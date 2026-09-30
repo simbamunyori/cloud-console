@@ -5,6 +5,7 @@ import type { Invoice, InvoiceStatus, InvoiceSummary, Service } from "@/server/b
 import { monthlyTotal, unusedCost } from "@/server/billing/views";
 import type { TenantDb } from "@/server/db";
 import type { UnusedLicence } from "@/server/licences/licences";
+import { USAGE_LINE_PREFIX } from "./billing";
 
 /**
  * Cloud spend: what the customer spends with us each month and on what,
@@ -31,6 +32,8 @@ export function invoiceLines(invoice: Invoice, services: Pick<Service, "serviceI
   const byId = new Map(services.map((s) => [s.serviceId, s]));
   const out = new Map<string, SpendLine>();
   for (const line of invoice.lines) {
+    // Azure usage is counted in the month it was used, from the usage itself.
+    if (line.description.startsWith(USAGE_LINE_PREFIX)) continue;
     const service = line.relatedId && line.kind !== "domain" ? byId.get(line.relatedId) : undefined;
     const category = line.kind === "domain" ? DOMAINS : (service?.groupName ?? OTHER);
     const label = line.kind === "domain" ? "Domain names" : (service?.name ?? line.description.split("\n")[0].slice(0, 80));
