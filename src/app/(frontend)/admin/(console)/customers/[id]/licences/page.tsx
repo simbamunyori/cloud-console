@@ -10,9 +10,10 @@ import { formatMoment } from "@/lib/dates";
 import { requireStaffCan } from "@/server/admin/context";
 import { prisma } from "@/server/db";
 import { tenantOverview } from "@/server/licences/licences";
+import { onboardings } from "@/server/licences/onboarding";
 import { tenantProvider, VENDOR_LABEL } from "@/server/licences/provider";
 import { staffCan } from "@/server/staff/access";
-import { LinkTenantForm, RecordLicenceForm, RecordUserForm } from "./forms";
+import { FinishOnboardingButton, LinkTenantForm, OnboardingForm, RecordLicenceForm, RecordUserForm, StaffTick } from "./forms";
 
 export const metadata: Metadata = { title: "Users and licences" };
 
@@ -28,7 +29,7 @@ export default async function CustomerLicencesPage({ params }: { params: Promise
   const { id } = await params;
   const org = await prisma.organisation.findUnique({ where: { id }, select: { id: true, name: true, timeZone: true } });
   if (!org) notFound();
-  const tenants = await tenantOverview(prisma, org.id);
+  const [tenants, setups] = await Promise.all([tenantOverview(prisma, org.id), onboardings(prisma, org.id)]);
   const edit = staffCan(staff, "workTasks");
   const missing = (["MICROSOFT", "GOOGLE"] as const).filter((v) => !tenants.some((t) => t.vendor === v)).map((v) => ({ value: v, label: VENDOR_LABEL[v] }));
   const waiting = await prisma.licenceChange.count({ where: { organisationId: org.id, status: "PENDING" } });
@@ -59,6 +60,58 @@ export default async function CustomerLicencesPage({ params }: { params: Promise
               </h2>
               <p className="text-callout text-ink-muted">{t.lastSyncedAt ? `Last checked ${formatMoment(t.lastSyncedAt, org.timeZone)}` : "Not checked yet"}</p>
             </div>
+            {(() => {
+              const o = setups.find((x) => x.tenantId === t.id);
+              // A tenant already in use needs no setup; one just linked is offered one.
+              if (o?.completedAt || (!o && t.users.length)) return null;
+              return (
+                <Card aria-labelledby={`setup-${t.id}`}>
+                  <CardHeader
+                    id={`setup-${t.id}`}
+                    title={o ? (o.kind === "TRANSFER" ? "Transfer in progress" : "Setup in progress") : "Setup"}
+                    description={o ? "The customer sees these steps on their Users and licences page." : "Start a setup to show the customer their DNS records, email move booking and, for a transfer, the checklist."}
+                  />
+                  {o ? (
+                    <CardBody className="flex flex-col gap-4">
+                      <ul className="flex flex-col gap-2 text-callout">
+                        <li className="flex flex-wrap items-center gap-2">
+                          Domain: {o.domainVerifiedAt ? <Badge tone="positive">Proven {formatMoment(o.domainVerifiedAt, org.timeZone)}</Badge> : <Badge tone="warning">{o.records.some((r) => r.key === "verify") ? "Not proven yet" : "Needs the verification value"}</Badge>}
+                        </li>
+                        <li className="flex flex-wrap items-center gap-2">
+                          Email move: {o.migration ? <Badge tone="info">{`${formatMoment(o.migration.startsAt, org.timeZone)}, from ${o.migration.source}`}</Badge> : <Badge>Not booked</Badge>}
+                        </li>
+                      </ul>
+                      {o.checklist.length ? (
+                        <ul className="flex flex-col divide-y divide-border rounded-md border border-border">
+                          {o.checklist.map((i) => (
+                            <li key={i.key} className="flex flex-wrap items-center gap-3 px-4 py-3">
+                              <span className="flex min-w-0 flex-1 flex-col">
+                                <span className="text-ink">{i.title}</span>
+                                <span className="text-caption text-ink-muted">
+                                  {i.who === "customer" ? "The customer" : "Our team"}
+                                  {i.doneAt ? `, done by ${i.doneBy} ${formatMoment(i.doneAt, org.timeZone)}` : ""}
+                                </span>
+                              </span>
+                              {i.who === "staff" && edit ? <StaffTick organisationId={org.id} onboardingId={o.id} itemKey={i.key} done={Boolean(i.doneAt)} /> : i.doneAt ? <Badge tone="positive">Done</Badge> : <Badge>Waiting</Badge>}
+                            </li>
+                          ))}
+                        </ul>
+                      ) : null}
+                      {edit ? (
+                        <>
+                          <OnboardingForm organisationId={org.id} tenantId={t.id} current={{ kind: o.kind, verificationValue: o.records.find((r) => r.key === "verify")?.value ?? null, partnerInviteUrl: o.partnerInviteUrl }} />
+                          <FinishOnboardingButton organisationId={org.id} onboardingId={o.id} />
+                        </>
+                      ) : null}
+                    </CardBody>
+                  ) : edit ? (
+                    <CardBody>
+                      <OnboardingForm organisationId={org.id} tenantId={t.id} current={null} />
+                    </CardBody>
+                  ) : null}
+                </Card>
+              );
+            })()}
             <div className="grid items-start gap-6 xl:grid-cols-2 [&>*]:min-w-0">
               <Card aria-labelledby={`lic-${t.id}`}>
                 <CardHeader id={`lic-${t.id}`} title="Licences" />

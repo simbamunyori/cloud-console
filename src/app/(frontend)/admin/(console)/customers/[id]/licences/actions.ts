@@ -5,6 +5,7 @@ import { requireStaff } from "@/server/admin/context";
 import { field, run, type ActionState } from "@/server/action-state";
 import { prisma } from "@/server/db";
 import { linkTenant, recordLicence, recordTenantUser } from "@/server/licences/licences";
+import { finishOnboarding, saveOnboarding, tickStaffItem } from "@/server/licences/onboarding";
 
 async function deps() {
   const { staff } = await requireStaff();
@@ -46,6 +47,34 @@ export async function recordUserAction(_prev: ActionState, form: FormData): Prom
     await recordTenantUser(await deps(), organisationId, { tenantId: field(form, "tenantId"), ...values, licenceIds });
     return "Recorded.";
   }, values);
+  if (result.ok) done(organisationId);
+  return result;
+}
+
+export async function saveOnboardingAction(_prev: ActionState, form: FormData): Promise<ActionState> {
+  const organisationId = field(form, "organisationId");
+  const values = { kind: field(form, "kind"), verificationValue: field(form, "verificationValue"), partnerInviteUrl: field(form, "partnerInviteUrl") };
+  const result = await run(async () => {
+    await saveOnboarding(await deps(), organisationId, { tenantId: field(form, "tenantId"), ...values });
+    return "Saved. The customer sees the steps on their Users and licences page.";
+  }, values);
+  if (result.ok) done(organisationId);
+  return result;
+}
+
+export async function tickStaffAction(_prev: ActionState, form: FormData): Promise<ActionState> {
+  const organisationId = field(form, "organisationId");
+  const result = await run(async () => void (await tickStaffItem(await deps(), organisationId, field(form, "onboardingId"), field(form, "key"), field(form, "done") === "yes")));
+  if (result.ok) done(organisationId);
+  return result;
+}
+
+export async function finishOnboardingAction(_prev: ActionState, form: FormData): Promise<ActionState> {
+  const organisationId = field(form, "organisationId");
+  const result = await run(async () => {
+    await finishOnboarding(await deps(), organisationId, field(form, "onboardingId"));
+    return "Finished.";
+  });
   if (result.ok) done(organisationId);
   return result;
 }

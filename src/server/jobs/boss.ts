@@ -7,6 +7,7 @@ import { deliverDue } from "@/server/email/outbox";
 import { billingAdapter } from "@/server/billing";
 import { applyDefaultPoNumbers } from "@/server/billing/po";
 import { StubBillingAdapter } from "@/server/billing/stub/stub-adapter";
+import { reconcileLicences } from "@/server/licences/reconcile";
 
 /**
  * Background jobs, on pg-boss in the same PostgreSQL database. Each job
@@ -27,6 +28,8 @@ const JOBS: Job[] = [
     },
   },
   { name: "default-po-numbers", cron: "0 3 * * *", run: () => applyDefaultPoNumbers(prisma, billingAdapter()) },
+  // Licences bought, billed and held should agree; each gap becomes a staff task.
+  { name: "licence-reconcile", cron: "30 3 * * *", run: () => reconcileLicences(prisma, billingAdapter()) },
 ];
 
 /** Later milestones add their jobs here (billing sync, purges). */

@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { TextField } from "@/components/ui/field";
 import { SelectField } from "@/components/ui/inputs";
 import type { ActionState } from "@/server/action-state";
-import { linkTenantAction, recordLicenceAction, recordUserAction } from "./actions";
+import { finishOnboardingAction, linkTenantAction, recordLicenceAction, recordUserAction, saveOnboardingAction, tickStaffAction } from "./actions";
 
 function useResetOnSuccess(state: ActionState) {
   const ref = useRef<HTMLFormElement>(null);
@@ -91,6 +91,67 @@ export function RecordUserForm({ organisationId, tenantId, licences }: { organis
       <Button type="submit" variant="secondary" disabled={pending} className="self-start">
         {pending ? "Saving…" : "Record person"}
       </Button>
+    </form>
+  );
+}
+
+export function OnboardingForm({ organisationId, tenantId, current }: { organisationId: string; tenantId: string; current: { kind: string; verificationValue: string | null; partnerInviteUrl: string | null } | null }) {
+  const [state, action, pending] = useActionState<ActionState, FormData>(saveOnboardingAction, {});
+  const fe = state.fieldErrors ?? {};
+  const id = (k: string) => `${k}-${tenantId}`;
+  return (
+    <form action={action} className="flex flex-col gap-4" noValidate>
+      <Messages state={state} />
+      <input type="hidden" name="organisationId" value={organisationId} />
+      <input type="hidden" name="tenantId" value={tenantId} />
+      <div className="grid gap-4 md:grid-cols-3">
+        <SelectField
+          id={id("kind")}
+          name="kind"
+          label="Setup"
+          defaultValue={state.values?.kind ?? current?.kind ?? "NEW"}
+          options={[
+            { value: "NEW", label: "New tenant" },
+            { value: "TRANSFER", label: "Transfer from another provider" },
+          ]}
+          error={fe.kind}
+        />
+        <TextField id={id("verificationValue")} name="verificationValue" label="Domain verification value" placeholder="MS=ms48213377" hint="The TXT value from the portal." autoComplete="off" defaultValue={state.values?.verificationValue ?? current?.verificationValue ?? ""} error={fe.verificationValue} />
+        <TextField id={id("partnerInviteUrl")} name="partnerInviteUrl" label="Partner invitation link" hint="For a transfer." autoComplete="off" defaultValue={state.values?.partnerInviteUrl ?? current?.partnerInviteUrl ?? ""} error={fe.partnerInviteUrl} />
+      </div>
+      <Button type="submit" variant="secondary" disabled={pending} className="self-start">
+        {pending ? "Saving…" : current ? "Save setup" : "Start setup"}
+      </Button>
+    </form>
+  );
+}
+
+export function StaffTick({ organisationId, onboardingId, itemKey, done }: { organisationId: string; onboardingId: string; itemKey: string; done: boolean }) {
+  const [state, action, pending] = useActionState<ActionState, FormData>(tickStaffAction, {});
+  return (
+    <form action={action} className="flex items-center gap-2">
+      <input type="hidden" name="organisationId" value={organisationId} />
+      <input type="hidden" name="onboardingId" value={onboardingId} />
+      <input type="hidden" name="key" value={itemKey} />
+      <input type="hidden" name="done" value={done ? "no" : "yes"} />
+      <Button type="submit" size="sm" variant={done ? "ghost" : "secondary"} disabled={pending}>
+        {done ? "Undo" : "Mark done"}
+      </Button>
+      {state.error ? <span className="text-caption text-negative">{state.error}</span> : null}
+    </form>
+  );
+}
+
+export function FinishOnboardingButton({ organisationId, onboardingId }: { organisationId: string; onboardingId: string }) {
+  const [state, action, pending] = useActionState<ActionState, FormData>(finishOnboardingAction, {});
+  return (
+    <form action={action} className="flex flex-col items-start gap-2">
+      <input type="hidden" name="organisationId" value={organisationId} />
+      <input type="hidden" name="onboardingId" value={onboardingId} />
+      <Button type="submit" disabled={pending}>
+        {pending ? "Finishing…" : "Finish setup"}
+      </Button>
+      <Messages state={state} />
     </form>
   );
 }
