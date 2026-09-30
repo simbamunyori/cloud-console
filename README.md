@@ -151,6 +151,10 @@ the UI and never sent to the assistant.
 | `GEO_COUNTRY_HEADER` | No | Header the CDN puts the visitor's country in (default `cf-ipcountry`, Cloudflare's) |
 | `GEOLITE2_DB_PATH` | No | Path to a MaxMind GeoLite2 Country `.mmdb` file, for country detection without a CDN header |
 | `ADMIN_IP_ALLOWLIST` | Recommended in production | Comma-separated addresses or IPv4 ranges (CIDR) allowed to open `/admin`. Empty allows any address |
+| `MICROSOFT_CLIENT_ID`, `MICROSOFT_CLIENT_SECRET` | Recommended, secret | Sign in with Microsoft (docs/sign-in-setup.md). The button hides while either is unset |
+| `MICROSOFT_STAFF_TENANT_ID` | Recommended | Our Microsoft 365 tenant. Staff sign in with Microsoft only from it; unset keeps staff on passwords |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Recommended, secret | Sign in with Google, for customers (docs/sign-in-setup.md) |
+| `STAFF_PASSWORD_SIGN_IN` | No | `yes` keeps staff passwords working after Microsoft sign-in is set up, as a way in if Microsoft is down |
 | `CONSOLE_JOBS` | No | `off` stops background jobs on this server, for extra app servers |
 | `POSTGRES_PASSWORD`, `DOMAIN` | Production compose | Database password, and the domain Caddy gets a certificate for |
 | `SEED_DEMO` | No | `yes` lets the seed run in production. Don't |

@@ -21,7 +21,7 @@ export async function customerDetail(db: PrismaClient, organisationId: string) {
   const organisation = await db.organisation.findUnique({
     where: { id: organisationId },
     include: {
-      memberships: { where: { active: true }, include: { user: { select: { name: true, email: true, totpEnabled: true, lastLoginAt: true } } }, orderBy: { createdAt: "asc" } },
+      memberships: { where: { active: true }, include: { user: { select: { name: true, email: true, totpEnabled: true, lastLoginAt: true, _count: { select: { passkeys: true } } } } }, orderBy: { createdAt: "asc" } },
     },
   });
   if (!organisation) return null;

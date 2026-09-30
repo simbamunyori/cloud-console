@@ -4,6 +4,7 @@
 #
 #   console status                         which release is live, and its health
 #   console logs                           follow the app's log
+#   console restart                        start the app again, e.g. after changing .env
 #   console create-admin "Name" email      create a staff Admin (asks for a password)
 #   console whmcs-sync [--apply --staff you@...]  put approved prices into WHMCS
 #   console backup                         take a backup now (off-site too once set up)
@@ -24,6 +25,7 @@ case "${1:-}" in
     compose "$current" ps
     ;;
   logs) need_current; compose "$current" logs -f --tail 100 app ;;
+  restart) need_current; compose "$current" up -d --force-recreate app ;;
   create-admin)
     need_current
     compose "$current" exec app node ops.cjs create-admin "${@:2}"
@@ -43,5 +45,5 @@ case "${1:-}" in
     ln -sfn "$home/releases/$to" "$home/current"
     echo "Started $to. Database changes made by later releases stay in place."
     ;;
-  *) sed -n '2,13p' "$0" | sed 's/^# \{0,1\}//'; exit 1 ;;
+  *) sed -n '2,14p' "$0" | sed 's/^# \{0,1\}//'; exit 1 ;;
 esac

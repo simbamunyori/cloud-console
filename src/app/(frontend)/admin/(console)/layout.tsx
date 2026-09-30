@@ -34,6 +34,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const nav: NavItem[] = all.filter((i) => staffCan(staff, i.needs)).map(({ needs: _needs, ...i }) => i);
   // The website editor has its own page frame, so this link loads a new page.
   if (websiteRoleOf(session.user)) nav.push({ href: "/admin/content", label: "Website", icon: "website" });
+  nav.push({ href: "/admin/account", label: "Your sign-in", icon: "security" });
   const user = <UserCard name={staff.name} role={`${STAFF_ROLE_LABEL[staff.staffRole]} staff`} signOut={staffSignOutAction} />;
 
   const themeSwitch = <ThemeSwitch current={await currentTheme()} />;

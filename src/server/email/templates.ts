@@ -129,6 +129,30 @@ export const TEMPLATES: Record<string, Template> = {
     };
   },
 
+  async "security.sign_in_method_added"(p, ctx) {
+    return {
+      subject: `${str(p.what)} was added to your sign-in`,
+      body: {
+        heading: `${str(p.what)} was added`,
+        paragraphs: [`You can now sign in to your account with ${str(p.what)}.`],
+        facts: [["When", formatMoment(new Date(str(p.at)), ctx.timeZone)]],
+        footnote: "If this wasn't you, reply to this email straight away, and remove it on the Security page.",
+      },
+    };
+  },
+
+  async "security.sign_in_method_removed"(p, ctx) {
+    return {
+      subject: `${str(p.what)} was removed from your sign-in`,
+      body: {
+        heading: `${str(p.what)} was removed`,
+        paragraphs: [`${str(p.what)} no longer signs in to your account.`],
+        facts: [["When", formatMoment(new Date(str(p.at)), ctx.timeZone)]],
+        footnote: "If this wasn't you, reply to this email straight away.",
+      },
+    };
+  },
+
   async "security.new_sign_in"(p, ctx) {
     return {
       subject: "New sign-in to your account",

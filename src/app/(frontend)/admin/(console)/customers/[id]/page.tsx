@@ -105,7 +105,7 @@ export default async function CustomerPage({ params }: { params: Promise<{ id: s
                   </span>
                   <span className="flex flex-col items-end gap-1">
                     <Badge>{ROLE_LABEL[m.role]}</Badge>
-                    {!m.user.totpEnabled ? <Badge tone="warning">No two-step yet</Badge> : null}
+                    {!m.user.totpEnabled && !m.user._count.passkeys ? <Badge tone="warning">No two-step yet</Badge> : null}
                   </span>
                 </li>
               ))}

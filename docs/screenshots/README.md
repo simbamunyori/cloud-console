@@ -79,3 +79,4 @@ Refresh with `npm run screenshots -- --commit` against a running console with th
 | admin-waitlist | [view](staff/admin-waitlist-390-light.webp) | [view](staff/admin-waitlist-390-dark.webp) | [view](staff/admin-waitlist-1440-light.webp) | [view](staff/admin-waitlist-1440-dark.webp) |
 | admin-staff | [view](staff/admin-staff-390-light.webp) | [view](staff/admin-staff-390-dark.webp) | [view](staff/admin-staff-1440-light.webp) | [view](staff/admin-staff-1440-dark.webp) |
 | admin-website-access | [view](staff/admin-website-access-390-light.webp) | [view](staff/admin-website-access-390-dark.webp) | [view](staff/admin-website-access-1440-light.webp) | [view](staff/admin-website-access-1440-dark.webp) |
+| admin-account | [view](staff/admin-account-390-light.webp) | [view](staff/admin-account-390-dark.webp) | [view](staff/admin-account-1440-light.webp) | [view](staff/admin-account-1440-dark.webp) |

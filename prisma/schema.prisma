@@ -202,7 +202,8 @@ model User {
   /// Stored lower-cased.
   email           String       @unique
   name            String
-  /// scrypt hash; see src/server/auth/password.ts.
+  /// scrypt hash; see src/server/auth/password.ts. Empty for someone who
+  /// signed up with Microsoft or Google and has no password.
   passwordHash    String
   emailVerifiedAt DateTime?
   /// AES-256-GCM encrypted TOTP secret; null until the authenticator is set up.
@@ -224,6 +225,8 @@ model User {
 
   memberships     Membership[]
   sessions        Session[]
+  identities      ExternalIdentity[]
+  passkeys        Passkey[]
   recoveryCodes   RecoveryCode[]
   passwordResets  PasswordReset[]
   signInEvents    SignInEvent[]
@@ -275,9 +278,56 @@ model Session {
   expiresAt            DateTime
   lastSeenAt           DateTime     @default(now())
   revokedAt            DateTime?
+  /// When this session last passed a passkey or authenticator check. Paying,
+  /// managing people and changing security settings need one in the last 15 minutes.
+  stepUpAt             DateTime?
   ipAddress            String?
   userAgent            String?
   createdAt            DateTime     @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+enum IdentityProvider {
+  MICROSOFT
+  GOOGLE
+}
+
+/// A Microsoft or Google account someone signs in with. Linked by verified
+/// email only after they confirm with their current sign-in.
+model ExternalIdentity {
+  id         String           @id @default(cuid())
+  userId     String
+  provider   IdentityProvider
+  /// The provider's stable id for the account: Microsoft's tenant and object
+  /// id ("tid:oid"), Google's "sub".
+  subject    String
+  email      String
+  createdAt  DateTime         @default(now())
+  lastUsedAt DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, subject])
+  @@unique([userId, provider])
+}
+
+/// A passkey (WebAuthn credential): fingerprint, face or device PIN.
+model Passkey {
+  id           String    @id @default(cuid())
+  userId       String
+  /// base64url credential id, as the browser reports it.
+  credentialId String    @unique
+  publicKey    Bytes
+  counter      Int       @default(0)
+  transports   String[]
+  /// Synced across the person's devices (e.g. iCloud Keychain, Google Password Manager).
+  backedUp     Boolean   @default(false)
+  name         String
+  createdAt    DateTime  @default(now())
+  lastUsedAt   DateTime?
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
