@@ -5,7 +5,7 @@ import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import type { ActionState } from "@/server/action-state";
-import { importUsageAction } from "./actions";
+import { billUsageAction, importUsageAction } from "./actions";
 
 export function UploadUsageForm() {
   const [state, action, pending] = useActionState<ActionState, FormData>(importUsageAction, {});
@@ -29,6 +29,20 @@ export function UploadUsageForm() {
       </Field>
       <Button type="submit" disabled={pending} className="self-start">
         {pending ? "Importing…" : "Import usage"}
+      </Button>
+    </form>
+  );
+}
+
+export function BillMonthForm({ month, label, count }: { month: string; label: string; count: number }) {
+  const [state, action, pending] = useActionState<ActionState, FormData>(billUsageAction, {});
+  return (
+    <form action={action} className="flex flex-col items-start gap-3">
+      {state.error ? <Alert>{state.error}</Alert> : null}
+      {state.ok && state.message ? <Alert tone="positive">{state.message}</Alert> : null}
+      <input type="hidden" name="month" value={month} />
+      <Button type="submit" disabled={pending}>
+        {pending ? "Raising invoices…" : `Raise ${count} ${count === 1 ? "invoice" : "invoices"} for ${label}`}
       </Button>
     </form>
   );

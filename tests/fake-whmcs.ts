@@ -372,6 +372,7 @@ export function fakeWhmcs(options: FakeWhmcsOptions = {}) {
       const items: Row[] = [];
       for (let n = 1; p[`itemdescription${n}`] !== undefined; n++) items.push({ type: "", relid: "0", description: p[`itemdescription${n}`], amount: p[`itemamount${n}`] ?? "0.00", taxed: on(p[`itemtaxed${n}`]) ? 1 : 0 });
       const invoiceid = newInvoice(p.userid, items, p.paymentmethod ?? "");
+      if (p.duedate) invoices.get(invoiceid)!.duedate = p.duedate;
       return { invoiceid: Number(invoiceid), status: p.status ?? "Unpaid" };
     },
 

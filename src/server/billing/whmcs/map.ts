@@ -516,6 +516,17 @@ export function toOneOffInvoice(clientId: string, lines: { description: string; 
   return params;
 }
 
+/** CreateInvoice for charges outside any order, due on the date given. */
+export function toInvoice(clientId: string, invoice: { lines: { description: string; amount: Money; taxed: boolean }[]; paymentMethod: string; dueOn: Date }, today: Date): Params {
+  const params: Params = { userid: clientId, status: "Unpaid", sendinvoice: "0", paymentmethod: invoice.paymentMethod, date: dateOnly(today), duedate: dateOnly(invoice.dueOn), autoapplycredit: "0" };
+  invoice.lines.forEach((l, i) => {
+    params[`itemdescription${i + 1}`] = l.description;
+    params[`itemamount${i + 1}`] = toAmount(l.amount);
+    params[`itemtaxed${i + 1}`] = l.taxed ? "1" : "0";
+  });
+  return params;
+}
+
 export const newInvoiceId = (r: Json) => str(r.invoiceid);
 
 /** YYYY-MM-DD in UTC, as WHMCS takes dates. */

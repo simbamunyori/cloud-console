@@ -1,5 +1,5 @@
 import type { PrismaClient } from "@prisma/client";
-import { formatLongDate, formatMoment } from "@/lib/dates";
+import { formatLongDate, formatMoment, formatMonth } from "@/lib/dates";
 import { formatMoney, fromJson, type MoneyJson } from "@/lib/domain/money";
 import { company } from "@/config/app";
 import { newToken, hashToken } from "@/server/auth/tokens";
@@ -332,6 +332,44 @@ export const TEMPLATES: Record<string, Template> = {
           ["Amount", formatMoney(amount, ctx.locale)],
         ],
         button: { label: "View the invoice", url: `${ctx.appUrl}/app/billing/invoices/${encodeURIComponent(str(p.invoiceId))}` },
+      },
+    };
+  },
+  async "spend.usage_invoice"(p, ctx) {
+    const amount = fromJson(p.amount as MoneyJson);
+    const month = formatMonth(new Date(`${str(p.month)}T00:00:00Z`));
+    return {
+      subject: `Your Azure usage invoice for ${month}`,
+      body: {
+        heading: `Azure usage for ${month}`,
+        paragraphs: [`Your invoice for what your Azure subscriptions used in ${month} is ready. Cloud spend shows it day by day, by resource group.`],
+        facts: [["Amount before VAT", formatMoney(amount, ctx.locale)]],
+        button: { label: "View the invoice", url: `${ctx.appUrl}/app/billing/invoices/${encodeURIComponent(str(p.invoiceId))}` },
+      },
+    };
+  },
+  async "spend.budget"(p, ctx) {
+    const sub = await ctx.db.cloudSubscription.findUnique({ where: { id: str(p.subscriptionId) } });
+    if (!sub) return null;
+    const used = formatMoney(fromJson(p.used as MoneyJson), ctx.locale);
+    const budget = formatMoney(fromJson(p.budget as MoneyJson), ctx.locale);
+    const forecast = formatMoney(fromJson(p.forecast as MoneyJson), ctx.locale);
+    const level = str(p.level);
+    const headline = level === "100" ? `${sub.name} has used its budget for the month` : level === "80" ? `${sub.name} has used 80% of its budget` : `${sub.name} is on course to go over budget`;
+    return {
+      subject: headline,
+      body: {
+        heading: headline,
+        paragraphs: [
+          level === "forecast" ? `At the pace so far this month, Azure usage for ${sub.name} will come to about ${forecast}, over the ${budget} budget you set.` : `Azure usage for ${sub.name} has come to ${used} so far this month, against a budget of ${budget}.`,
+          "Nothing is switched off: this is only a warning. Cloud spend shows where the usage is, and we can help you bring it down.",
+        ],
+        facts: [
+          ["Used so far", used],
+          ["Forecast for the month", forecast],
+          ["Budget", budget],
+        ],
+        button: { label: "Open Cloud spend", url: `${ctx.appUrl}/app/spend` },
       },
     };
   },

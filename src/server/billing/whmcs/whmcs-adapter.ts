@@ -16,6 +16,7 @@ import type {
   InvoiceSummary,
   ModuleAction,
   NewBillingClient,
+  NewInvoice,
   NewOrder,
   NewPayMethod,
   PayMethod,
@@ -27,7 +28,7 @@ import type {
   Transaction,
   UpgradePreview,
 } from "../adapter";
-import { BillingError, PAYMENT_METHODS } from "../adapter";
+import { BillingError, checkInvoiceLines, PAYMENT_METHODS } from "../adapter";
 import { DOMAIN_PATTERN, withPoNote } from "../stub/stub-adapter";
 import { WhmcsRefusal, type WhmcsClient } from "./client";
 import * as map from "./map";
@@ -232,6 +233,12 @@ export class WhmcsBillingAdapter implements BillingAdapter {
       else placed.invoiceId = map.newInvoiceId(await this.write("CreateInvoice", map.toOneOffInvoice(clientId, oneOff, order.paymentMethod, this.now())));
     }
     return placed;
+  }
+
+  async createInvoice(clientId: string, invoice: NewInvoice): Promise<{ invoiceId: string }> {
+    const currency = await this.currencyOf(clientId);
+    checkInvoiceLines(invoice, currency);
+    return { invoiceId: map.newInvoiceId(await this.write("CreateInvoice", map.toInvoice(clientId, invoice, this.now()))) };
   }
 
   /** The order as WHMCS has it, with the services and domains it made. */

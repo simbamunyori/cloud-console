@@ -4,7 +4,7 @@ import { signIn } from "./support/signed-in";
 /**
  * Cloud spend on the demo organisation: six months of invoices, two
  * months of Azure usage with test servers switched off ten days ago, and
- * a saving staff found. Nothing here changes the demo.
+ * a saving staff found, and a P 9,000 budget. Nothing here changes the demo.
  */
 test("a customer sees spend by month, picks a month, and sees ways to save", async ({ page, context, baseURL }) => {
   await signIn(context, "customer", baseURL!);
@@ -32,6 +32,32 @@ test("a customer sees spend by month, picks a month, and sees ways to save", asy
   await expect(page.getByRole("row", { name: new RegExp(month) })).toBeVisible();
   await expect(page.getByRole("heading", { name: /^Azure usage in / })).toBeVisible();
   await expect(page.getByRole("cell", { name: "kgale-erp" })).toBeVisible();
+});
+
+test("an owner checks usage against the budget and saves it again", async ({ page, context, baseURL }) => {
+  await signIn(context, "customer", baseURL!);
+  await page.goto("/app/spend");
+  await expect(page.getByRole("progressbar", { name: "Budget used" })).toBeVisible();
+  await expect(page.getByText(/% of the P\s?9,000\.00 budget/)).toBeVisible();
+
+  await page.getByRole("button", { name: "Change the budget" }).click();
+  const field = page.getByLabel("Monthly budget for Kgale Hill production");
+  await field.fill("lots");
+  await page.getByRole("button", { name: "Save budget" }).click();
+  await expect(page.getByText("Enter the most you want to spend a month, like 8000.")).toBeVisible();
+  await field.fill("9000.00");
+  await page.getByRole("button", { name: "Save budget" }).click();
+  await expect(page.getByText("Budget saved. We'll warn you by email as usage gets close.")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Change the budget" })).toBeVisible();
+});
+
+test("staff see which months of Azure usage are ready to invoice", async ({ page, context, baseURL }) => {
+  await signIn(context, "staff", baseURL!);
+  await page.goto("/admin/cloud-usage");
+  // The demo's last two months; unit tests sharing the database may add others.
+  const ready = page.getByRole("region", { name: / is ready to invoice$/ }).filter({ has: page.getByRole("cell", { name: "Kgale Hill Logistics" }) });
+  await expect(ready).toHaveCount(2);
+  await expect(ready.first().getByRole("button", { name: /^Raise \d+ invoices? for / })).toBeVisible();
 });
 
 test("staff upload a usage file and see what didn't match", async ({ page, context, baseURL }) => {

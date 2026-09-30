@@ -113,6 +113,28 @@ export function billingContract(name: string, adapter: () => BillingAdapter, fix
       ).rejects.toBeInstanceOf(BillingError);
     });
 
+    it("raises an invoice for charges outside any order, due when asked", async () => {
+      const { a, clientId, P } = await setUp();
+      const dueOn = new Date(Date.UTC(2030, 0, 15));
+      const { invoiceId } = await a.createInvoice(clientId, {
+        paymentMethod: PAYMENT_METHODS.eft,
+        dueOn,
+        lines: [
+          { description: "Azure usage, September 2026 (Production)", amount: P(704321n), taxed: true },
+          { description: "Azure usage, September 2026 (Test)", amount: P(1200n), taxed: true },
+        ],
+      });
+      const invoice = (await a.getInvoice(clientId, invoiceId))!;
+      expect(invoice.status).toBe("unpaid");
+      expect(invoice.dueOn.toISOString().slice(0, 10)).toBe("2030-01-15");
+      expect(invoice.lines.map((l) => [l.description, l.amount.amountMinor])).toEqual([
+        ["Azure usage, September 2026 (Production)", 704321n],
+        ["Azure usage, September 2026 (Test)", 1200n],
+      ]);
+      await expect(a.createInvoice(clientId, { paymentMethod: PAYMENT_METHODS.eft, dueOn, lines: [] })).rejects.toBeInstanceOf(BillingError);
+      await expect(a.createInvoice(clientId, { paymentMethod: PAYMENT_METHODS.eft, dueOn, lines: [{ description: "x", amount: money(100n, "EUR"), taxed: true }] })).rejects.toBeInstanceOf(BillingError);
+    });
+
     it("can order without an invoice, to bill on the next monthly invoice", async () => {
       const { order } = await setUp();
       const placed = await order(1, 19000n, false);

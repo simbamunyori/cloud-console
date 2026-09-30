@@ -1,10 +1,12 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
-import { addDays, parseDateOnly, toDateOnly } from "@/lib/dates";
-import { applyBps, currencyInfo, divRound, isSupportedCurrency } from "@/lib/domain/money";
+import { DEFAULT_TIME_ZONE } from "@/config/app";
+import { addDays, parseDateOnly, toDateOnly, todayIn } from "@/lib/dates";
+import { applyBps, currencyInfo, divRound, formatMoney, isSupportedCurrency, money } from "@/lib/domain/money";
 import { DomainError } from "@/server/org/access";
 import { audit } from "@/server/org/audit";
 import { assertStaffCan, type StaffActor } from "@/server/staff/access";
 import { staffAudit } from "@/server/staff/audit";
+import { checkBudgets } from "./budgets";
 import { parseCsv } from "./csv";
 
 /**
@@ -168,6 +170,8 @@ async function rateFor(db: Pick<PrismaClient, "fxRate">, month: string, base: st
 export interface ImportDeps {
   db: PrismaClient;
   staff: StaffActor;
+  /** For budget warnings: today where we are. */
+  today?: Date;
 }
 
 export interface ImportResult {
@@ -214,6 +218,8 @@ export async function importUsage(deps: ImportDeps, fileName: string, text: stri
   const firstDay = days.length ? new Date(Math.min(...days)) : null;
   const lastDay = days.length ? new Date(Math.max(...days)) : null;
 
+  const late: string[] = [];
+  const today = deps.today ?? todayIn(DEFAULT_TIME_ZONE);
   const result = await deps.db.$transaction(
     async (tx) => {
       const imp = await tx.cloudUsageImport.create({ data: { fileName: fileName.slice(0, 200), rowsRead, rowsImported: priced.length, firstDay, lastDay, notes, importedById: deps.staff.userId } });
@@ -239,15 +245,27 @@ export async function importUsage(deps: ImportDeps, fileName: string, text: stri
             importId: imp.id,
           })),
         });
+        // A month already invoiced keeps its invoice; a change is noted for finance.
+        const months = [...new Set(daysInFile.map((d) => monthOf(d)))];
+        for (const bill of await tx.cloudUsageBill.findMany({ where: { subscriptionId: subId, month: { in: months.map((m) => parseDateOnly(`${m}-01`)!) } } })) {
+          const next = new Date(Date.UTC(bill.month.getUTCFullYear(), bill.month.getUTCMonth() + 1, 1));
+          const now = await tx.cloudUsage.aggregate({ where: { subscriptionId: subId, day: { gte: bill.month, lt: next } }, _sum: { priceMinor: true } });
+          const diff = (now._sum.priceMinor ?? 0n) - bill.amountMinor;
+          if (diff !== 0n) late.push(`${sub.organisation.name}, ${sub.name}: ${monthOf(bill.month)} was already invoiced; its usage is now ${formatMoney(money(diff < 0n ? -diff : diff, bill.currency), "en-BW")} ${diff > 0n ? "more" : "less"}. The invoice wasn't changed.`);
+        }
         await audit(tx, staffAudit(deps.staff, sub.organisationId, { action: "cloud.usage_imported", summary: `Imported Azure usage for ${sub.name}, ${daysInFile.length} ${daysInFile.length === 1 ? "day" : "days"}`, targetType: "CloudSubscription", targetId: subId }));
       }
       const orgs = [...new Set(priced.map((p) => p.sub.organisationId))];
-      for (const org of orgs) await findIdleResources(tx, org);
+      for (const org of orgs) {
+        await findIdleResources(tx, org);
+        await checkBudgets(tx, today, org);
+      }
+      if (late.length) await tx.cloudUsageImport.update({ where: { id: imp.id }, data: { notes: [...notes, ...late] } });
       return { importId: imp.id, customers: orgs.length };
     },
     { timeout: 60_000 },
   );
-  return { ...result, rowsRead, rowsImported: priced.length, notes };
+  return { ...result, rowsRead, rowsImported: priced.length, notes: [...notes, ...late] };
 }
 
 // ─── Linking subscriptions ───────────────────────────────────────────

@@ -1,7 +1,9 @@
 import { randomUUID } from "node:crypto";
 import { beforeAll, describe, expect, it } from "vitest";
 import { completeTask } from "../src/server/admin/tasks";
-import type { Invoice, Service } from "../src/server/billing/adapter";
+import { type BillingAdapter, BillingError, type Invoice, type Service } from "../src/server/billing/adapter";
+import { billUsage, monthsToBill, unbilledUsage, usageLine } from "../src/server/spend/billing";
+import { budgetStatus, checkBudgets, setBudget } from "../src/server/spend/budgets";
 import { parseCsv } from "../src/server/spend/csv";
 import { breakdown, forecast, invoiceLines, monthlySpend, savings, savingsTotal, syncInvoiceSpend, type UsageRow } from "../src/server/spend/spend";
 import { addSaving, askForSaving, dismissSaving } from "../src/server/spend/tips";
@@ -77,6 +79,7 @@ describe("spend views", () => {
         { lineId: "b", kind: "prorata", relatedId: "1", description: "M365 part month", amount: P(12000n), taxed: true },
         { lineId: "c", kind: "domain", relatedId: "9", description: "kgalehill.co.bw", amount: P(18000n), taxed: true },
         { lineId: "d", kind: "item", description: "Late fee\nfor August", amount: P(5000n), taxed: true },
+        { lineId: "e", kind: "item", description: usageLine(new Date("2026-08-01"), "Production"), amount: P(9000n), taxed: true },
       ],
     } as Invoice;
     expect(invoiceLines(invoice, services)).toEqual([
@@ -238,5 +241,112 @@ describe.skipIf(!hasDb)("kept invoice spend", () => {
     await syncInvoiceSpend(org.tenant, counting, org.organisationId, today);
     expect(reads).toBe(2);
     expect((await org.tenant.invoiceSpend.findFirstOrThrow()).status).toBe("paid");
+  });
+});
+
+describe("budgets", () => {
+  const sept = new Date("2026-09-01T00:00:00Z");
+  it("says how much is used, where the month is heading, and which warnings apply", () => {
+    // P 80 of P 100 by the 10th heads for P 240 over September's 30 days.
+    expect(budgetStatus(8000n, new Date("2026-09-10T00:00:00Z"), 10000n, sept)).toEqual({ usedMinor: 8000n, forecastMinor: 24000n, budgetMinor: 10000n, usedPercent: 80, levels: ["80", "forecast"] });
+    expect(budgetStatus(12000n, new Date("2026-09-10T00:00:00Z"), 10000n, sept).levels).toEqual(["100", "80"]);
+    expect(budgetStatus(3000n, new Date("2026-09-30T00:00:00Z"), 10000n, sept).levels).toEqual([]);
+    expect(budgetStatus(0n, null, 10000n, sept)).toMatchObject({ forecastMinor: 0n, levels: [] });
+  });
+});
+
+describe.skipIf(!hasDb)("billing Azure usage and budgets", () => {
+  beforeAll(async () => {
+    for (const month of ["2025-05", "2025-09"]) {
+      await db.fxRate.upsert({ where: { month_base_quote: { month, base: "EUR", quote: "BWP" } }, update: { rateMicros: 15_000_000n }, create: { month, base: "EUR", quote: "BWP", rateMicros: 15_000_000n } });
+    }
+  });
+
+  /** €1.00 of storage a day; with 10% margin at 15 pula, P 16.50. */
+  function days(sub: string, month: string, from: number, to: number, eur = "1.00") {
+    const rows = ["EntitlementId,UsageDate,MeterCategory,ResourceUri,BillingPreTaxTotal,BillingCurrency"];
+    for (let d = from; d <= to; d++) rows.push(`${sub},${month}-${String(d).padStart(2, "0")},Storage,,${eur},EUR`);
+    return rows.join("\n");
+  }
+
+  it("invoices a month's usage once, gives the month back when the invoice fails, and notes later changes", async () => {
+    const org = await makeOrganisation("Serowe Seeds");
+    const finance = await staff("FINANCE");
+    await addMember(org.organisationId, "BILLING");
+    await addMember(org.organisationId, "READ_ONLY");
+    const sub = randomUUID();
+    await linkSubscription({ db, staff: finance }, org.organisationId, { subscriptionId: sub, name: "Production", margin: "10" });
+    await importUsage({ db, staff: finance }, "may.csv", days(sub, "2025-05", 1, 31));
+    const may = new Date("2025-05-01T00:00:00Z");
+    const now = new Date("2025-06-10T08:00:00Z");
+
+    const mine = (await unbilledUsage(db, may)).find((c) => c.organisationId === org.organisationId);
+    expect(mine).toMatchObject({ currency: "BWP", totalMinor: 31n * 1650n, subscriptions: [{ name: "Production", amountMinor: 31n * 1650n }] });
+    expect((await monthsToBill(db, now)).map((m) => m.toISOString().slice(0, 7))).toContain("2025-05");
+
+    const stub = new StubBillingAdapter(db);
+    await expect(billUsage({ db, adapter: stub, staff: await staff("PROVISIONING"), now }, may)).rejects.toMatchObject({ code: "forbidden" });
+    await expect(billUsage({ db, adapter: stub, staff: finance, now: new Date("2025-05-31T20:00:00Z") }, may)).rejects.toMatchObject({ code: "invalid" });
+
+    // The billing system is down: nothing is kept, so the month can be billed later.
+    const down = Object.create(stub) as BillingAdapter;
+    down.createInvoice = async () => {
+      throw new BillingError("not-connected", "The billing system is down.");
+    };
+    const failed = await billUsage({ db, adapter: down, staff: finance, now }, may);
+    expect(failed.failed).toContainEqual({ organisationName: "Serowe Seeds", reason: "The billing system is down." });
+    expect(await org.tenant.cloudUsageBill.count()).toBe(0);
+
+    const billed = await billUsage({ db, adapter: stub, staff: finance, now }, may);
+    const made = billed.invoices.find((i) => i.organisationName === "Serowe Seeds")!;
+    expect(made).toMatchObject({ totalMinor: 51150n, currency: "BWP" });
+    const account = await db.billingAccount.findUniqueOrThrow({ where: { organisationId: org.organisationId } });
+    const invoice = await stub.getInvoice(account.externalClientId, made.invoiceId);
+    expect(invoice?.lines).toEqual([expect.objectContaining({ description: "Azure usage, May 2025 (Production)", amount: P(51150n) })]);
+    expect(invoice?.dueOn.toISOString().slice(0, 10)).toBe("2025-06-24");
+    expect(await org.tenant.cloudUsageBill.findMany()).toEqual([expect.objectContaining({ invoiceId: made.invoiceId, amountMinor: 51150n })]);
+    const emails = await db.outboundEmail.findMany({ where: { organisationId: org.organisationId, kind: "spend.usage_invoice" } });
+    expect(emails).toHaveLength(2);
+
+    // Billed once: pressing again leaves it alone.
+    expect((await billUsage({ db, adapter: stub, staff: finance, now }, may)).invoices.map((i) => i.organisationName)).not.toContain("Serowe Seeds");
+    expect((await unbilledUsage(db, may)).map((c) => c.organisationId)).not.toContain(org.organisationId);
+
+    // A corrected file for the 31st is kept and noted, not billed again.
+    const late = await importUsage({ db, staff: finance, today: now }, "may-fix.csv", days(sub, "2025-05", 31, 31, "3.00"));
+    expect(late.notes.join(" ")).toMatch(/Serowe Seeds, Production: 2025-05 was already invoiced; its usage is now P\s?33\.00 more/);
+    expect(await org.tenant.cloudUsageBill.count()).toBe(1);
+    expect((await org.tenant.auditEvent.findMany({ where: { action: "cloud.usage_billed" } })).map((e) => e.targetId)).toEqual([made.invoiceId]);
+  });
+
+  it("lets billing people set a budget and warns once per level each month", async () => {
+    const org = await makeOrganisation("Tlokweng Tiles");
+    const finance = await staff("FINANCE");
+    await addMember(org.organisationId, "BILLING");
+    const reader = await addMember(org.organisationId, "READ_ONLY");
+    const sub = randomUUID();
+    const linked = await linkSubscription({ db, staff: finance }, org.organisationId, { subscriptionId: sub, name: "Production", margin: "10" });
+    const ctx = { organisationId: org.organisationId, actor: org.owner, locale: "en-BW" };
+
+    await expect(setBudget(org.tenant, { ...ctx, actor: reader }, linked.id, "200")).rejects.toMatchObject({ code: "forbidden" });
+    await expect(setBudget(org.tenant, ctx, linked.id, "lots")).rejects.toMatchObject({ code: "invalid", field: "budget" });
+    await expect(setBudget(org.tenant, ctx, linked.id, "0")).rejects.toMatchObject({ code: "invalid" });
+    const other = await makeOrganisation("Kanye Kilns");
+    await expect(setBudget(other.tenant, { ...ctx, organisationId: other.organisationId, actor: other.owner }, linked.id, "200")).rejects.toMatchObject({ code: "not-found" });
+    expect(await setBudget(org.tenant, ctx, linked.id, "")).toMatchObject({ budgetMinor: null });
+    expect(await setBudget(org.tenant, ctx, linked.id, "200")).toMatchObject({ budgetMinor: 20000n });
+
+    const sent = () => db.outboundEmail.findMany({ where: { organisationId: org.organisationId, kind: "spend.budget" }, orderBy: { createdAt: "asc" } });
+    // P 165 by the 10th is over 80% and heading for P 495: one warning, to the owner and billing person.
+    const tenth = new Date("2025-09-10T00:00:00Z");
+    await importUsage({ db, staff: finance, today: tenth }, "sep.csv", days(sub, "2025-09", 1, 10));
+    expect((await sent()).map((e) => (e.payload as { level: string }).level)).toEqual(["80", "80"]);
+    expect(await checkBudgets(db, tenth, org.organisationId)).toBe(0);
+
+    const thirteenth = new Date("2025-09-13T00:00:00Z");
+    await importUsage({ db, staff: finance, today: thirteenth }, "sep2.csv", days(sub, "2025-09", 11, 13));
+    expect((await sent()).map((e) => (e.payload as { level: string }).level)).toEqual(["80", "80", "100", "100"]);
+    expect(await checkBudgets(db, thirteenth, org.organisationId)).toBe(0);
+    expect((await org.tenant.auditEvent.findMany({ where: { action: { startsWith: "cloud.budget" } }, orderBy: { createdAt: "asc" } })).map((e) => e.action)).toEqual(["cloud.budget_removed", "cloud.budget_set"]);
   });
 });

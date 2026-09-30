@@ -17,6 +17,7 @@ import {
   type DomainRequest,
   type DomainStatus,
   type DomainTransferRequest,
+  checkInvoiceLines,
   type Invoice,
   type InvoiceFilter,
   type InvoiceLineKind,
@@ -24,6 +25,7 @@ import {
   type InvoiceSummary,
   type ModuleAction,
   type NewBillingClient,
+  type NewInvoice,
   type NewOrder,
   type NewPayMethod,
   type OrderStatus,
@@ -237,7 +239,7 @@ export class StubBillingAdapter implements BillingAdapter {
     return (rules.find((r) => r.country === client?.country) ?? rules.find((r) => r.country === "*"))?.rateBps ?? 0;
   }
 
-  private async createInvoice(tx: Tx, clientId: number, currency: string, lines: NewLine[], opts: { date?: Date; dueDate?: Date; notes?: string } = {}) {
+  private async raiseInvoice(tx: Tx, clientId: number, currency: string, lines: NewLine[], opts: { date?: Date; dueDate?: Date; notes?: string } = {}) {
     const date = opts.date ?? this.today();
     const subtotal = sum(lines.map((l) => l.amount));
     const taxRateBps = await this.taxRateFor(tx, clientId);
@@ -261,6 +263,15 @@ export class StubBillingAdapter implements BillingAdapter {
     const invoiceNum = `INV-${date.getUTCFullYear()}-${String(invoice.id).padStart(4, "0")}`;
     await tx.stubInvoice.update({ where: { id: invoice.id }, data: { invoiceNum } });
     return invoice.id;
+  }
+
+  async createInvoice(clientId: string, invoice: NewInvoice): Promise<{ invoiceId: string }> {
+    return this.db.$transaction(async (tx) => {
+      const client = await this.client(tx, clientId);
+      checkInvoiceLines(invoice, client.currency);
+      const lines: NewLine[] = invoice.lines.map((l) => ({ type: "Item", description: l.description, amount: l.amount.amountMinor, taxed: l.taxed }));
+      return { invoiceId: String(await this.raiseInvoice(tx, client.id, client.currency, lines, { dueDate: invoice.dueOn })) };
+    });
   }
 
   // ─── Orders ───────────────────────────────────────────────────────
@@ -326,7 +337,7 @@ export class StubBillingAdapter implements BillingAdapter {
       for (const line of oneOff) lines.push({ type: "Item", description: line.description, amount: line.amount.amountMinor });
       let invoiceId: number | undefined;
       if (order.createInvoice) {
-        invoiceId = await this.createInvoice(tx, client.id, client.currency, lines, { dueDate: today });
+        invoiceId = await this.raiseInvoice(tx, client.id, client.currency, lines, { dueDate: today });
         await tx.stubOrder.update({ where: { id: stubOrder.id }, data: { invoiceId } });
       }
       return { orderId: String(stubOrder.id), invoiceId: invoiceId === undefined ? undefined : String(invoiceId), serviceIds, domainIds: [] };
@@ -453,7 +464,7 @@ export class StubBillingAdapter implements BillingAdapter {
         const today = this.today();
         const name = product?.name ?? service.name;
         const what = quantity !== service.quantity ? `${service.quantity} to ${quantity}` : `${service.name} to ${name}`;
-        invoiceId = await this.createInvoice(tx, service.clientId, service.currency, [
+        invoiceId = await this.raiseInvoice(tx, service.clientId, service.currency, [
           { type: "Upgrade", relId: service.id, description: `Change to ${name}: ${what} (${formatRange(today, addDaysUtc(service.nextDueDate, -1))})`, amount: preview.dueNow.amountMinor },
         ], { dueDate: today });
         await tx.stubOrder.update({ where: { id: order.id }, data: { invoiceId } });
@@ -629,7 +640,7 @@ export class StubBillingAdapter implements BillingAdapter {
           registrationYears: years,
         },
       });
-      const invoiceId = await this.createInvoice(tx, client.id, client.currency, [
+      const invoiceId = await this.raiseInvoice(tx, client.id, client.currency, [
         {
           type: kind === "register" ? "DomainRegister" : "DomainTransfer",
           relId: domain.id,
@@ -662,7 +673,7 @@ export class StubBillingAdapter implements BillingAdapter {
       const order = await tx.stubOrder.create({ data: { clientId: domain.clientId, status: "Active", items: [record] as unknown as Prisma.InputJsonValue } });
       const newExpiry = addMonths(domain.expiryDate, 12 * years);
       await tx.stubDomain.update({ where: { id: domain.id }, data: { status: "Active", expiryDate: newExpiry, nextDueDate: newExpiry } });
-      const invoiceId = await this.createInvoice(tx, domain.clientId, domain.currency, [
+      const invoiceId = await this.raiseInvoice(tx, domain.clientId, domain.currency, [
         { type: "Domain", relId: domain.id, description: `Domain renewal: ${domain.domain} (${years} ${years === 1 ? "year" : "years"}, to ${newExpiry.toISOString().slice(0, 10)})`, amount },
       ], { dueDate: this.today() });
       await tx.stubOrder.update({ where: { id: order.id }, data: { invoiceId } });
@@ -715,7 +726,7 @@ export class StubBillingAdapter implements BillingAdapter {
           const moved = await tx.stubDomain.updateMany({ where: { id: d.id, nextDueDate: d.nextDueDate }, data: { expiryDate: next, nextDueDate: next } });
           if (moved.count !== 1) throw new BillingError("conflict", "Another billing run got there first.");
         }
-        return this.createInvoice(tx, client.id, client.currency, lines, { date: today, dueDate: earliestDue < today ? today : earliestDue });
+        return this.raiseInvoice(tx, client.id, client.currency, lines, { date: today, dueDate: earliestDue < today ? today : earliestDue });
       });
       if (invoiceId !== undefined) made.push(String(invoiceId));
     }

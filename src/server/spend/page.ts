@@ -33,7 +33,7 @@ export async function spendOverview(db: TenantDb, billing: ScopedBilling, organi
 }
 
 /** Azure usage for one month, by subscription and resource group, largest first. */
-export function azureMonth(usage: UsageRow[], subscriptions: { id: string; name: string }[], month: Date, currency: string) {
+export function azureMonth(usage: UsageRow[], subscriptions: { id: string; name: string; budgetMinor: bigint | null }[], month: Date, currency: string) {
   const next = addMonths(month, 1);
   const inMonth = usage.filter((u) => u.day >= month && u.day < next && u.currency === currency);
   return subscriptions.map((s) => {
@@ -43,6 +43,8 @@ export function azureMonth(usage: UsageRow[], subscriptions: { id: string; name:
     return {
       id: s.id,
       name: s.name,
+      budgetMinor: s.budgetMinor,
+      lastDay: mine.reduce<Date | null>((d, u) => (!d || u.day > d ? u.day : d), null),
       total: mine.reduce((n, u) => n + u.priceMinor, 0n),
       groups: [...groups.entries()].map(([group, amountMinor]) => ({ group, amountMinor })).sort((a, b) => (b.amountMinor > a.amountMinor ? 1 : -1)),
     };
