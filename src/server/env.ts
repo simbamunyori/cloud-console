@@ -27,6 +27,8 @@ const schema = z.object({
   WHMCS_API_URL: optionalUrl(),
   /** The price sync addon's endpoint. Defaults to modules/addons/fourthgen_console/sync.php beside WHMCS_API_URL. */
   WHMCS_SYNC_URL: optionalUrl(),
+  /** Off-site backup storage (scripts/backup.sh). Read here only to warn staff while it is missing. */
+  OFFSITE_S3_BUCKET: optionalText(),
   /** Which WHMCS this is. "production" makes the write tests refuse to run against it. */
   WHMCS_ENVIRONMENT: z.enum(["test", "production"]).optional(),
   /**

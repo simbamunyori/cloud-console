@@ -6,6 +6,7 @@ import { newToken, hashToken } from "@/server/auth/tokens";
 import { issueEmail } from "@/server/newsletter/issues";
 import { newConfirmLink } from "@/server/newsletter/newsletter";
 import { FUNNEL_TEMPLATES } from "./funnel-templates";
+import { MIGRATION_TEMPLATES } from "./migration-templates";
 import type { EmailBody } from "./layout";
 
 /**
@@ -518,6 +519,7 @@ export const TEMPLATES: Record<string, Template> = {
     };
   },
   ...FUNNEL_TEMPLATES,
+  ...MIGRATION_TEMPLATES,
 };
 
 export function registerTemplate(kind: string, template: Template) {

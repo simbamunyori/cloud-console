@@ -1,6 +1,6 @@
 import { addDays, daysBetween, formatDay } from "@/lib/dates";
 import { divRound, formatMoney, money, times, total, type Money } from "@/lib/domain/money";
-import type { Domain, Invoice, InvoiceSummary, Service, Transaction } from "./adapter";
+import { type BillingCycle, CYCLE_MONTHS, type Domain, type Invoice, type InvoiceSummary, type Service, type Transaction } from "./adapter";
 
 /**
  * What the Home, Services and Billing pages work out from billing data.
@@ -10,10 +10,14 @@ import type { Domain, Invoice, InvoiceSummary, Service, Transaction } from "./ad
 
 const BILLED: Service["status"][] = ["active", "suspended"];
 
-/** A service's price per month; annual prices are spread over twelve months. */
+/** A service's price per month; longer periods are spread over their months. */
 export function monthlyPrice(s: Pick<Service, "recurring" | "billingCycle">): Money {
-  return s.billingCycle === "annually" ? money(divRound(s.recurring.amountMinor, 12n), s.recurring.currency) : s.recurring;
+  const months = CYCLE_MONTHS[s.billingCycle];
+  return months === 1 ? s.recurring : money(divRound(s.recurring.amountMinor, BigInt(months)), s.recurring.currency);
 }
+
+/** "Price a month", "Price a quarter" and so on. */
+export const PRICE_PER: Record<BillingCycle, string> = { monthly: "Price a month", quarterly: "Price a quarter", semiannually: "Price every six months", annually: "Price a year" };
 
 /** What the organisation pays each month for everything it has running. */
 export function monthlyTotal(services: Service[], currency: string): Money {

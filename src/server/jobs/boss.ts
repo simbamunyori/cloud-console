@@ -60,6 +60,34 @@ const JOBS: Job[] = [
       return sendReminders(prisma);
     },
   },
+  // The Odoo import, once an admin approves its dry run (Milestone 9b); approving also asks for it at once.
+  {
+    name: "odoo-import",
+    cron: "*/5 * * * *",
+    run: async () => {
+      const [{ runApprovedImports }, { linkProductsToBilling }] = await Promise.all([import("@/server/migration/run"), import("@/server/billing")]);
+      return runApprovedImports({ db: prisma, adapter: billingAdapter(), linkProducts: linkProductsToBilling });
+    },
+  },
+  // Welcome emails for migrated customers, from 08:00 on the cutover date an admin chose.
+  {
+    name: "migration-welcome",
+    cron: "*/15 * * * *",
+    run: async () => {
+      const { sendWelcomes } = await import("@/server/migration/welcome");
+      if (await sendWelcomes({ db: prisma })) await deliverDue(prisma, emailAdapter());
+    },
+  },
+  // Services hosted elsewhere: a suspension, unsuspension or cancellation in billing becomes a staff task; late ones get reminders.
+  {
+    name: "hosted-elsewhere",
+    cron: "*/15 * * * *",
+    run: async () => {
+      const { remindLateTasks, watchHostedElsewhere } = await import("@/server/migration/services");
+      await watchHostedElsewhere({ db: prisma, adapter: billingAdapter() });
+      return remindLateTasks({ db: prisma });
+    },
+  },
   // First drafts for launch kits; saving a product as live also asks for it at once.
   {
     name: "launch-kit-drafts",

@@ -187,6 +187,7 @@ model Organisation {
   savingTips         SavingTip[]
   cloudUsageBills    CloudUsageBill[]
   budgetAlerts       BudgetAlert[]
+  serviceProfiles    ServiceProfile[]
 }
 
 enum UserKind {
@@ -895,6 +896,10 @@ model ProvisioningTask {
   instructions   String
   status         TaskStatus      @default(OPEN)
   expectedBy     DateTime
+  /// The service in the billing engine, for work on one already running (hosted elsewhere).
+  billingServiceId String?
+  /// The last reminder sent about it being late.
+  remindedAt     DateTime?
   assigneeId     String?
   notes          String?
   completedById  String?
@@ -1975,4 +1980,117 @@ model NewsletterIssue {
   updatedAt  DateTime              @updatedAt
 
   @@unique([market, month])
+}
+
+// ─── Bringing clients over from Odoo (Milestone 9b) ─────────────────
+
+/// Where a service runs. Anything but OURS is looked after by hand: a
+/// suspension, unsuspension or cancellation in billing becomes a staff task.
+enum HostLocation {
+  OURS
+  CONTABO
+  SITEGROUND
+  OTHER
+}
+
+/// What the console knows about a running service that the billing engine
+/// has no field for. Made for every service brought over from Odoo.
+model ServiceProfile {
+  billingServiceId     String       @id
+  organisationId       String
+  /// The customer's own price from before, kept instead of the price book:
+  /// the whole service per billing period, for legacyQuantity units. A
+  /// change of users is priced pro rata from it. Null: price book.
+  legacyRecurringMinor BigInt?
+  legacyQuantity       Int?
+  legacyCurrency       String?
+  /// When staff mean to look at the price again. Nothing changes by itself.
+  legacyReviewOn       DateTime?    @db.Date
+  hostedAt             HostLocation @default(OURS)
+  /// The server, account or panel it lives in.
+  hostServer           String?
+  hostNotes            String?
+  /// The status last seen in billing, so each change makes one task.
+  lastStatus           String?
+  movedAt              DateTime?
+  movedByName          String?
+  /// Where it came from, e.g. "Odoo SUB/2026/0042".
+  source               String?
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @updatedAt
+
+  organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+
+  @@index([organisationId])
+  @@index([hostedAt])
+}
+
+enum MigrationStatus {
+  /// Uploaded; the dry-run report waits for an admin.
+  REVIEW
+  /// Approved; the import job picks it up.
+  APPROVED
+  IMPORTING
+  IMPORTED
+  /// Stopped part way; the error says why. Approving again carries on.
+  FAILED
+  /// Replaced by a newer upload before it was approved.
+  DISCARDED
+}
+
+/// One upload of the Odoo exports. Nothing reaches customers or billing
+/// until an admin approves the dry-run report, and welcome emails wait
+/// for the cutover date an admin chooses.
+model MigrationBatch {
+  id               String          @id @default(cuid())
+  status           MigrationStatus @default(REVIEW)
+  /// The rows read from each file, as uploaded.
+  source           Json
+  /// Staff choices: Odoo product name to a product slug, or "legacy".
+  mapping          Json            @default("{}")
+  /// The dry-run report for source and mapping.
+  report           Json
+  reportHash       String
+  uploadedById     String
+  uploadedByName   String
+  approvedHash     String?
+  approvedById     String?
+  approvedByName   String?
+  approvedAt       DateTime?
+  startedAt        DateTime?
+  finishedAt       DateTime?
+  error            String?
+  /// The day welcome emails go out, from 08:00 Gaborone time. None until chosen.
+  cutoverOn        DateTime?       @db.Date
+  cutoverSetByName String?
+  welcomeSentAt    DateTime?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  records MigrationRecord[]
+
+  @@index([status])
+}
+
+/// What the import made from each Odoo row. One per row ever, so a second
+/// upload or a re-run never makes anything twice. A row with no targetId
+/// was being written to billing when a run stopped.
+model MigrationRecord {
+  id             String    @id @default(cuid())
+  batchId        String
+  /// "customer", "person", "client", "service", "domain" or "invoice".
+  kind           String
+  /// The Odoo reference: external id, subscription line, domain or invoice number.
+  sourceRef      String
+  organisationId String?
+  targetId       String?
+  /// People only: when their welcome email was queued.
+  welcomedAt     DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  batch MigrationBatch @relation(fields: [batchId], references: [id], onDelete: Restrict)
+
+  @@unique([kind, sourceRef])
+  @@index([batchId, kind])
 }

@@ -15,7 +15,10 @@ import type { Money } from "@/lib/domain/money";
  * in scoped.ts, which is already bound to their own organisation's client.
  */
 
-export type BillingCycle = "monthly" | "annually";
+export type BillingCycle = "monthly" | "quarterly" | "semiannually" | "annually";
+
+/** Months in each billing period. New orders are monthly; the longer ones come with migrated customers. */
+export const CYCLE_MONTHS: Record<BillingCycle, number> = { monthly: 1, quarterly: 3, semiannually: 6, annually: 12 };
 
 export type ClientStatus = "active" | "inactive" | "closed";
 
@@ -97,6 +100,40 @@ export interface NewInvoice {
   /** Payment method system name, e.g. "banktransfer". */
   paymentMethod: string;
   dueOn: Date;
+  /** The invoice date; today when not given. An opening balance keeps the original date. */
+  issuedOn?: Date;
+}
+
+/**
+ * A service brought over from the billing system we used before, already
+ * running and paid for up to nextDueOn. It is made active with no invoice,
+ * no set-up and no email, at the customer's own price.
+ */
+export interface ImportedService {
+  productId: string;
+  quantity: number;
+  billingCycle: BillingCycle;
+  /** The whole service per cycle. */
+  recurringPrice: Money;
+  registeredOn: Date;
+  /** The first day our billing charges for. */
+  nextDueOn: Date;
+  domain?: string;
+  /** Kept with the service for staff, e.g. where it came from. */
+  note?: string;
+}
+
+/** A domain we already look after, brought over with its own dates and renewal price. Nothing goes to the registrar. */
+export interface ImportedDomain {
+  name: string;
+  registrar: string;
+  registeredOn: Date;
+  expiresOn: Date;
+  nextDueOn: Date;
+  /** Renewal price for one registration period. */
+  renewal: Money;
+  registrationYears: number;
+  autoRenew: boolean;
 }
 
 export interface PlacedOrder {
@@ -332,6 +369,11 @@ export interface BillingAdapter {
   previewUpgrade(serviceId: string, change: ServiceChange): Promise<UpgradePreview>;
   upgradeService(serviceId: string, change: ServiceChange, paymentMethod: string): Promise<{ orderId: string; invoiceId?: string }>;
 
+  // Migration: AddOrder (no invoice), AcceptOrder (no set-up), then
+  // UpdateClientProduct or UpdateClientDomain for the dates and price.
+  importService(clientId: string, service: ImportedService): Promise<{ serviceId: string }>;
+  importDomain(clientId: string, domain: ImportedDomain): Promise<{ domainId: string }>;
+
   // Invoices and payments: GetInvoices, GetInvoice, UpdateInvoice (notes),
   // AddInvoicePayment, GetTransactions, GetPayMethods, AddPayMethod
   listInvoices(clientId: string, filter?: InvoiceFilter): Promise<InvoiceSummary[]>;
@@ -362,6 +404,15 @@ export function checkInvoiceLines(invoice: NewInvoice, currency: string) {
     if (l.amount.currency !== currency) throw new BillingError("invalid", `This client is billed in ${currency}.`);
     if (l.amount.amountMinor < 0n) throw new BillingError("invalid", "A charge can't be negative.");
   }
+}
+
+/** An imported service or domain: a price that isn't negative, in the client's currency, and sane dates. */
+export function checkImported(item: { recurringPrice?: Money; renewal?: Money; registeredOn: Date; nextDueOn: Date; quantity?: number }, currency: string) {
+  const price = item.recurringPrice ?? item.renewal!;
+  if (price.currency !== currency) throw new BillingError("invalid", `This client is billed in ${currency}.`);
+  if (price.amountMinor < 0n) throw new BillingError("invalid", "A price can't be negative.");
+  if (item.quantity !== undefined && (!Number.isInteger(item.quantity) || item.quantity < 1)) throw new BillingError("invalid", "Quantity must be at least 1.");
+  if (item.nextDueOn < item.registeredOn) throw new BillingError("invalid", "The next due date is before the start date.");
 }
 
 /** The payment method system names the console uses. */

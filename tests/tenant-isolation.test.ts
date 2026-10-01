@@ -14,7 +14,9 @@ describe("tenant models", () => {
       .filter((name) => name !== "OutboundEmail")
       // A readiness check is saved by a visitor with no account; the first
       // organisation to open its link claims it (src/server/tools/readiness-store.ts).
-      .filter((name) => name !== "ReadinessCheck");
+      .filter((name) => name !== "ReadinessCheck")
+      // Staff-only: what the Odoo import made, across organisations.
+      .filter((name) => name !== "MigrationRecord");
     expect([...withOrg].sort()).toEqual([...TENANT_MODELS].sort());
   });
 });

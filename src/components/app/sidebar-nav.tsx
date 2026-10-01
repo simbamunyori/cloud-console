@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  ArrowRightLeft,
   CalendarClock,
   Activity,
   Boxes,
@@ -62,6 +63,7 @@ const ICONS = {
   website: SquarePen,
   staff: UserCog,
   status: Activity,
+  migration: ArrowRightLeft,
 };
 
 export interface NavItem {

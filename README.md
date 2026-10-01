@@ -164,7 +164,7 @@ the UI and never sent to the assistant.
 | `THEBE_TRY_URL`, `THEBE_URL`, `THEBE_DEMO_URL` | Optional | Override Thebe's addresses. Unset, Learn more and Try Thebe go to https://www.thebe.africa (Try Thebe can be changed in the site editor under Website, Thebe links), and Book a demo goes to our pre-sales booking page while anyone takes bookings |
 | `NSMC_URL` | Optional | Overrides NSMC's website for the on-site IT line on the home page. Unset means https://www.nsmc.africa |
 | `SUPPORT_EMAIL` | Production set-up | Filled into every market still on the development support address when a release starts |
-| `OFFSITE_S3_ENDPOINT`, `OFFSITE_S3_BUCKET`, `OFFSITE_S3_ACCESS_KEY_ID`, `OFFSITE_S3_SECRET_ACCESS_KEY`, `OFFSITE_S3_PROVIDER` | Production | Where the nightly backups are copied off the server (Cloudflare R2 or any S3-compatible storage) |
+| `OFFSITE_S3_ENDPOINT`, `OFFSITE_S3_BUCKET`, `OFFSITE_S3_ACCESS_KEY_ID`, `OFFSITE_S3_SECRET_ACCESS_KEY`, `OFFSITE_S3_PROVIDER` | Before real customer data | Where the nightly backups are copied off the server (Cloudflare R2, Contabo Object Storage or any S3-compatible storage). The console starts and deploys without them; the client migration page warns until `OFFSITE_S3_BUCKET` is set |
 | `ALLOW_PLACEHOLDERS` | Demo servers only | In production the server refuses to start while a development placeholder is set: no real `SMTP_URL`, a `support@localhost` market email, the demo bank details, seeded exchange rates, the demo accounts, or a localhost `APP_URL` or `MAIL_FROM`. It lists each one and where to fix it. `yes` starts anyway with a warning, for demo and CI servers. CI proves the refusal on every run with `scripts/check-placeholder-refusal.sh` |
 
 The company name and legal name live in `src/config/app.ts`. Support
@@ -396,6 +396,7 @@ docs/deploy.md.
 | `src/lib/domain/money.ts` | Money and the one formatter |
 | `src/components/ui`, `src/config/theme/tokens.json` | Components and design tokens |
 | `src/server/support` | Tickets and the assistant (tools, confirmation, handover) |
+| `src/server/migration`, `docs/odoo-migration.md` | Bringing clients over from Odoo: import, dry run, kept prices, services hosted elsewhere, welcome emails |
 | `src/server/db.ts` | `tenantDb(organisationId)`: every customer query is scoped to one organisation |
 | `tests/` | Integration tests: tenant isolation, roles, billing contract, markets, orders, payments, staff, support |
 | `e2e/`, `lighthouserc.cjs` | Browser checks: axe, site routing, Lighthouse |

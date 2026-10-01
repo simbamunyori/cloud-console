@@ -5,6 +5,7 @@ import { money, type Money } from "@/lib/domain/money";
 import { monthOf } from "@/lib/domain/pricing";
 import { bookFor, offeredIn, productItem, tldItem } from "@/server/catalogue/price-book";
 import { DOMAIN_PRODUCT_SLUG } from "@/server/catalogue/seed-data";
+import { isLegacyCategory } from "@/server/catalogue/legacy";
 import { effectiveStatus } from "@/server/catalogue/visibility";
 import { assertStaffCan, staffLabel, type StaffActor } from "@/server/staff/access";
 import type { WhmcsClient } from "./client";
@@ -117,6 +118,11 @@ export async function planSync(db: Db, now = new Date()): Promise<SyncPlan> {
     const products: ProductOperation[] = [];
     for (const product of category.products) {
       const productId = linked("product", product.slug);
+      // Legacy services: hidden, at zero, because every migrated service carries its own price.
+      if (isLegacyCategory(category.key)) {
+        products.push({ op: "product", ref: `product:${product.slug}`, id: productId, group: groupId ?? `@${groupRef(category.key)}`, name: product.name, description: product.summary, hidden: true, perUser: false, prices: Object.fromEntries([...new Set(markets.map((m) => m.currency))].map((c) => [c, "0.00"])) });
+        continue;
+      }
       // Live products are shown in WHMCS and internal ones hidden (staff can
       // still order them); drafts aren't sent, and one sent before is hidden.
       const status = effectiveStatus(product, category.family);

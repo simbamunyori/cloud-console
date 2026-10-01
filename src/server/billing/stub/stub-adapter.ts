@@ -17,7 +17,11 @@ import {
   type DomainRequest,
   type DomainStatus,
   type DomainTransferRequest,
+  type ImportedDomain,
+  type ImportedService,
+  checkImported,
   checkInvoiceLines,
+  CYCLE_MONTHS as MONTHS_IN,
   type Invoice,
   type InvoiceFilter,
   type InvoiceLineKind,
@@ -105,8 +109,9 @@ const LINE_KIND: Record<string, InvoiceLineKind> = {
   Upgrade: "upgrade",
   Item: "item",
 };
-const CYCLE_WORD: Record<BillingCycle, string> = { monthly: "Monthly", annually: "Annually" };
-const CYCLE_MONTHS: Record<string, number> = { Monthly: 1, Annually: 12 };
+const CYCLE_WORD: Record<BillingCycle, string> = { monthly: "Monthly", quarterly: "Quarterly", semiannually: "Semi-Annually", annually: "Annually" };
+const CYCLE_OF = Object.fromEntries(Object.entries(CYCLE_WORD).map(([k, v]) => [v, k])) as Record<string, BillingCycle>;
+const CYCLE_MONTHS: Record<string, number> = Object.fromEntries(Object.entries(CYCLE_WORD).map(([k, v]) => [v, MONTHS_IN[k as BillingCycle]]));
 
 /** Suspension reason the stub uses for unpaid invoices; paying clears it. */
 export const OVERDUE_REASON = "Overdue on payment";
@@ -270,7 +275,7 @@ export class StubBillingAdapter implements BillingAdapter {
       const client = await this.client(tx, clientId);
       checkInvoiceLines(invoice, client.currency);
       const lines: NewLine[] = invoice.lines.map((l) => ({ type: "Item", description: l.description, amount: l.amount.amountMinor, taxed: l.taxed }));
-      return { invoiceId: String(await this.raiseInvoice(tx, client.id, client.currency, lines, { dueDate: invoice.dueOn })) };
+      return { invoiceId: String(await this.raiseInvoice(tx, client.id, client.currency, lines, { date: invoice.issuedOn, dueDate: invoice.dueOn })) };
     });
   }
 
@@ -474,6 +479,67 @@ export class StubBillingAdapter implements BillingAdapter {
   }
 
   // ─── Invoices and payments ────────────────────────────────────────
+
+  // ─── Migration ────────────────────────────────────────────────────
+
+  async importService(clientId: string, input: ImportedService) {
+    return this.db.$transaction(async (tx) => {
+      const client = await this.client(tx, clientId);
+      checkImported(input, client.currency);
+      const product = await tx.stubProduct.findUnique({ where: { id: id(input.productId, "product") } });
+      if (!product) throw new BillingError("not-found", `No product ${input.productId}.`);
+      const record: OrderItemRecord = { kind: "service", productId: input.productId, quantity: input.quantity, domain: input.domain, amount: input.recurringPrice.amountMinor.toString(), currency: client.currency };
+      const order = await tx.stubOrder.create({ data: { clientId: client.id, status: "Active", items: [record] as unknown as Prisma.InputJsonValue } });
+      const service = await tx.stubService.create({
+        data: {
+          clientId: client.id,
+          productId: product.id,
+          orderId: order.id,
+          name: product.name,
+          groupName: product.groupName,
+          domain: input.domain,
+          status: "Active",
+          quantity: input.quantity,
+          recurringMinor: input.recurringPrice.amountMinor,
+          currency: client.currency,
+          billingCycle: CYCLE_WORD[input.billingCycle],
+          regDate: input.registeredOn,
+          nextDueDate: input.nextDueOn,
+        },
+      });
+      return { serviceId: String(service.id) };
+    });
+  }
+
+  async importDomain(clientId: string, input: ImportedDomain) {
+    const name = input.name.trim().toLowerCase();
+    if (!DOMAIN_PATTERN.test(name)) throw new BillingError("invalid", `${input.name} isn't a domain name.`);
+    if (!Number.isInteger(input.registrationYears) || input.registrationYears < 1 || input.registrationYears > 10) throw new BillingError("invalid", "Choose between 1 and 10 years.");
+    return this.db.$transaction(async (tx) => {
+      const client = await this.client(tx, clientId);
+      checkImported(input, client.currency);
+      if (await tx.stubDomain.findUnique({ where: { domain: name } })) throw new BillingError("conflict", `${name} is already with us.`);
+      const record: OrderItemRecord = { kind: "domain", domain: name, amount: input.renewal.amountMinor.toString(), currency: client.currency };
+      await tx.stubOrder.create({ data: { clientId: client.id, status: "Active", items: [record] as unknown as Prisma.InputJsonValue } });
+      const domain = await tx.stubDomain.create({
+        data: {
+          clientId: client.id,
+          domain: name,
+          registrar: input.registrar,
+          status: "Active",
+          regDate: input.registeredOn,
+          expiryDate: input.expiresOn,
+          nextDueDate: input.nextDueOn,
+          // The stub keeps a year's price and multiplies by the years at renewal.
+          recurringMinor: input.renewal.amountMinor / BigInt(input.registrationYears),
+          currency: client.currency,
+          autoRenew: input.autoRenew,
+          registrationYears: input.registrationYears,
+        },
+      });
+      return { domainId: String(domain.id) };
+    });
+  }
 
   async listInvoices(clientId: string, filter: InvoiceFilter = {}): Promise<InvoiceSummary[]> {
     const rows = await this.db.stubInvoice.findMany({
@@ -768,7 +834,7 @@ function toService(s: StubService): Service {
     status: SERVICE_STATUS[s.status] ?? "pending",
     quantity: s.quantity,
     recurring: money(s.recurringMinor, s.currency),
-    billingCycle: s.billingCycle === "Annually" ? "annually" : "monthly",
+    billingCycle: CYCLE_OF[s.billingCycle] ?? "monthly",
     registeredOn: s.regDate,
     nextDueOn: s.nextDueDate,
     suspendReason: s.suspendReason ?? undefined,
