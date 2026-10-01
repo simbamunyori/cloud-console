@@ -6,7 +6,7 @@ The console runs on the Contabo server (Ubuntu 24.04) that also runs WHMCS.
 - **Apache** (already serving WHMCS on 80 and 443) passes the console's traffic to the app on `127.0.0.1:3000`. Certificate by certbot.
 - **Docker Compose** (`docker-compose.prod.yml`, project name `console`) runs the app, PostgreSQL and the nightly backup.
 - **Every push to main that passes CI deploys itself** (`.github/workflows/deploy.yml`).
-- **Backups** every night at 23:00 UTC, encrypted, on the server and off-site; a restore is tested every Monday (`.github/workflows/backups.yml`).
+- **Backups** every night at 23:00 UTC, encrypted, on the server, and off-site once `OFFSITE_S3_*` is set up; a restore is tested every Monday (`.github/workflows/backups.yml`).
 
 On the server everything lives in `/opt/console`:
 
@@ -15,7 +15,7 @@ On the server everything lives in `/opt/console`:
 | `.env` | Settings and secrets. Only root and the deploy user can read it |
 | `releases/<release>` | The source of the last five releases |
 | `current` | The live release |
-| `backups/` | Nightly backups (also copied off-site) |
+| `backups/` | Nightly backups (also copied off-site once it is set up) |
 
 ## Setting up the server (once)
 
@@ -39,7 +39,7 @@ On the server everything lives in `/opt/console`:
 | `SUPPORT_EMAIL` | The support address customers see. Filled into every market on the first start; staff change it per market at `/admin/markets` |
 | `WHMCS_API_IDENTIFIER`, `WHMCS_API_SECRET` | The console's API credential (docs/whmcs-setup.md, step 4) |
 | `WHMCS_SYNC_SECRET` | The price sync addon's shared secret (docs/whmcs-setup.md, step 6) |
-| `OFFSITE_S3_*` | Off-site backup storage. For Cloudflare R2: create a bucket, then an API token with Object Read & Write on it; the endpoint is `https://<account id>.r2.cloudflarestorage.com`. Any S3-compatible storage works (set `OFFSITE_S3_PROVIDER`, e.g. `Other`) |
+| `OFFSITE_S3_*` | Off-site backup storage. For Cloudflare R2: create a bucket, then an API token with Object Read & Write on it; the endpoint is `https://<account id>.r2.cloudflarestorage.com`. Any S3-compatible storage works: for Contabo Object Storage set `OFFSITE_S3_PROVIDER=Other` and the endpoint from its panel (for example `https://eu2.contabostorage.com`). Optional until real customer data goes in: while the access key is empty, backups stay on the server only and deploys carry on |
 | `ANTHROPIC_API_KEY` | Optional. Switches the support assistant on |
 | `ADMIN_IP_ALLOWLIST` | Optional. Office addresses allowed to open `/admin` |
 
@@ -68,7 +68,7 @@ console status                     # live release and health
 console logs                       # the app's log
 console create-admin "Name" email  # another staff Admin
 console backup                     # a backup now
-console restore-test               # prove the newest off-site backup restores
+console restore-test               # prove the newest backup restores (off-site copy once set up)
 console releases                   # releases kept on the server
 console rollback <release>         # start an earlier release again
 ```

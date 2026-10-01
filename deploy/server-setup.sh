@@ -82,7 +82,11 @@ TENANT_PROVIDER=manual
 # Card payments stay off in production until the DPO account is approved.
 PAYMENT_ADAPTER=stub
 
-# FILL IN: off-site backup storage (Cloudflare R2 or any S3-compatible).
+# Optional until real customer data goes in: off-site backup storage (any
+# S3-compatible storage). While the access key is empty, nightly backups
+# stay on this server only and everything else works.
+# Contabo Object Storage: OFFSITE_S3_PROVIDER=Other and the endpoint from
+# the Object Storage panel (for example https://eu2.contabostorage.com).
 # R2: Cloudflare dashboard > R2 > Create bucket, then Manage API tokens >
 # Create API token with Object Read & Write on that bucket.
 OFFSITE_S3_PROVIDER=Cloudflare

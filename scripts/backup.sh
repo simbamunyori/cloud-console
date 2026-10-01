@@ -5,15 +5,23 @@
 #   backup.sh --nightly  one backup every day at BACKUP_AT (UTC)
 # Each backup is one file, console-<time>.tar(.enc), holding console.dump
 # (pg_dump custom format) and media.tar.gz. Restoring is in docs/deploy.md.
-# With OFFSITE_S3_BUCKET set, each file is also copied off the server with
-# rclone (remote "offsite", set up from RCLONE_CONFIG_OFFSITE_* in
-# docker-compose.prod.yml), and off-site copies older than
-# BACKUP_KEEP_DAYS are deleted there too.
+# With OFFSITE_S3_BUCKET and its access key set, each file is also copied
+# off the server with rclone (remote "offsite", set up from
+# RCLONE_CONFIG_OFFSITE_* in docker-compose.prod.yml), and off-site copies
+# older than BACKUP_KEEP_DAYS are deleted there too. Without them, backups
+# stay on the server only; that never stops a backup or a deploy.
 set -eu
 
 dir=${BACKUP_DIR:-/backups}
 media=${MEDIA_DIR:-/media}
 keep=${BACKUP_KEEP_DAYS:-30}
+
+# Off-site storage counts as set up once it has a bucket and an access key
+# (a "local" remote, used by the CI rehearsal, needs no key).
+offsite_on() {
+  [ -n "${OFFSITE_S3_BUCKET:-}" ] || return 1
+  [ "${RCLONE_CONFIG_OFFSITE_TYPE:-s3}" = "local" ] || [ -n "${RCLONE_CONFIG_OFFSITE_ACCESS_KEY_ID:-}" ]
+}
 
 backup() {
   stamp=$(date -u +%Y%m%d-%H%M%S)
@@ -35,11 +43,13 @@ backup() {
   trap - EXIT
   find "$dir" -maxdepth 1 -name 'console-*' -type f -mtime +"$keep" -delete
   echo "backup: wrote $out ($(du -h "$out" | cut -f1))"
-  if [ -n "${OFFSITE_S3_BUCKET:-}" ]; then
+  if offsite_on; then
     remote="offsite:$OFFSITE_S3_BUCKET/${OFFSITE_S3_PREFIX:-console}"
     rclone -q copy --no-traverse "$out" "$remote/"
     rclone -q delete --min-age "${keep}d" "$remote/" || echo "backup: could not prune old off-site copies" >&2
     echo "backup: copied off-site to $remote/$(basename "$out")"
+  else
+    echo "backup: off-site storage is not set up (OFFSITE_S3_* in .env), so this backup is on the server only"
   fi
 }
 

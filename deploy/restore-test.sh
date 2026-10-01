@@ -25,7 +25,7 @@ trap cleanup EXIT
 backups=${BACKUP_DIR:-/backups}
 "${BACKUP_SCRIPT:-/backup.sh}"
 
-if [ -n "${OFFSITE_S3_BUCKET:-}" ]; then
+if [ -n "${OFFSITE_S3_BUCKET:-}" ] && { [ "${RCLONE_CONFIG_OFFSITE_TYPE:-s3}" = "local" ] || [ -n "${RCLONE_CONFIG_OFFSITE_ACCESS_KEY_ID:-}" ]; }; then
   remote="offsite:$OFFSITE_S3_BUCKET/${OFFSITE_S3_PREFIX:-console}"
   newest=$(rclone -q lsf --files-only "$remote/" | grep '^console-' | sort | tail -n 1)
   [ -n "$newest" ] || { echo "restore-test: FAILED, no backups in $remote" >&2; exit 1; }
@@ -34,7 +34,7 @@ if [ -n "${OFFSITE_S3_BUCKET:-}" ]; then
 else
   newest=$(ls "$backups" | grep '^console-' | sort | tail -n 1)
   cp "$backups/$newest" "$work/$newest"
-  echo "restore-test: OFFSITE_S3_BUCKET is not set, so testing the copy on the server: $newest"
+  echo "restore-test: off-site storage is not set up, so testing the copy on the server: $newest"
 fi
 
 mkdir "$work/x"
