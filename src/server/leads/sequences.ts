@@ -67,6 +67,8 @@ export interface ReadinessResult {
 
 export interface SequenceContext {
   appUrl: string;
+  /** The public website, when it has its own host. Quote and tools links go there. */
+  siteUrl?: string;
   market: string;
   name: string;
   /** What they asked about, in their words. */
@@ -82,12 +84,12 @@ const firstName = (name: string) => (name.includes("@") ? "" : name.split(/\s+/)
 const hello = (name: string) => (firstName(name) ? `Hello ${firstName(name)},` : "Hello,");
 
 function callOrQuote(c: SequenceContext, topic: string): EmailBody["button"] {
-  return c.bookingUrl ? { label: "Book a call", url: `${c.bookingUrl}?topic=${topic}` } : { label: "Ask for a quote", url: `${c.appUrl}/${c.market}/quote` };
+  return c.bookingUrl ? { label: "Book a call", url: `${c.bookingUrl}?topic=${topic}` } : { label: "Ask for a quote", url: `${c.siteUrl ?? c.appUrl}/${c.market}/quote` };
 }
 
 /** The email for one step, or null when the lead no longer has what it needs. */
 export function sequenceEmail(source: LeadSource, step: number, c: SequenceContext): Email | null {
-  const tools = `${c.appUrl}/${c.market}/tools`;
+  const tools = `${c.siteUrl ?? c.appUrl}/${c.market}/tools`;
   switch (source) {
     case "EMAIL_CHECK": {
       const r = c.result as EmailCheckResult | null;

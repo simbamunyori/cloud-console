@@ -2094,3 +2094,17 @@ model MigrationRecord {
   @@unique([kind, sourceRef])
   @@index([batchId, kind])
 }
+
+/// An address from the old website and where it goes now (Milestone 10).
+/// Matched on the exact path, without a trailing slash or query.
+model SiteRedirect {
+  id          String    @id @default(cuid())
+  fromPath    String    @unique
+  toPath      String
+  /// How often it was followed, so staff can see which old links still matter.
+  hits        Int       @default(0)
+  lastHitAt   DateTime?
+  createdAt   DateTime  @default(now())
+  createdById String?
+  createdBy   String?
+}

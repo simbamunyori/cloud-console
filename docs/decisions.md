@@ -206,6 +206,13 @@ What the console assumes, decided or leaves out, for review before launch. Each 
 161. **Services at Contabo, SiteGround or another provider are billed as normal**, and their suspensions, unsuspensions and cancellations become staff tasks with the server and notes, reminded daily once late. "Move to our servers" ends that, with an audit entry.
 162. **Nobody hears about the move until the cutover date** staff choose. At 08:00 that day each person gets a welcome email with a link to choose their password (valid 14 days) or to sign in. WHMCS client emails stay off.
 163. **Real customer data waits for off-site backups.** The console runs without `OFFSITE_S3_*`, but the migration page warns until a bucket is set.
+164. **One app serves the website and the console.** With `SITE_URL` set, website pages open on fourthgeneration.technology and sign-in, `/app`, `/admin`, quotes and the editor on console.fourthgeneration.technology; each host sends the other's pages across with a permanent redirect, and www goes to the site. Draft previews stay on the console. Without `SITE_URL` nothing changes.
+165. **Only the cart, the chosen country and campaign tracking are shared between the hosts**, through cookies on the parent domain. The session cookie stays `__Host-` on the console, so signing in never reaches the website host.
+166. **Public links in emails, the sitemap, robots, sharing images and canonical addresses use the website's address**; sign-in, invoices and console links keep `APP_URL`.
+167. **Old site addresses are a staff-managed table** (Staff console > Old site addresses, website Publishers). The old WordPress site lived under `/new/` and could not be reached from the build, so `/new/` and `/new/about/` (the two pages search engines list) are seeded, and anything else under `/new/` opens the home page. Every redirect is permanent (308), counts its visits and is audited.
+168. **A legal page without approved text or a document is not shown** (404, left out of the sitemap and footer) instead of a placeholder box, except the privacy notice, which always shows its required sections.
+169. **Launch checks list what is left before customers arrive**: development placeholders, `SITE_URL`, off-site backups, the admin allowlist and every enabled market's legal pages still awaiting the lawyer.
+170. **Cloudflare in front of the website**: Apache trusts `CF-Connecting-IP` only from Cloudflare's published ranges (set by `deploy/site-setup.sh`), so rate limits and the admin allowlist see the visitor's address.
 
 ## Carried over from the Phase 1 go-ahead
 

@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/server/db";
-import { env } from "@/server/env";
 import { unsubscribeLead, unsubscribeLeadUrl } from "@/server/leads/capture";
 import { DomainError } from "@/server/org/access";
+import { siteUrl } from "@/server/site/urls";
 
 /**
  * One-click unsubscribe (RFC 8058) for follow-up emails: mail apps POST
@@ -26,6 +26,6 @@ export async function POST(_req: Request, { params }: Params) {
 export async function GET(_req: Request, { params }: Params) {
   const token = decodeURIComponent((await params).token);
   const lead = await prisma.lead.findUnique({ where: { unsubscribeToken: token }, select: { market: true, unsubscribeToken: true } });
-  const url = lead ? unsubscribeLeadUrl(env().APP_URL.replace(/\/$/, ""), lead) : null;
+  const url = lead ? unsubscribeLeadUrl(siteUrl(), lead) : null;
   return url ? NextResponse.redirect(url, 303) : new NextResponse("Not found.", { status: 404 });
 }

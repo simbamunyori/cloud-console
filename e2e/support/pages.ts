@@ -86,6 +86,8 @@ export const PAGES: PageSpec[] = [
   { name: "admin-launch-kit", audience: "staff", path: "/admin/launch-kits", follow: 'main a[href^="/admin/launch-kits/"]' },
   { name: "admin-newsletter", audience: "staff", path: "/admin/newsletter" },
   { name: "admin-newsletter-issue", audience: "staff", path: "/admin/newsletter", follow: 'main a[href^="/admin/newsletter/"]' },
+  { name: "admin-redirects", audience: "staff", path: "/admin/redirects" },
+  { name: "admin-launch", audience: "staff", path: "/admin/launch" },
   { name: "admin-payments", audience: "staff", path: "/admin/payments" },
   { name: "admin-migration", audience: "staff", path: "/admin/migration" },
   { name: "admin-catalogue", audience: "staff", path: "/admin/catalogue" },

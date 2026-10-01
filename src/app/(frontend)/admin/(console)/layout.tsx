@@ -33,6 +33,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     { href: "/admin/waitlist", label: "Waiting list", icon: "waitlist", needs: "viewCustomers", badge: counts.waitlist || undefined },
     { href: "/admin/staff", label: "Staff", icon: "staff", needs: "manageStaff" },
     { href: "/admin/migration", label: "Client migration", icon: "migration", needs: "migrateClients" },
+    { href: "/admin/launch", label: "Launch checks", icon: "checks", needs: "manageMarkets" },
   ];
   const nav: NavItem[] = all.filter((i) => staffCan(staff, i.needs)).map(({ needs: _needs, ...i }) => i);
   // The website editor has its own page frame, so this link loads a new page.
@@ -40,6 +41,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     nav.push({ href: "/admin/content", label: "Website", icon: "website" });
     nav.push({ href: "/admin/launch-kits", label: "Launch kits", icon: "launch", badge: counts.launchKits || undefined });
     nav.push({ href: "/admin/newsletter", label: "Newsletter", icon: "newsletter", badge: counts.newsletter || undefined });
+    nav.push({ href: "/admin/redirects", label: "Old site addresses", icon: "redirects" });
   }
   nav.push({ href: "/admin/account", label: "Your sign-in", icon: "security" });
   const user = <UserCard name={staff.name} role={`${STAFF_ROLE_LABEL[staff.staffRole]} staff`} signOut={staffSignOutAction} />;

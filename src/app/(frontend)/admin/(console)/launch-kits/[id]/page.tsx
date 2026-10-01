@@ -10,13 +10,13 @@ import { formatDay } from "@/lib/dates";
 import { requireWebsiteStaff } from "@/server/admin/context";
 import { campaignReport } from "@/server/campaigns/campaigns";
 import { prisma } from "@/server/db";
-import { env } from "@/server/env";
 import { FAQ_SLOTS, faqOf, kitForStaff, kitLinks, kitMarket } from "@/server/launch/kits";
 import { cms } from "@/server/site/cms";
 import { canPublishWebsite } from "@/server/staff/access";
 import { retryDraftsAction } from "../actions";
 import { ApproveLinkedinForm, ApprovePageForm, CopyButton, KitEditForm } from "../forms";
 import { KitStatusBadge } from "../status";
+import { siteUrl } from "@/server/site/urls";
 
 export const metadata: Metadata = { title: "Launch kit" };
 
@@ -39,7 +39,7 @@ export default async function LaunchKitPage({ params }: { params: Promise<{ id: 
   const publisher = canPublishWebsite(actor.websiteRole);
   const defaultMarket = (await prisma.market.findFirst({ where: { isDefault: true }, select: { code: true } }))?.code ?? "bw";
   const market = kitMarket(p.markets, defaultMarket);
-  const links = kitLinks(env().APP_URL, market, p.slug, kit.campaign);
+  const links = kitLinks(siteUrl(), market, p.slug, kit.campaign);
   const postLink = links.find((l) => l.key === "linkedin-post")!.url;
   const [report, insight] = await Promise.all([campaignReport(prisma, kit.campaign), insightState(kit.insightId)]);
   const pageLive = Boolean(kit.pageApprovedAt) && p.status === "LIVE";

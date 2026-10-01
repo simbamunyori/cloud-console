@@ -17,6 +17,8 @@ import type { EmailBody } from "./layout";
 export interface TemplateContext {
   db: PrismaClient;
   appUrl: string;
+  /** The public website's address, when it has its own host; links to site pages use it. */
+  siteUrl?: string;
   consoleName: string;
   now: Date;
   /** The recipient's market's way of writing amounts, e.g. "en-ZA". */
@@ -273,7 +275,7 @@ export const TEMPLATES: Record<string, Template> = {
 
   /** Double opt-in: nothing else is ever sent until this link is used. The link is made now; only its hash is kept. */
   async "newsletter.confirm"(p, ctx) {
-    const link = await newConfirmLink(ctx.db, str(p.subscriberId), ctx.appUrl);
+    const link = await newConfirmLink(ctx.db, str(p.subscriberId), ctx.siteUrl ?? ctx.appUrl);
     if (!link) return null;
     return {
       subject: `Confirm your monthly insights email from ${company.name}`,
@@ -291,7 +293,7 @@ export const TEMPLATES: Record<string, Template> = {
 
   /** The monthly newsletter, one copy per subscriber, with one-click unsubscribe (RFC 8058). */
   async "newsletter.issue"(p, ctx) {
-    const e = await issueEmail(ctx.db, ctx.appUrl, str(p.issueId), str(p.subscriberId));
+    const e = await issueEmail(ctx.db, ctx.siteUrl ?? ctx.appUrl, str(p.issueId), str(p.subscriberId));
     if (!e) return null;
     return {
       subject: e.subject,

@@ -134,6 +134,7 @@ the UI and never sent to the assistant.
 | `BACKUP_PASSPHRASE` | Production | Encrypts the nightly backups; keep a copy off the server |
 | `BACKUP_AT`, `BACKUP_KEEP_DAYS` | No | When the nightly backup runs (UTC, default 23:00) and how many days are kept (default 30) |
 | `APP_URL` | Yes in production | Public address, used in email links |
+| `SITE_URL` | At launch | The public website's address (`https://fourthgeneration.technology`). Website pages then open there, sign-in and the console on `APP_URL`, and www goes to the site. Empty: one host serves both. `deploy/site-setup.sh` sets it (docs/launch.md) |
 | `CONSOLE_NAME` | No | What customers see the console called (default "Cloud Console") |
 | `TOTP_ENCRYPTION_KEY` | Yes, secret | 32 random bytes, base64. Encrypts authenticator secrets. Losing it means everyone sets up their authenticator again |
 | `SMTP_URL` | Yes in production | Outgoing mail, e.g. `smtps://user:pass@smtp.example.com:465`. Mailpit in development |
@@ -400,6 +401,9 @@ docs/deploy.md.
 | `src/server/db.ts` | `tenantDb(organisationId)`: every customer query is scoped to one organisation |
 | `tests/` | Integration tests: tenant isolation, roles, billing contract, markets, orders, payments, staff, support |
 | `e2e/`, `lighthouserc.cjs` | Browser checks: axe, site routing, Lighthouse |
+| `src/lib/net/hosts.ts`, `src/server/site/redirects.ts` | Which host serves which page, and old site addresses (Staff console > Old site addresses) |
+| `src/server/launch`, `docs/launch.md` | Launch checks (Staff console > Launch checks), the DNS changes and the website's server setup |
+| `docs/handover.md` | One page: who does what day to day, and where in the staff console |
 | `docs/decisions.md` | What the console assumes and decided, for review |
 | `docs/design-audit.md` | The design audit against Change Request 01 |
 | `docs/screenshots/` | Every page at 390 and 1440 px, light and dark |

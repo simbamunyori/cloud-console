@@ -73,6 +73,7 @@ export async function deliverDue(
       const rendered = await TEMPLATES[row.kind]?.(row.payload as Record<string, unknown>, {
         db,
         appUrl: e.APP_URL,
+        siteUrl: (e.SITE_URL ?? e.APP_URL).replace(/\/$/, ""),
         consoleName: e.CONSOLE_NAME,
         now,
         ...(await emailRegion(db, row)),

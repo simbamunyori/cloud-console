@@ -59,7 +59,7 @@ function invite(f: Found, method: "REQUEST" | "CANCEL", appUrl: string, now: Dat
 async function cancelLink(ctx: TemplateContext, f: Found) {
   const token = newToken();
   await ctx.db.presalesBooking.update({ where: { id: f.booking.id }, data: { cancelTokenHash: hashToken(token) } });
-  return `${ctx.appUrl}/${f.booking.market}/book/cancel/${encodeURIComponent(token)}`;
+  return `${ctx.siteUrl ?? ctx.appUrl}/${f.booking.market}/book/cancel/${encodeURIComponent(token)}`;
 }
 
 export const FUNNEL_TEMPLATES: Record<string, Template> = {
@@ -67,14 +67,15 @@ export const FUNNEL_TEMPLATES: Record<string, Template> = {
     const lead = await ctx.db.lead.findUnique({ where: { id: str(p.leadId) } });
     // Stopped since it was queued: they ordered or unsubscribed.
     if (!lead || (lead.followUpStoppedAt && lead.followUpStopped !== "finished")) return null;
-    const unsubscribe = unsubscribeLeadUrl(ctx.appUrl, lead);
+    const unsubscribe = unsubscribeLeadUrl(ctx.siteUrl ?? ctx.appUrl, lead);
     const email = sequenceEmail(str(p.sequence) as LeadSource, num(p.step), {
       appUrl: ctx.appUrl,
+      siteUrl: ctx.siteUrl,
       market: lead.market,
       name: lead.name,
       need: lead.need,
       result: lead.toolResult,
-      bookingUrl: (await bookingOpen(ctx.db)) ? `${ctx.appUrl}/${lead.market}/book` : null,
+      bookingUrl: (await bookingOpen(ctx.db)) ? `${ctx.siteUrl ?? ctx.appUrl}/${lead.market}/book` : null,
     });
     if (!email || !unsubscribe) return null;
     const oneClick = `${ctx.appUrl}/api/leads/unsubscribe/${encodeURIComponent(lead.unsubscribeToken!)}`;
@@ -165,7 +166,7 @@ export const FUNNEL_TEMPLATES: Record<string, Template> = {
           ? [`The call with ${b.name}${b.company ? ` of ${b.company}` : ""} on ${when} is cancelled${b.cancelledBy === "visitor" ? " by the visitor" : ""}. It comes off your calendar.`]
           : [`Your call on ${when} is cancelled.`, "Book another time whenever suits you."],
         facts: [["Reference", b.reference]],
-        ...(engineer ? {} : { button: { label: "Book another time", url: `${ctx.appUrl}/${b.market}/book?topic=${b.topic}` } }),
+        ...(engineer ? {} : { button: { label: "Book another time", url: `${ctx.siteUrl ?? ctx.appUrl}/${b.market}/book?topic=${b.topic}` } }),
       },
     };
   },

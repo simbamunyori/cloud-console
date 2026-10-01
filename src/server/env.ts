@@ -14,6 +14,12 @@ const schema = z.object({
   DATABASE_URL: z.string().url(),
   /** Public address of the console, used in email links. The domain is not decided yet. */
   APP_URL: z.string().url().default("http://localhost:3000"),
+  /**
+   * The public website's address, e.g. https://fourthgeneration.technology,
+   * when it has its own host apart from the console (APP_URL). Empty: one
+   * host serves both, as in development and CI.
+   */
+  SITE_URL: optionalUrl(),
   /** What customers see the console called. Not decided yet, so it lives here. */
   CONSOLE_NAME: z.string().min(1).default("Cloud Console"),
   /** Outgoing mail server, e.g. smtps://user:pass@smtp.example.com:465, or smtp://localhost:1025 for Mailpit. */

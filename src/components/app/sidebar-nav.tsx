@@ -2,6 +2,8 @@
 
 import {
   ArrowRightLeft,
+  Signpost,
+  ListChecks,
   CalendarClock,
   Activity,
   Boxes,
@@ -64,6 +66,8 @@ const ICONS = {
   staff: UserCog,
   status: Activity,
   migration: ArrowRightLeft,
+  redirects: Signpost,
+  checks: ListChecks,
 };
 
 export interface NavItem {

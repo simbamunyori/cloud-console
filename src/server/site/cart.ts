@@ -1,5 +1,6 @@
 import "server-only";
 import { cookies } from "next/headers";
+import { cookieDomain } from "@/server/site/urls";
 
 /**
  * The site's cart: domain names a visitor picked before they have an
@@ -30,8 +31,8 @@ export async function readCart(): Promise<string[]> {
 export async function writeCart(names: string[]) {
   const jar = await cookies();
   const clean = parseCart(JSON.stringify(names));
-  if (!clean.length) jar.delete(COOKIE);
-  else jar.set(COOKIE, JSON.stringify(clean), { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", path: "/", maxAge: 30 * 86_400 });
+  if (!clean.length) jar.delete({ name: COOKIE, path: "/", domain: cookieDomain() });
+  else jar.set(COOKIE, JSON.stringify(clean), { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", path: "/", maxAge: 30 * 86_400, domain: cookieDomain() });
 }
 
 export async function addToCart(name: string) {
