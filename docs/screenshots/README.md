@@ -22,6 +22,7 @@ Refresh with `npm run screenshots -- --commit` against a running console with th
 | reset-link-expired | [view](site/reset-link-expired-390-light.webp) | [view](site/reset-link-expired-390-dark.webp) | [view](site/reset-link-expired-1440-light.webp) | [view](site/reset-link-expired-1440-dark.webp) |
 | staff-sign-in | [view](site/staff-sign-in-390-light.webp) | [view](site/staff-sign-in-390-dark.webp) | [view](site/staff-sign-in-1440-light.webp) | [view](site/staff-sign-in-1440-dark.webp) |
 | site-quote | [view](site/site-quote-390-light.webp) | [view](site/site-quote-390-dark.webp) | [view](site/site-quote-1440-light.webp) | [view](site/site-quote-1440-dark.webp) |
+| site-quote-nsmc | [view](site/site-quote-nsmc-390-light.webp) | [view](site/site-quote-nsmc-390-dark.webp) | [view](site/site-quote-nsmc-1440-light.webp) | [view](site/site-quote-nsmc-1440-dark.webp) |
 | site-product | [view](site/site-product-390-light.webp) | [view](site/site-product-390-dark.webp) | [view](site/site-product-1440-light.webp) | [view](site/site-product-1440-dark.webp) |
 | site-insights | [view](site/site-insights-390-light.webp) | [view](site/site-insights-390-dark.webp) | [view](site/site-insights-1440-light.webp) | [view](site/site-insights-1440-dark.webp) |
 | site-insight | [view](site/site-insight-390-light.webp) | [view](site/site-insight-390-dark.webp) | [view](site/site-insight-1440-light.webp) | [view](site/site-insight-1440-dark.webp) |

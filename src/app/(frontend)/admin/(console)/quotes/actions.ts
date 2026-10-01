@@ -5,7 +5,7 @@ import { requireStaffCan } from "@/server/admin/context";
 import { field, run, type ActionState } from "@/server/action-state";
 import { prisma } from "@/server/db";
 import { runSoon } from "@/server/jobs/boss";
-import { closeQuote, saveQuote, sendQuote, type QuoteLineInput } from "@/server/quotes/quotes";
+import { closeQuote, referQuote, saveQuote, sendQuote, type QuoteLineInput } from "@/server/quotes/quotes";
 
 async function deps() {
   const { staff } = await requireStaffCan("manageQuotes");
@@ -51,6 +51,16 @@ export async function closeQuoteAction(_prev: ActionState, form: FormData): Prom
   const result = await run(async () => {
     await closeQuote(await deps(), field(form, "reference"), field(form, "reason"));
     return "Closed.";
+  });
+  revalidatePath("/admin/quotes", "layout");
+  return result;
+}
+
+export async function referQuoteAction(_prev: ActionState, form: FormData): Promise<ActionState> {
+  const result = await run(async () => {
+    await referQuote(await deps(), field(form, "reference"));
+    await runSoon("email-deliver").catch(() => undefined);
+    return "Marked introduced. We've emailed the customer that they'll hear from the partner.";
   });
   revalidatePath("/admin/quotes", "layout");
   return result;

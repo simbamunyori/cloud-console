@@ -52,6 +52,7 @@ export const DEFAULT_HEADER = {
             item(market("Microsoft 365", "/pricing#cat-productivity"), "Email, Teams and Office, set up by us.", M365),
             item(market("Google Workspace", "/pricing#cat-productivity"), "Gmail, Meet and Docs on your own name.", GWS),
             item(market("Business email", "/pricing#cat-web"), "A simple mailbox on your own domain.", ["business-email"]),
+            item(market("Signatures", "/pricing#cat-our-software"), "The same branded signature for everyone, on every device.", ["fourth-generation-signatures"]),
           ],
         },
         {
@@ -72,6 +73,7 @@ export const DEFAULT_HEADER = {
         {
           heading: "Your website",
           links: [
+            item(market("Website builder", "/pricing#cat-web"), "Build your own site and online store from templates.", ["website-builder"]),
             item(market("We build it for you", "/quote"), "Our designers build it and you approve every step."),
             item(market("WordPress hosting", "/pricing#cat-web"), "Fast, secured and backed up by us.", ["wordpress-hosting"]),
             item(market("Web hosting", "/pricing#cat-web"), "Hosting for the site you already have.", ["web-hosting"]),
@@ -90,6 +92,8 @@ export const DEFAULT_HEADER = {
             item(market("Security score", "/security"), "One score shows where you stand, and what to fix."),
             item(market("Device protection and EDR", "/pricing#cat-protection"), "Threats watched on every device, around the clock.", ["managed-detection-response"]),
             item(market("Data protection support", "/security"), "How we keep your data, and help you meet the Act."),
+            item(market("Compliance archiving", "/pricing#cat-protection"), "Every email kept unchanged and searchable.", ["compliance-archiving"]),
+            item(market("Compliance projects on site", "/quote?for=compliance-project"), "Enterprise audits and controls, with our partner NSMC."),
           ],
         },
         {

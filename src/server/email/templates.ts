@@ -254,10 +254,12 @@ export const TEMPLATES: Record<string, Template> = {
       subject: `We've got your request for a quote (${quote.reference})`,
       body: {
         heading: `Thanks, ${quote.name.split(" ")[0]}`,
-        paragraphs: [
-          `We'll look at what you need and email you a quote. If anything is unclear we'll call you on ${quote.phone ?? "the number you gave"}.`,
-          `You don't need an account to ask. You'll only need one to accept the quote.`,
-        ],
+        paragraphs: quote.referTo
+          ? [`This is work ${quote.referTo}, our partner, carries out. We'll pass your request to them and they will contact you on ${quote.phone ?? "the number you gave"}.`]
+          : [
+              `We'll look at what you need and email you a quote. If anything is unclear we'll call you on ${quote.phone ?? "the number you gave"}.`,
+              `You don't need an account to ask. You'll only need one to accept the quote.`,
+            ],
         facts: [
           ["Reference", quote.reference],
           ...(quote.product ? ([["About", quote.product.name]] as [string, string][]) : []),
@@ -310,8 +312,12 @@ export const TEMPLATES: Record<string, Template> = {
     return {
       subject: `New quote request from ${quote.company ?? quote.name} (${quote.reference})`,
       body: {
-        heading: "A new quote request",
-        paragraphs: [`${quote.name}${quote.company ? ` of ${quote.company}` : ""} asked for a quote. Price it in the Quotes queue.`],
+        heading: quote.referTo ? `A request for ${quote.referTo}` : "A new quote request",
+        paragraphs: [
+          quote.referTo
+            ? `${quote.name}${quote.company ? ` of ${quote.company}` : ""} asked about work ${quote.referTo} carries out. Pass it to ${quote.referTo}, then mark it introduced in the Quotes queue.`
+            : `${quote.name}${quote.company ? ` of ${quote.company}` : ""} asked for a quote. Price it in the Quotes queue.`,
+        ],
         facts: [
           ["Reference", quote.reference],
           ["Email", quote.email],
@@ -322,6 +328,23 @@ export const TEMPLATES: Record<string, Template> = {
           ["What they need", quote.need],
         ],
         button: { label: "Open the quote", url: `${ctx.appUrl}/admin/quotes/${encodeURIComponent(quote.reference)}` },
+      },
+    };
+  },
+
+  /** Staff introduced the customer to the partner the request was for (final build, Milestone 9). */
+  async "quote.referred"(p, ctx) {
+    const quote = await ctx.db.quote.findUnique({ where: { id: str(p.quoteId) } });
+    if (!quote?.referTo) return null;
+    return {
+      subject: `We've passed your request to ${quote.referTo} (${quote.reference})`,
+      body: {
+        heading: `${quote.referTo} will be in touch`,
+        paragraphs: [`We've passed your request to ${quote.referTo}, who carry out this work. They will contact you about it.`, `For anything else we look after, reply to this email.`],
+        facts: [
+          ["Reference", quote.reference],
+          ["What you need", quote.need],
+        ],
       },
     };
   },

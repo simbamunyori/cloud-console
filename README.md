@@ -228,7 +228,16 @@ neither, everyone lands on the default market and can switch.
   or decline it; accepting needs an account and places an ordinary order
   at the quoted price, with the one-off lines on its first invoice. The
   form has a hidden field for bots and a limit of 5 requests an hour per
-  address.
+  address. Enterprise, on-site compliance projects use the same form at
+  `/<market>/quote?for=compliance-project`; staff pass those to NSMC and
+  press **Mark introduced to NSMC**.
+- **A new partner product:** once the partner is signed, add the product
+  at `/admin/catalogue` (or open the draft that is already there), set its
+  fulfilment type, cost and words, approve its prices at `/admin/pricing`,
+  and set it live. Its launch kit starts on its own, and any menu link
+  that names it appears. Compliance archiving, Fourth Generation
+  Signatures and the website builder are waiting as drafts, and disaster
+  recovery as internal.
 - **Waiting list:** people from countries with no market that is on can
   leave their details at sign-up; staff see them at `/admin/waitlist`.
 

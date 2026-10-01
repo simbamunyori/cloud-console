@@ -182,5 +182,39 @@ export async function seedWebsite(payload: Payload): Promise<string | null> {
     return changed;
   });
 
+  // Milestone 9: the new products and on-site compliance projects in the menus, added to what is there.
+  // Each link hides itself until its product is live and priced; the projects link goes to the quote form.
+  await once("frame-catalogue-additions", "the new products in the header", async () => {
+    const additions: { menu: string; heading: string; key: string; at: "start" | "end" }[] = [
+      { menu: "Email", heading: "Email and documents", key: "fourth-generation-signatures", at: "end" },
+      { menu: "Websites", heading: "Your website", key: "website-builder", at: "start" },
+      { menu: "Security", heading: "Protection", key: "compliance-archiving", at: "end" },
+      { menu: "Security", heading: "Protection", key: "/quote?for=compliance-project", at: "end" },
+    ];
+    type Row = { link?: { path?: string | null } | null; products?: { products?: (string | { slug?: string })[] | null } | null };
+    const keyOf = (row: Row) => [...(row.products?.products ?? []).map((p) => (typeof p === "string" ? p : p.slug)), row.link?.path];
+    let changed = false;
+    for (const l of MARKET_LOCALES) {
+      const header = await payload.findGlobal({ slug: "header", locale: l.code, depth: 0, overrideAccess: true });
+      if (!header.menus?.length) continue;
+      let touched = false;
+      for (const a of additions) {
+        const designed = DEFAULT_HEADER.menus.find((m) => m.label === a.menu)!.columns.find((c) => c.heading === a.heading)!.links.find((row) => keyOf(row as Row).includes(a.key))!;
+        const menu = header.menus.find((m) => m.label === a.menu);
+        const column = menu?.columns?.find((c) => c.heading === a.heading) ?? menu?.columns?.[0];
+        if (!column || menu!.columns!.some((c) => c.links?.some((row) => keyOf(row as Row).includes(a.key)))) continue;
+        const links = column.links ?? [];
+        if (links.length >= 8) continue;
+        column.links = a.at === "start" ? [designed, ...links] : [...links, designed];
+        touched = true;
+      }
+      if (touched) {
+        await payload.updateGlobal({ slug: "header", locale: l.code, data: { menus: header.menus, _status: "published" }, overrideAccess: true });
+        changed = true;
+      }
+    }
+    return changed;
+  });
+
   return done.length ? `Added to the website editor: ${done.join(", ")}.` : null;
 }

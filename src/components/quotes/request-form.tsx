@@ -28,6 +28,8 @@ export function QuoteRequestForm({
   hidden,
   product,
   after,
+  notice,
+  button = "Ask for a quote",
 }: {
   action: (prev: QuoteRequestState, form: FormData) => Promise<QuoteRequestState>;
   countries: Option[];
@@ -37,6 +39,9 @@ export function QuoteRequestForm({
   product?: string;
   /** What happens next, shown once it is sent. */
   after: React.ReactNode;
+  /** Shown above the button, e.g. who else gets the request. */
+  notice?: string;
+  button?: string;
 }) {
   const [state, formAction, pending] = useActionState<QuoteRequestState, FormData>(action, {});
   if (state.reference) {
@@ -86,9 +91,10 @@ export function QuoteRequestForm({
         <label htmlFor="website">Leave this empty</label>
         <input id="website" name="website" type="text" tabIndex={-1} autoComplete="off" defaultValue="" />
       </div>
+      {notice ? <p className="text-callout text-ink-body">{notice}</p> : null}
       <div>
         <Button type="submit" size="lg" disabled={pending}>
-          {pending ? "Sending…" : "Ask for a quote"}
+          {pending ? "Sending…" : button}
         </Button>
       </div>
     </form>

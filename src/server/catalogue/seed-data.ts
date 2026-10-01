@@ -61,6 +61,8 @@ interface ProductSeed {
   markets?: string[];
   /** Draft keeps it off sale when first loaded; staff put it live later. Live if not set. */
   status?: "DRAFT" | "INTERNAL" | "LIVE";
+  /** How an order is carried out. A staff task if not set. */
+  fulfilment?: "AUTOMATIC" | "MANUAL" | "QUOTE";
 }
 
 /** The product behind domain orders. It isn't shown in the product grid; domains have their own search. */
@@ -236,6 +238,21 @@ export const PRODUCTS: ProductSeed[] = [
     options: [{ key: "domain", label: "Website address", type: "text", required: true, format: "domain" }],
   },
   {
+    slug: "website-builder",
+    // From a builder partner: draft until the partner is live (Milestone 9).
+    status: "DRAFT",
+    fulfilment: "MANUAL",
+    category: "web",
+    name: "Website builder",
+    summary: "Build and change your own website and online store from templates, with hosting and your domain included.",
+    includes: ["Templates by industry", "Online store", "Hosting and a security certificate", "Your own domain"],
+    excludes: ["Building the site for you (ask for a quote)"],
+    unitLabel: "per site",
+    cost: [1200n, "USD"],
+    setupHours: 4,
+    billing: "website-builder",
+  },
+  {
     slug: "business-email",
     category: "web",
     name: "Business email",
@@ -314,6 +331,27 @@ export const PRODUCTS: ProductSeed[] = [
     cost: [85000n, "BWP"],
     setupHours: 40,
     billing: "disaster-recovery",
+    // Internal until its service description, recovery targets and price are set (final build, Milestone 9).
+    status: "INTERNAL",
+    fulfilment: "MANUAL",
+  },
+  {
+    slug: "compliance-archiving",
+    // Sold by us from a partner's cloud service: draft until the partner is signed (Milestone 9).
+    status: "DRAFT",
+    fulfilment: "MANUAL",
+    category: "protection",
+    name: "Compliance archiving",
+    summary: "Every email kept unchanged and searchable for as long as the law asks, for Microsoft 365 or Google Workspace.",
+    includes: ["Every email sent and received, kept unchanged", "Search and export for audits and legal requests", "Keep for as long as your rules ask"],
+    excludes: ["On-site compliance projects (we introduce you to NSMC)", "Legal advice"],
+    unitLabel: "per user",
+    quantityAllowed: true,
+    cost: [500n, "USD"],
+    setupHours: 8,
+    commitmentNote: SEAT_TERMS,
+    billing: "compliance-archiving",
+    options: [{ key: "service", label: "Your email service", type: "select", required: true, choices: ["Microsoft 365", "Google Workspace"] }],
   },
   {
     slug: "local-data-copy",
@@ -370,6 +408,24 @@ export const PRODUCTS: ProductSeed[] = [
     fixedPrice: [65000n, "BWP"],
     setupHours: 4,
     billing: "thebe",
+  },
+  {
+    slug: "fourth-generation-signatures",
+    // Our own software: draft until it is built (Milestone 9).
+    status: "DRAFT",
+    fulfilment: "MANUAL",
+    category: "our-software",
+    name: "Fourth Generation Signatures",
+    summary: "The same branded email signature for everyone, on every device, kept up to date from one place.",
+    includes: ["One design for the whole team", "On computers, phones and the web", "Changes reach everyone at once"],
+    excludes: ["Designing your brand"],
+    unitLabel: "per user",
+    quantityAllowed: true,
+    cost: [0n, "BWP"],
+    fixedPrice: [2500n, "BWP"],
+    setupHours: 4,
+    commitmentNote: SEAT_TERMS,
+    billing: "signatures",
   },
   {
     slug: "managed-support",
@@ -477,6 +533,7 @@ export async function seedCatalogue(db: PrismaClient, billingIds: Partial<Record
         billingProductId,
         markets: p.markets ?? allMarkets,
         status: p.status ?? "LIVE",
+        fulfilment: p.fulfilment ?? "MANUAL",
       },
     });
   }
@@ -537,7 +594,11 @@ async function seedPriceBook(db: PrismaClient, marketCode: string, month: string
  * show on the site. Returns whether it loaded anything.
  */
 export async function loadLaunchCatalogue(db: PrismaClient): Promise<boolean> {
-  if (await db.product.count()) return addPlans(db);
+  if (await db.product.count()) {
+    const plans = await addPlans(db);
+    const later = await addLaterProducts(db);
+    return plans || later;
+  }
   await seedCatalogue(db, "sync", []);
   return true;
 }
@@ -550,5 +611,22 @@ export async function loadLaunchCatalogue(db: PrismaClient): Promise<boolean> {
 async function addPlans(db: PrismaClient): Promise<boolean> {
   if (await db.productCategory.findUnique({ where: { key: "plans" } })) return false;
   await seedCatalogue(db, "sync", [], (p) => p.category === "plans");
+  return true;
+}
+
+/** Products added to the catalogue after launch (final build, Milestone 9), each off sale until staff set it up. */
+export const LATER_PRODUCTS = ["compliance-archiving", "fourth-generation-signatures", "website-builder"];
+
+/**
+ * A server that loaded the catalogue before these products existed gets
+ * each one it doesn't have, as the catalogue describes it (draft, without
+ * a price). Products staff already have are never touched. Returns whether
+ * it added any.
+ */
+async function addLaterProducts(db: PrismaClient): Promise<boolean> {
+  const have = new Set((await db.product.findMany({ where: { slug: { in: LATER_PRODUCTS } }, select: { slug: true } })).map((p) => p.slug));
+  const missing = LATER_PRODUCTS.filter((slug) => !have.has(slug));
+  if (!missing.length) return false;
+  await seedCatalogue(db, "sync", [], (p) => missing.includes(p.slug));
   return true;
 }

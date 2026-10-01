@@ -26,7 +26,7 @@ export async function takeQuoteRequest(form: FormData, where: { market: string; 
   try {
     const ip = (await requestContext()).ipAddress ?? "unknown";
     await enforce(prisma, `quotePerIp:${ip}`, LIMITS.quotePerIp);
-    const quote = await requestQuote(prisma, { ...(values as Record<(typeof FIELDS)[number], string>), product: field(form, "product") || undefined }, where);
+    const quote = await requestQuote(prisma, { ...(values as Record<(typeof FIELDS)[number], string>), product: field(form, "product") || undefined, referral: field(form, "referral") || undefined }, where);
     await countForCampaign("QUOTE", quote.reference);
     // From the public site, the request is also a lead (Milestone 8); customers' requests stay in the Quotes queue.
     if (!where.organisationId) {

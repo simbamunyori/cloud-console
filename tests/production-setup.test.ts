@@ -1,6 +1,6 @@
 import { afterAll, describe, expect, it } from "vitest";
 import { verifyPassword } from "../src/server/auth/password";
-import { loadLaunchCatalogue, PRODUCTS } from "../src/server/catalogue/seed-data";
+import { LATER_PRODUCTS, loadLaunchCatalogue, PRODUCTS } from "../src/server/catalogue/seed-data";
 import { createAdmin, fillSupportEmail } from "../src/server/ops/setup";
 import { cardPaymentsOn } from "../src/server/payments/live";
 import { db, hasDb, uniqueEmail } from "./helpers";
@@ -70,13 +70,16 @@ describe("SUPPORT_EMAIL on a new server", () => {
 });
 
 describe("the launch catalogue on a new production server", () => {
-  /** Records every write; the database starts with the given number of products, and the plans unless told otherwise. */
-  function fakeDb(products: number, plans = products > 0) {
+  /**
+   * Records every write; the database starts with the given number of
+   * products, and the plans and later products unless told otherwise.
+   */
+  function fakeDb(products: number, plans = products > 0, later: string[] = products > 0 ? LATER_PRODUCTS : []) {
     const writes: { model: string; create: Record<string, unknown> }[] = [];
     const model = (name: string) => ({
       upsert: async ({ create }: { create: Record<string, unknown> }) => (writes.push({ model: name, create }), create),
       count: async () => products,
-      findMany: async () => [{ code: "bw" }, { code: "za" }],
+      findMany: async () => (name === "product" ? later.map((slug) => ({ slug })) : [{ code: "bw" }, { code: "za" }]),
       findUnique: async () => (plans ? { key: "plans" } : null),
     });
     const db = new Proxy({}, { get: (_, name: string) => model(name) });
@@ -106,5 +109,30 @@ describe("the launch catalogue on a new production server", () => {
     expect(products.map((p) => p.create.slug)).toEqual(PRODUCTS.filter((p) => p.category === "plans").map((p) => p.slug));
     expect(products.every((p) => p.create.status === "INTERNAL")).toBe(true);
     expect(writes.some((w) => w.model === "tld" || w.model === "priceBookEntry")).toBe(false);
+  });
+
+  it("adds the products that came later (Milestone 9) as drafts, leaving those it has", async () => {
+    const { db, writes } = fakeDb(3, true, ["website-builder"]);
+    expect(await loadLaunchCatalogue(db)).toBe(true);
+    const products = writes.filter((w) => w.model === "product");
+    expect(products.map((p) => p.create.slug).sort()).toEqual(["compliance-archiving", "fourth-generation-signatures"]);
+    expect(products.every((p) => p.create.status === "DRAFT" && p.create.fulfilment === "MANUAL" && p.create.billingProductId === null)).toBe(true);
+    expect(writes.some((w) => w.model === "tld" || w.model === "priceBookEntry")).toBe(false);
+  });
+});
+
+describe("the catalogue additions (final build, Milestone 9)", () => {
+  const bySlug = (slug: string) => PRODUCTS.find((p) => p.slug === slug)!;
+
+  it("keeps disaster recovery internal and the three new products as drafts, each a staff task", () => {
+    expect(bySlug("disaster-recovery")).toMatchObject({ status: "INTERNAL", fulfilment: "MANUAL", category: "protection" });
+    expect(bySlug("compliance-archiving")).toMatchObject({ status: "DRAFT", fulfilment: "MANUAL", category: "protection", unitLabel: "per user" });
+    expect(bySlug("fourth-generation-signatures")).toMatchObject({ status: "DRAFT", fulfilment: "MANUAL", name: "Fourth Generation Signatures" });
+    expect(bySlug("website-builder")).toMatchObject({ status: "DRAFT", fulfilment: "MANUAL", category: "web" });
+    expect(LATER_PRODUCTS.every((slug) => PRODUCTS.some((p) => p.slug === slug))).toBe(true);
+  });
+
+  it("offers compliance archiving for Microsoft 365 and Google Workspace", () => {
+    expect(bySlug("compliance-archiving").options?.[0]).toMatchObject({ key: "service", required: true, choices: ["Microsoft 365", "Google Workspace"] });
   });
 });

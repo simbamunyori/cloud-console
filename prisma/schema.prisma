@@ -833,6 +833,11 @@ model Quote {
   market         String
   /// The product asked about, and the one the order is placed for.
   productId      String?
+  /// A partner who carries out this kind of work instead of us, e.g.
+  /// "NSMC" for enterprise, on-site compliance projects. Staff introduce
+  /// the customer and close the request.
+  referTo        String?
+  referredAt     DateTime?
   /// Plain words to the customer, shown above the lines.
   message        String?
   /// The last day it can be accepted, in the market's time zone.

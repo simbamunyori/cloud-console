@@ -33,6 +33,7 @@ export const PAGES: PageSpec[] = [
   { name: "reset-link-expired", audience: "public", path: "/reset-password/expired-example" },
   { name: "staff-sign-in", audience: "public", path: "/admin/sign-in" },
   { name: "site-quote", audience: "public", path: "/bw/quote" },
+  { name: "site-quote-nsmc", audience: "public", path: "/bw/quote?for=compliance-project" },
   { name: "site-product", audience: "public", path: "/bw/products/microsoft-365-business-standard" },
   { name: "site-insights", audience: "public", path: "/bw/insights" },
   { name: "site-insight", audience: "public", path: "/bw/insights/why-we-offer-microsoft-365-business-standard" },

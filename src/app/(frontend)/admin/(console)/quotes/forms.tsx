@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { TextField } from "@/components/ui/field";
 import { SelectField, TextareaField } from "@/components/ui/inputs";
 import type { ActionState } from "@/server/action-state";
-import { closeQuoteAction, saveQuoteAction } from "./actions";
+import { closeQuoteAction, referQuoteAction, saveQuoteAction } from "./actions";
 
 type Option = { value: string; label: string };
 
@@ -133,6 +133,21 @@ export function CloseQuoteForm({ reference }: { reference: string }) {
           Keep it open
         </Button>
       </div>
+    </form>
+  );
+}
+
+/** Staff passed the request to the partner: close it and tell the customer. */
+export function ReferQuoteForm({ reference, partner }: { reference: string; partner: string }) {
+  const [state, action, pending] = useActionState<ActionState, FormData>(referQuoteAction, {});
+  if (state.ok) return <Alert tone="positive">{state.message}</Alert>;
+  return (
+    <form action={action} className="flex flex-col gap-3">
+      {state.error ? <Alert>{state.error}</Alert> : null}
+      <input type="hidden" name="reference" value={reference} />
+      <Button type="submit" className="self-start" disabled={pending}>
+        {pending ? "Saving…" : `Mark introduced to ${partner}`}
+      </Button>
     </form>
   );
 }
