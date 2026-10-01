@@ -3,6 +3,7 @@ import { formatLongDate, formatMoment, formatMonth } from "@/lib/dates";
 import { formatMoney, fromJson, type MoneyJson } from "@/lib/domain/money";
 import { company } from "@/config/app";
 import { newToken, hashToken } from "@/server/auth/tokens";
+import { newConfirmLink } from "@/server/newsletter/newsletter";
 import type { EmailBody } from "./layout";
 
 /**
@@ -192,6 +193,24 @@ export const TEMPLATES: Record<string, Template> = {
           ["What you need", quote.need],
         ],
         footnote: "Reply to this email if you'd like to add anything.",
+      },
+    };
+  },
+
+  /** Double opt-in: nothing else is ever sent until this link is used. The link is made now; only its hash is kept. */
+  async "newsletter.confirm"(p, ctx) {
+    const link = await newConfirmLink(ctx.db, str(p.subscriberId), ctx.appUrl);
+    if (!link) return null;
+    return {
+      subject: `Confirm your monthly insights email from ${company.name}`,
+      body: {
+        heading: "Confirm your subscription",
+        paragraphs: [
+          "You asked for our monthly insights email: practical advice on security, backup and running your business online.",
+          "Confirm below and we'll send it once a month. Nothing is sent until you do.",
+        ],
+        button: { label: "Confirm my subscription", url: link.url },
+        footnote: `The link works for 7 days. If you didn't ask for this, ignore this email and you won't hear from us. To make sure we never email this address, use ${link.unsubscribe}`,
       },
     };
   },

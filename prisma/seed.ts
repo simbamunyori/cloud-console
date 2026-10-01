@@ -65,6 +65,8 @@ async function main() {
   const thisMonth = startOfMonth(todayIn(DEFAULT_TIME_ZONE));
   await seedCatalogue(db, products, [-1, 0, 1].map((m) => addMonths(thisMonth, m).toISOString().slice(0, 7)));
   console.log("Marketplace catalogue loaded, with placeholder margins, buffer, exchange rates and price books.");
+  // The launch catalogue keeps plans internal until staff price them; the demo shows them live with demo prices.
+  await db.product.updateMany({ where: { categoryKey: "plans", status: "INTERNAL" }, data: { status: "LIVE" } });
 
   const passwordHash = await hashPassword(DEMO_PASSWORD);
   // One staff account per role, so each part of /admin can be tried.

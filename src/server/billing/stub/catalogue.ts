@@ -31,6 +31,12 @@ export const STUB_PRODUCTS = [
   { key: "migration-pack", gid: 7, groupName: "Services", name: "Setup and migration pack", type: "other", monthly: 0n, setup: 250000n },
   { key: "managed-support", gid: 7, groupName: "Services", name: "Managed support plan", type: "other", monthly: 150000n },
   { key: "domain-registration", gid: 4, groupName: "Web", name: "Domain registration", type: "other", monthly: 0n },
+  { key: "plan-start", gid: 8, groupName: "Plans", name: "Start plan", type: "other", monthly: 95000n },
+  { key: "plan-start-users", gid: 8, groupName: "Plans", name: "Start plan users", type: "other", monthly: 22000n },
+  { key: "plan-grow", gid: 8, groupName: "Plans", name: "Grow plan", type: "other", monthly: 148000n },
+  { key: "plan-grow-users", gid: 8, groupName: "Plans", name: "Grow plan users", type: "other", monthly: 35000n },
+  { key: "plan-protect", gid: 8, groupName: "Plans", name: "Protect plan", type: "other", monthly: 240000n },
+  { key: "plan-protect-users", gid: 8, groupName: "Plans", name: "Protect plan users", type: "other", monthly: 52000n },
 ] as const;
 
 export type StubProductKey = (typeof STUB_PRODUCTS)[number]["key"];

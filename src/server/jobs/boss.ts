@@ -9,6 +9,7 @@ import { applyDefaultPoNumbers } from "@/server/billing/po";
 import { StubBillingAdapter } from "@/server/billing/stub/stub-adapter";
 import { reconcileLicences } from "@/server/licences/reconcile";
 import { checkBudgets } from "@/server/spend/budgets";
+import { checkBilling } from "@/server/status/status";
 import { todayIn } from "@/lib/dates";
 import { DEFAULT_TIME_ZONE } from "@/config/app";
 
@@ -35,6 +36,8 @@ const JOBS: Job[] = [
   { name: "licence-reconcile", cron: "30 3 * * *", run: () => reconcileLicences(prisma, billingAdapter()) },
   // Budget warnings, once usage for yesterday is usually in; uploads also check at once.
   { name: "budget-check", cron: "0 7 * * *", run: () => checkBudgets(prisma, todayIn(DEFAULT_TIME_ZONE)) },
+  // The site's status: ordering and invoices depend on the billing system answering.
+  { name: "status-check-billing", cron: "*/5 * * * *", run: () => checkBilling(prisma, () => billingAdapter().getTldPricing("BWP")) },
 ];
 
 /** Later milestones add their jobs here (billing sync, purges). */

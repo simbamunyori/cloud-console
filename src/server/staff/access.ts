@@ -34,7 +34,9 @@ export type StaffPermission =
   /** Link Azure subscriptions, import usage files and add ways to save. */
   | "manageCloudSpend"
   /** Put a month's Azure usage on customers' invoices. */
-  | "billCloudUsage";
+  | "billCloudUsage"
+  /** Post and resolve incidents on the service status page. */
+  | "manageStatus";
 
 const ALLOWED: Record<StaffPermission, StaffRole[]> = {
   viewCustomers: ["SUPPORT", "PROVISIONING", "FINANCE", "ADMIN"],
@@ -48,6 +50,7 @@ const ALLOWED: Record<StaffPermission, StaffRole[]> = {
   manageQuotes: ["SUPPORT", "ADMIN"],
   manageCloudSpend: ["PROVISIONING", "FINANCE", "ADMIN"],
   billCloudUsage: ["FINANCE", "ADMIN"],
+  manageStatus: ["SUPPORT", "PROVISIONING", "ADMIN"],
 };
 
 export function staffCan(actor: Pick<StaffActor, "staffRole">, permission: StaffPermission): boolean {

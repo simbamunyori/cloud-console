@@ -1,5 +1,6 @@
 import type { Field, GlobalConfig } from "payload";
-import { icon, link, text, textarea } from "../fields";
+import { catalogue } from "../blocks";
+import { link, text, textarea } from "../fields";
 import { auditPublished, editorsWriteDrafts, globalAccess } from "../publishing";
 
 /**
@@ -47,25 +48,70 @@ const publishAudit =
     },
   ];
 
+/** A menu link: its words, a one-line description, and optionally the products it is about. */
+const menuLink: Field = {
+  name: "links",
+  type: "array",
+  maxRows: 8,
+  fields: [
+    link("link", "Link", { required: true }),
+    text("description", { label: "One line under the link", maxLength: 90 }),
+    {
+      ...catalogue("products", "Only while these are on sale"),
+      admin: {
+        description: "Optional. Tick the products the link is about: it shows only while one of them is live and priced in the market.",
+        components: { Field: "@/cms/components/catalogue-picker#CataloguePicker" },
+      },
+    } as Field,
+  ],
+};
+
+export const FEATURES = [
+  { label: "Domain search box", value: "domainSearch" },
+  { label: "Partner badge (from Partners and accreditations)", value: "partnerBadge" },
+  { label: "Website example (Mothibi Attorneys)", value: "websitePreview" },
+  { label: "Thebe screen with its buttons", value: "thebe" },
+  { label: "Support hours and phone", value: "support" },
+  { label: "A short note with a link", value: "note" },
+] as const;
+
 export const Header: GlobalConfig = {
   slug: "header",
   label: "Header",
-  admin: { group: "Website", description: "The menu at the top of every public page." },
+  admin: { group: "Website", description: "The menus at the top of every public page. Each menu opens full width on wide screens and as a list on phones." },
   access: globalAccess,
   versions: { drafts: { autosave: { interval: 1500 }, schedulePublish: true }, max: 50 },
   fields: [
     {
-      name: "groups",
-      label: "Services menu",
+      name: "menus",
       type: "array",
       localized: true,
-      maxRows: 5,
-      admin: { description: "The five service families in the Services menu. The first link is where a phone's menu goes." },
-      fields: [icon, text("title", { required: true, maxLength: 40 }), text("blurb", { maxLength: 80 }), links("links", "Links", 4)],
+      maxRows: 8,
+      admin: { description: "In the order they appear. A menu with no links showing in a market is left out there." },
+      fields: [
+        text("label", { required: true, maxLength: 30 }),
+        { name: "right", label: "Show at the right, beside Get started", type: "checkbox", defaultValue: false },
+        {
+          name: "columns",
+          type: "array",
+          minRows: 1,
+          maxRows: 3,
+          fields: [text("heading", { maxLength: 40, description: "Optional." }), menuLink],
+        },
+        {
+          name: "feature",
+          label: "Feature area",
+          type: "group",
+          fields: [
+            { name: "kind", label: "Shows", type: "select", options: FEATURES.map((f) => ({ ...f })), admin: { description: "Optional. Each kind hides itself when it has nothing approved to show." } },
+            text("heading", { maxLength: 60 }),
+            textarea("text", { maxLength: 200 }),
+            link("link", "Link"),
+          ],
+        },
+      ],
     },
-    { ...text("menuNote", { label: "Line under the Services menu", maxLength: 100 }), localized: true },
-    { ...link("menuLink", "Link under the Services menu"), localized: true } as Field,
-    links("pages", "Pages beside the menu", 4, true),
+    { ...menuLink, label: "Links beside the menus", maxRows: 3, localized: true, admin: { description: "Plain links after the menus, e.g. Plans. A link about products shows only while one of them is on sale." } } as Field,
   ],
   hooks: { beforeOperation: [editorsWriteDrafts], afterChange: publishAudit("header") },
 };
@@ -77,15 +123,22 @@ export const Footer: GlobalConfig = {
   access: globalAccess,
   versions: { drafts: { autosave: { interval: 1500 }, schedulePublish: true }, max: 50 },
   fields: [
-    { ...textarea("tagline", { maxLength: 160 }), localized: true },
+    {
+      name: "newsletter",
+      label: "Newsletter sign-up",
+      type: "group",
+      localized: true,
+      admin: { description: "The sign-up across the top of the footer. It hides when the heading is empty." },
+      fields: [text("heading", { maxLength: 80 }), textarea("text", { label: "Line under the heading", maxLength: 200 })],
+    },
+    { ...textarea("tagline", { maxLength: 160, description: "Under the logo. A second line is fine, e.g. Looking after businesses since 2014." }), localized: true },
     {
       name: "columns",
       type: "array",
       localized: true,
-      maxRows: 3,
+      maxRows: 4,
       fields: [text("heading", { required: true, maxLength: 40 }), links("links", "Links", 8)],
     },
-    { ...text("contactHeading", { label: "Heading over the contact details", maxLength: 40 }), localized: true },
     {
       name: "contact",
       label: "Contact details",

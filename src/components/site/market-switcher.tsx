@@ -14,20 +14,45 @@ export interface SwitcherMarket {
  * JavaScript and from the keyboard. `up` opens the list upwards, as at the
  * bottom of the phone menu.
  */
-export function MarketSwitcher({ markets, current, path, align = "end", tone = "default", up = false }: { markets: SwitcherMarket[]; current: SwitcherMarket; path: string; align?: "start" | "end"; tone?: "default" | "navy"; up?: boolean }) {
+export function MarketSwitcher({
+  markets,
+  current,
+  path,
+  align = "end",
+  tone = "default",
+  up = false,
+  variant = "button",
+}: {
+  markets: SwitcherMarket[];
+  current: SwitcherMarket;
+  path: string;
+  align?: "start" | "end";
+  tone?: "default" | "navy";
+  up?: boolean;
+  /** "strip": the small "Botswana · BWP" of the top strip and the footer's bottom bar. */
+  variant?: "button" | "strip";
+}) {
   return (
     <details className="group relative">
-      <summary
-        className={cn(
-          "flex h-10 cursor-pointer list-none items-center gap-2 rounded-md px-3 text-callout font-medium [&::-webkit-details-marker]:hidden",
-          tone === "navy" ? "text-on-navy hover:bg-on-navy/10" : "text-ink hover:bg-surface-2",
-        )}
-        aria-label={`Country: ${current.name}. Change country`}
-      >
-        <Globe aria-hidden className="size-4" />
-        <span>{current.name}</span>
-        <ChevronDown aria-hidden className="size-4 transition-transform duration-fast group-open:rotate-180 motion-reduce:transition-none" />
-      </summary>
+      {variant === "strip" ? (
+        <summary className={cn("flex cursor-pointer list-none items-center gap-1 [&::-webkit-details-marker]:hidden", tone === "navy" ? "hover:text-on-navy" : "hover:text-ink")}>
+          <span className="sr-only">Country and currency: </span>
+          {current.name} · {current.currency}
+          <ChevronDown aria-hidden className="size-3 transition-transform duration-fast group-open:rotate-180 motion-reduce:transition-none" />
+        </summary>
+      ) : (
+        <summary
+          className={cn(
+            "flex h-10 cursor-pointer list-none items-center gap-2 rounded-md px-3 text-callout font-medium [&::-webkit-details-marker]:hidden",
+            tone === "navy" ? "text-on-navy hover:bg-on-navy/10" : "text-ink hover:bg-surface-2",
+          )}
+          aria-label={`Country: ${current.name}. Change country`}
+        >
+          <Globe aria-hidden className="size-4" />
+          <span>{current.name}</span>
+          <ChevronDown aria-hidden className="size-4 transition-transform duration-fast group-open:rotate-180 motion-reduce:transition-none" />
+        </summary>
+      )}
       <ul
         className={cn(
           "absolute z-20 mt-2 flex w-64 flex-col rounded-md border border-border bg-surface-1 p-1 text-ink shadow-elevation-3",

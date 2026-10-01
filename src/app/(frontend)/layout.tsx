@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Poppins } from "next/font/google";
+import { Geist, Playfair_Display, Poppins } from "next/font/google";
 import { headers } from "next/headers";
 import tokens from "@/config/theme/tokens.json";
 import { company } from "@/config/app";
@@ -17,6 +17,10 @@ const poppins = Poppins({
   variable: "--font-poppins",
   display: "swap",
 });
+
+// Thebe's own brand (Geist) and the Mothibi Attorneys example site (Playfair Display), lower on the home page: not preloaded.
+const geist = Geist({ subsets: ["latin"], weight: ["400", "500", "600"], variable: "--font-geist", display: "swap", preload: false });
+const playfair = Playfair_Display({ subsets: ["latin"], weight: ["500", "600"], variable: "--font-playfair", display: "swap", preload: false });
 
 export async function generateMetadata(): Promise<Metadata> {
   const name = env().CONSOLE_NAME;
@@ -53,7 +57,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
   await headers();
   const theme = themeAttribute(await currentTheme());
   return (
-    <html lang="en" className={poppins.variable} data-theme={theme}>
+    <html lang="en" className={`${poppins.variable} ${geist.variable} ${playfair.variable}`} data-theme={theme}>
       <body>{children}</body>
     </html>
   );
