@@ -2,6 +2,7 @@ import "server-only";
 import type { QuoteRequestState } from "@/components/quotes/request-form";
 import { field } from "@/server/action-state";
 import { requestContext } from "@/server/auth/next";
+import { countForCampaign } from "@/server/campaigns/cookie";
 import { prisma } from "@/server/db";
 import { runSoon } from "@/server/jobs/boss";
 import { DomainError } from "@/server/org/access";
@@ -22,6 +23,7 @@ export async function takeQuoteRequest(form: FormData, where: { market: string; 
     const ip = (await requestContext()).ipAddress ?? "unknown";
     await enforce(prisma, `quotePerIp:${ip}`, LIMITS.quotePerIp);
     const quote = await requestQuote(prisma, { ...(values as Record<(typeof FIELDS)[number], string>), product: field(form, "product") || undefined }, where);
+    await countForCampaign("QUOTE", quote.reference);
     await runSoon("email-deliver").catch(() => undefined);
     return { reference: quote.reference };
   } catch (e) {

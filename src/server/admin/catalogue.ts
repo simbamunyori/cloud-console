@@ -7,6 +7,7 @@ import { effectiveStatus, STATUS_LABEL } from "@/server/catalogue/visibility";
 import { connectorFor } from "@/server/connectors/registry";
 import { DomainError } from "@/server/org/access";
 import { assertStaffCan, staffLabel, type StaffActor } from "@/server/staff/access";
+import { prepareLaunchKit } from "@/server/launch/kits";
 
 /**
  * The staff Catalogue: product families (each fulfilled by one connector),
@@ -355,9 +356,11 @@ export async function saveProduct(deps: CatalogueDeps, input: ProductInput, exis
     if (existingSlug === DOMAIN_PRODUCT_SLUG) throw new DomainError("invalid", "Domain names are managed on the Pricing page.");
     if (!existingSlug && (await tx.product.findUnique({ where: { slug } }))) throw new DomainError("conflict", "A product already has that address.", "slug");
     const diff = changes(before ? plain(before) : null, plain(fields));
-    if (before && !diff.keys.length) return { slug, changed: 0 };
+    if (before && !diff.keys.length) return { slug, changed: 0, launched: false };
     const product = before ? await tx.product.update({ where: { slug }, data: fields }) : await tx.product.create({ data: { slug, ...fields } });
     const statusChanged = before && before.status !== product.status;
+    // A product going live gets a launch kit (Milestone 7): drafts follow from a job.
+    const launched = product.status === "LIVE" && (!before || statusChanged) ? await prepareLaunchKit(tx, product) : false;
     await audit(
       tx,
       deps.staff,
@@ -369,7 +372,7 @@ export async function saveProduct(deps: CatalogueDeps, input: ProductInput, exis
           : `Changed the product ${product.name}`,
       { product: slug, ...diff },
     );
-    return { slug, changed: diff.keys.length };
+    return { slug, changed: diff.keys.length, launched };
   });
 }
 

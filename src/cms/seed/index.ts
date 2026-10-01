@@ -87,6 +87,21 @@ export async function seedWebsite(payload: Payload): Promise<string | null> {
     return added;
   });
 
+  // Milestone 6 added Thapelo to the privacy notice and the providers list.
+  // Only drafts nobody has edited since they were seeded are refreshed.
+  await once("legal-bw-thapelo", "Thapelo in the privacy notice", async () => {
+    let changed = false;
+    for (const kind of ["privacy", "service-providers"] as const) {
+      const { docs } = await payload.find({ collection: "legal", where: { kind: { equals: kind } }, locale: DEFAULT_LOCALE, limit: 1, depth: 0, overrideAccess: true });
+      const doc = docs[0];
+      if (!doc || doc.approvedByLegal || Math.abs(Date.parse(doc.updatedAt) - Date.parse(doc.createdAt)) > 60_000) continue;
+      const { updated, body } = legalFromMarkdown(BW_LEGAL[kind]);
+      await payload.update({ collection: "legal", id: doc.id, locale: DEFAULT_LOCALE, data: { updated, body: body as never, _status: "published" }, overrideAccess: true });
+      changed = true;
+    }
+    return changed;
+  });
+
   await once("header", "the header", async () => {
     await payload.updateGlobal({ slug: "header", data: { ...DEFAULT_HEADER, _status: "published" }, overrideAccess: true });
     return true;
@@ -102,6 +117,33 @@ export async function seedWebsite(payload: Payload): Promise<string | null> {
   await once("footer-designed", "the footer as designed", async () => {
     for (const l of MARKET_LOCALES) await payload.updateGlobal({ slug: "footer", locale: l.code, data: { ...DEFAULT_FOOTER, _status: "published" }, overrideAccess: true });
     return true;
+  });
+
+  // Milestone 7: Insights in the Support menu and the footer's Company column, added to what is there.
+  await once("frame-insights", "Insights links in the header and footer", async () => {
+    const isInsights = (row: { link?: { to?: string | null; path?: string | null } | null }) => row.link?.to === "market" && row.link.path === "/insights";
+    const [menuItem] = DEFAULT_HEADER.menus.find((m) => m.label === "Support")!.columns[0].links.filter(isInsights);
+    const [footerItem] = DEFAULT_FOOTER.columns.find((c) => c.heading === "Company")!.links.filter(isInsights);
+    let changed = false;
+    for (const l of MARKET_LOCALES) {
+      const header = await payload.findGlobal({ slug: "header", locale: l.code, depth: 0, overrideAccess: true });
+      const support = header.menus?.find((m) => m.label === "Support");
+      const column = support?.columns?.[0];
+      if (column && !header.menus!.some((m) => m.columns?.some((c) => c.links?.some(isInsights)))) {
+        column.links = [...(column.links ?? []), menuItem];
+        await payload.updateGlobal({ slug: "header", locale: l.code, data: { menus: header.menus, _status: "published" }, overrideAccess: true });
+        changed = true;
+      }
+      const footer = await payload.findGlobal({ slug: "footer", locale: l.code, depth: 0, overrideAccess: true });
+      const company = footer.columns?.find((c) => c.heading === "Company");
+      if (company && !footer.columns!.some((c) => c.links?.some(isInsights))) {
+        const links = company.links ?? [];
+        company.links = [...links.slice(0, 1), footerItem, ...links.slice(1)];
+        await payload.updateGlobal({ slug: "footer", locale: l.code, data: { columns: footer.columns, _status: "published" }, overrideAccess: true });
+        changed = true;
+      }
+    }
+    return changed;
   });
 
   return done.length ? `Added to the website editor: ${done.join(", ")}.` : null;

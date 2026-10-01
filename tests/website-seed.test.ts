@@ -73,7 +73,7 @@ describe("the header's menus", () => {
   const onSale = (products: unknown) => JSON.stringify(products).includes("business-email");
 
   it("hides links to products not on sale, to the help centre while it is empty, and to Thebe while its address isn't set", () => {
-    const c = frameContent(DEFAULT_HEADER, DEFAULT_FOOTER, market, { onSale, helpOpen: false });
+    const c = frameContent(DEFAULT_HEADER, DEFAULT_FOOTER, market, { onSale, helpOpen: false, insightsOpen: false });
     const email = c.menus.find((m) => m.label === "Email")!;
     expect(email.columns.flatMap((col) => col.links.map((l) => l.label))).toEqual(["Business email", "Move your existing email"]);
     expect(c.menus.map((m) => m.label)).not.toContain("Expense management");
@@ -81,6 +81,8 @@ describe("the header's menus", () => {
     expect(support.right).toBe(true);
     expect(support.columns[0].links.map((l) => l.label)).toEqual(["Contact us", "Service status"]);
     expect(c.columns.find((col) => col.heading === "Support")!.links.map((l) => l.label)).not.toContain("Help centre");
+    // Nothing published on the Insights page yet, so nothing links to it.
+    expect(c.columns.find((col) => col.heading === "Company")!.links.map((l) => l.label)).toEqual(["Pricing", "Ask for a quote"]);
     // The plans aren't on sale, so the header doesn't link to them.
     expect(c.links).toEqual([]);
   });
@@ -92,6 +94,7 @@ describe("the header's menus", () => {
     expect(thebe.columns[0].links[0]).toMatchObject({ label: "Requests from anywhere", href: "https://thebe.example.com" });
     expect(c.menus.find((m) => m.label === "Support")!.columns[0].links[0]).toMatchObject({ label: "Help centre", href: "/bw/help" });
     expect(c.links).toEqual([{ label: "Plans", href: "/bw#plans" }]);
+    expect(c.columns.find((col) => col.heading === "Company")!.links).toContainEqual({ label: "Insights", href: "/bw/insights" });
     expect(c.newsletter?.heading).toBe("Insights in your inbox, once a month.");
   });
 });

@@ -9,7 +9,7 @@ export async function register() {
   if (process.env.NEXT_RUNTIME === "nodejs" && process.env.NEXT_PHASE !== "phase-production-build") {
     const [{ prisma }, { env }, { assertNoPlaceholders }, { secret }] = await Promise.all([import("@/server/db"), import("@/server/env"), import("@/server/placeholders"), import("@/server/secrets")]);
     try {
-      await assertNoPlaceholders(prisma, { ...env(), SMTP_URL: env().SMTP_URL ?? null, WHMCS_API_IDENTIFIER_SET: Boolean(secret("WHMCS_API_IDENTIFIER")), WHMCS_API_SECRET_SET: Boolean(secret("WHMCS_API_SECRET")) });
+      await assertNoPlaceholders(prisma, { ...env(), SMTP_URL: env().SMTP_URL ?? null, WHMCS_API_IDENTIFIER_SET: Boolean(secret("WHMCS_API_IDENTIFIER")), WHMCS_API_SECRET_SET: Boolean(secret("WHMCS_API_SECRET")), SALES_ASSISTANT_DEMO: process.env.SALES_ASSISTANT_DEMO });
     } catch (e) {
       console.error(e instanceof Error ? e.message : e);
       process.exit(1);

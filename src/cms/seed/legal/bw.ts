@@ -99,7 +99,7 @@ These terms are governed by the laws of Botswana. Any dispute will first be disc
 
 DRAFT FOR LEGAL REVIEW. Not in force until approved by a Botswana attorney.
 
-Last updated: 29 September 2026
+Last updated: 30 September 2026
 
 This notice explains how **Fourth Generation Technologies (Pty) Ltd** (registration number BW00001816431, "we", "us") collects and uses personal information when you visit our website, create an account or use our services. We handle personal information in line with Botswana's Data Protection Act, 2024.
 
@@ -116,6 +116,7 @@ When you use our services to store or process personal information about other p
 - **Service information:** the services you use, settings, domain registration details and support conversations.
 - **Security information:** sign-in history, IP addresses, device information and records of actions taken in your account.
 - **Website information:** pages visited and the country you visit from, used to show the right prices and content.
+- **Conversations with Thapelo:** the questions you ask Thapelo, the AI assistant on our website, its answers, and the details you give in its contact form when you ask us to get in touch.
 
 ## 3. Why we use it
 
@@ -125,6 +126,8 @@ When you use our services to store or process personal information about other p
 | Billing, collecting payment and keeping financial records | Contract, and our legal duties |
 | Keeping accounts and systems secure, and preventing fraud | Our legitimate interest in protecting you, us and other customers |
 | Answering support requests, including through our AI assistant | Contract |
+| Answering questions on our website through Thapelo | Our legitimate interest in answering enquiries |
+| Contacting you when you ask Thapelo for a person or leave your details | Your consent, which you give in the contact form |
 | Registering domain names | Contract, and the rules of the domain registry |
 | Sending service and security notices | Contract |
 | Sending marketing about similar services | Your consent, or our legitimate interest where you are an existing customer. You can opt out at any time. |
@@ -136,7 +139,7 @@ We share personal information only as needed to provide our services:
 - **Service providers we resell,** such as Microsoft and Google, when you order their services from us.
 - **Domain registries and registrars,** including BOCRA for .bw names and our wholesale registrar for other names. Registries may publish some registration details in their public WHOIS records, as their rules require.
 - **Our payment provider,** to process card payments.
-- **Our AI support assistant.** It uses an AI service hosted outside Botswana. We send it only what is needed to answer your question, and never passwords, keys or bank details.
+- **Our AI assistants.** The support assistant in the Cloud Console and Thapelo on our website use an AI service from Anthropic, hosted outside Botswana. We send it only what is needed to answer your question, and never passwords, keys or bank details. Thapelo tells you it is an AI, cannot see customer accounts, and asks for contact details only in its contact form.
 - **Professional advisers and authorities,** where the law requires it.
 
 We do not sell personal information.
@@ -147,7 +150,7 @@ Our platform currently runs on servers in the United States, provided by Contabo
 
 ## 6. How long we keep it
 
-We keep account and service information while your account is open, and billing records for as long as tax and company law require, currently seven years. Security logs are kept for 12 months. When information is no longer needed, we delete or anonymise it.
+We keep account and service information while your account is open, and billing records for as long as tax and company law require, currently seven years. Security logs are kept for 12 months. Conversations with Thapelo are deleted 90 days after the last message. If you ask us to get in touch, we keep your details and the conversation for 12 months after we last dealt with your request. When information is no longer needed, we delete or anonymise it.
 
 ## 7. How we protect it
 
@@ -168,7 +171,7 @@ Send requests to legal@fourthgeneration.technology. We will respond within 30 da
 
 ## 9. Cookies
 
-Our website only uses cookies that are needed for it to work, such as keeping you signed in and remembering your country. We do not use advertising or analytics cookies. If that changes, we will update this notice and ask for your consent first.
+Our website only uses cookies that are needed for it to work, such as keeping you signed in, remembering your country and, if you chat with Thapelo, keeping your conversation for 90 days. We do not use advertising or analytics cookies. If that changes, we will update this notice and ask for your consent first.
 
 ## 10. Changes
 
@@ -232,7 +235,7 @@ These are the companies that may process personal information as part of the ser
 | Network International (DPO Pay) | Card and mobile money payments | As set out in their privacy notice |
 | Openprovider | Registration of domain names other than .bw | Netherlands |
 | BOCRA (.bw registry) | Registration of .bw domain names | Botswana |
-| Anthropic | The AI support assistant in the Cloud Console | United States |
+| Anthropic | The AI support assistant in the Cloud Console, and Thapelo on the website | United States |
 
 Questions about this list: legal@fourthgeneration.technology.
 `,

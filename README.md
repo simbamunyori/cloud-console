@@ -146,8 +146,9 @@ the UI and never sent to the assistant.
 | `WHMCS_SYNC_SECRET` | For the price sync, secret | Shared with the sync addon in WHMCS |
 | `WHMCS_SYNC_URL` | No | The sync addon's address, if not beside `WHMCS_API_URL` |
 | `PAYMENT_ADAPTER` | No | `stub` only, until the card gateway is chosen |
-| `ANTHROPIC_API_KEY` | Optional, secret | Switches the support assistant on. Without it, the assistant page offers a ticket instead |
+| `ANTHROPIC_API_KEY` | Optional, secret | Switches the support assistant and Thapelo, the website assistant, on, and writes launch kit drafts. Without it, the assistant page offers a ticket instead, Thapelo stays hidden and launch kits get plain drafts from the catalogue |
 | `ANTHROPIC_MODEL` | No | Model the assistant uses (default `claude-sonnet-5`) |
+| `SALES_ASSISTANT_DEMO` | Demo and CI only | `yes` gives Thapelo, the website assistant, scripted answers. Refused in production |
 | `GEO_COUNTRY_HEADER` | No | Header the CDN puts the visitor's country in (default `cf-ipcountry`, Cloudflare's) |
 | `GEOLITE2_DB_PATH` | No | Path to a MaxMind GeoLite2 Country `.mmdb` file, for country detection without a CDN header |
 | `ADMIN_IP_ALLOWLIST` | Recommended in production | Comma-separated addresses or IPv4 ranges (CIDR) allowed to open `/admin`. Empty allows any address |
@@ -311,6 +312,33 @@ contact details (email, phone, hours, address, WhatsApp) fall back to the
 market's settings in the staff console when left empty; its LinkedIn and
 Facebook links show only when set. The header, footer and insights can be
 scheduled like pages.
+
+The Insights page (/<market>/insights, with topic chips) lists every
+published insight. It isn't in the main navigation: the home page strip,
+the footer and the Support menu link to it, and those links hide
+themselves while nothing is published.
+
+### Launch kits and the newsletter
+
+When a product is saved as live, it gets a launch kit (/admin/launch-kits,
+for website Editors and Publishers). A background job
+(`launch-kit-drafts`) writes first drafts with the AI service: who the
+product is for, questions and answers, an insight draft in the editor
+and a LinkedIn post. Without `ANTHROPIC_API_KEY` it writes plain drafts
+from the catalogue and says so. Nothing goes out until a Publisher
+approves it: the product page at /<market>/products/<slug> (catalogue
+words, the price book's price, the approved words, and Order or Ask for
+a quote), the insight by publishing it in the editor, and the LinkedIn
+post before its Copy button appears. The kit also has a branded share
+image (/api/share/<slug>, 1200 by 627) and tracked links for LinkedIn,
+Facebook, Google, the newsletter and email signatures, with the visits,
+leads, quote requests, sign-ups and orders each campaign brought.
+
+On the 1st, `newsletter-prepare` drafts each market's issue from the
+insights published there the month before (/admin/newsletter). A
+Publisher checks it and sends it to confirmed subscribers; every copy has
+tracked links and one-click unsubscribe (`List-Unsubscribe` and
+`/api/newsletter/unsubscribe/<token>`).
 
 Uploaded images go to `MEDIA_DIR` (a volume in `docker-compose.prod.yml`)
 and are served at /media. Storage sits behind `src/cms/storage`, so object
