@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { PrismaClient } from "@prisma/client";
+import { execFileSync } from "node:child_process";
 import { signIn } from "./support/signed-in";
 
 /**
@@ -36,7 +37,10 @@ test("Odoo clients come over through the dry run", async ({ browser, baseURL }) 
     await expect(page.getByLabel("Bring Old bakery website care over as")).toBeVisible();
     await page.getByRole("button", { name: "Approve and import" }).click();
 
-    // The import runs in the background.
+    // The import runs as a background job. CI runs the console with jobs
+    // off, so the test does the job's work once the approval is saved.
+    await expect.poll(async () => latestStatus(db), { timeout: 30_000 }).not.toBe("REVIEW");
+    execFileSync("npx", ["tsx", "--conditions=react-server", "e2e/support/run-odoo-import.ts"], { stdio: "inherit" });
     await expect
       .poll(async () => latestStatus(db), { timeout: 120_000, intervals: [2_000] })
       .toBe("IMPORTED");
