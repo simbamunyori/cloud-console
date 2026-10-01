@@ -6,6 +6,7 @@ import { zonedTime } from "@/lib/dates";
 import { requestLicenceChange, type ChangeInput } from "@/server/licences/licences";
 import { bookMigration, checkDns, requestTransfer, tickCustomerItem } from "@/server/licences/onboarding";
 import { tenantProvider } from "@/server/licences/provider";
+import { requireRecentCheck } from "@/server/auth/next";
 import { requireMember } from "@/server/org/context";
 
 const DONE: Record<ChangeInput["kind"], string> = {
@@ -18,7 +19,8 @@ const DONE: Record<ChangeInput["kind"], string> = {
 const ASKED = "Sent to our team. You'll see it here once it's done.";
 
 async function submit(input: ChangeInput, values?: Record<string, string>): Promise<ActionState> {
-  const { db, organisation, actor } = await requireMember();
+  const { db, organisation, actor, session } = await requireMember();
+  await requireRecentCheck(session, "CUSTOMER", "/app/licences");
   const result = await run(async () => {
     const { applied } = await requestLicenceChange(db, { organisationId: organisation.id, organisationName: organisation.name, actor, provider: tenantProvider() }, input);
     return applied ? DONE[input.kind] : ASKED;

@@ -8,6 +8,8 @@ import { AuthHeading } from "@/components/auth/auth-shell";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { CodeInput } from "@/components/ui/code-input";
+import { PasskeyButton } from "@/components/auth/passkey-button";
+import { OrDivider } from "@/components/auth/provider-buttons";
 import { confirmSetupAction, type SetupState } from "../actions";
 
 export function SetupForm({
@@ -19,6 +21,7 @@ export function SetupForm({
   qrSvg,
   secret,
   otpauthUri,
+  audience = "CUSTOMER",
 }: {
   consoleName: string;
   home?: string;
@@ -28,26 +31,39 @@ export function SetupForm({
   qrSvg: string;
   secret: string;
   otpauthUri: string;
+  audience?: "CUSTOMER" | "STAFF";
 }) {
   const [state, action, pending] = useActionState<SetupState, FormData>(serverAction, {});
   const formRef = useRef<HTMLFormElement>(null);
   const router = useRouter();
-  const goToApp = completed && !state.recoveryCodes;
+  const [passkeyCodes, setPasskeyCodes] = useState<string[]>();
+  const codes = state.recoveryCodes ?? passkeyCodes;
+  const goToApp = completed && !codes;
 
   useEffect(() => {
     if (goToApp) router.replace(home);
   }, [goToApp, router, home]);
 
-  if (state.recoveryCodes) return <RecoveryCodes codes={state.recoveryCodes} consoleName={consoleName} home={home} />;
+  if (codes) return <RecoveryCodes codes={codes} consoleName={consoleName} home={home} passkey={Boolean(passkeyCodes)} />;
   if (goToApp) return null;
 
   return (
     <form ref={formRef} action={action} className="flex flex-col gap-6">
       <AuthHeading eyebrow={eyebrow} title="Protect your account">
-        {consoleName} asks for a six-digit code from an authenticator app each time you sign in. It keeps your
-        services and invoices safe even if your password leaks.
+        {consoleName} asks for a second step each time you sign in: a passkey on this device, or a six-digit code from an
+        authenticator app. It keeps your services and invoices safe even if your password leaks.
       </AuthHeading>
       {state.error ? <Alert>{state.error}</Alert> : null}
+      <PasskeyButton
+        purpose="setup"
+        audience={audience}
+        variant="primary"
+        onDone={(r) => setPasskeyCodes(r.recoveryCodes)}
+        after={<OrDivider>or use an authenticator app</OrDivider>}
+        className="flex flex-col gap-6"
+      >
+        Use a passkey (fingerprint, face or PIN)
+      </PasskeyButton>
       <ol className="flex flex-col gap-6 rounded-lg border border-border bg-surface-1 p-6">
         <li className="flex flex-col gap-5 sm:flex-row sm:items-start">
           <div
@@ -110,16 +126,16 @@ function CopyableKey({ value }: { value: string }) {
   );
 }
 
-function RecoveryCodes({ codes, consoleName, home }: { codes: string[]; consoleName: string; home: string }) {
+function RecoveryCodes({ codes, consoleName, home, passkey }: { codes: string[]; consoleName: string; home: string; passkey?: boolean }) {
   const [saved, setSaved] = useState(false);
   const [copied, setCopied] = useState(false);
   const text = `${consoleName} backup codes\nEach code works once. Keep them somewhere safe.\n\n${codes.join("\n")}\n`;
   return (
     <div className="flex flex-col gap-6">
       <AuthHeading title="Save your backup codes">
-        If you lose your phone, each of these codes lets you sign in once. This is the only time we show them.
+        If you lose your {passkey ? "device" : "phone"}, each of these codes lets you sign in once. This is the only time we show them.
       </AuthHeading>
-      <Alert tone="positive">Your authenticator is set up.</Alert>
+      <Alert tone="positive">{passkey ? "Your passkey is set up." : "Your authenticator is set up."}</Alert>
       <ul
         aria-label="Backup codes"
         className="grid grid-cols-2 gap-x-6 gap-y-2 rounded-lg border border-border bg-surface-1 p-6 font-mono text-body tracking-wider text-ink tabular-nums"

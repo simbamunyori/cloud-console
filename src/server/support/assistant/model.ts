@@ -24,6 +24,10 @@ export interface ModelRequest {
   system: string;
   messages: ModelMessage[];
   tools: ToolSpec[];
+  /** Longest reply allowed, in tokens (1024 when not given). */
+  maxTokens?: number;
+  /** Makes the model answer by calling this tool. */
+  forceTool?: string;
 }
 export interface ModelReply {
   content: ModelBlock[];
@@ -45,10 +49,11 @@ class AnthropicModel implements AssistantModel {
   async respond(request: ModelRequest): Promise<ModelReply> {
     const reply = await this.client.messages.create({
       model: this.model,
-      max_tokens: 1024,
+      max_tokens: request.maxTokens ?? 1024,
       system: request.system,
       messages: request.messages as Anthropic.MessageParam[],
       tools: request.tools as Anthropic.Tool[],
+      ...(request.forceTool ? { tool_choice: { type: "tool" as const, name: request.forceTool } } : {}),
     });
     const content: ModelBlock[] = [];
     for (const block of reply.content) {

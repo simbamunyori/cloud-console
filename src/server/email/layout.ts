@@ -19,6 +19,8 @@ export interface EmailBody {
   footnote?: string;
   /** Label and value rows, e.g. an amount and a reference. */
   facts?: [string, string][];
+  /** Articles, each a linked title with a line under it (the newsletter). */
+  items?: { title: string; summary: string; url: string }[];
 }
 
 export function renderEmail(body: EmailBody, appUrl: string): { text: string; html: string } {
@@ -29,6 +31,7 @@ export function renderEmail(body: EmailBody, appUrl: string): { text: string; ht
     body.heading,
     "",
     ...body.paragraphs.flatMap((p) => [p, ""]),
+    ...(body.items ?? []).flatMap((i) => [i.title, i.summary, i.url, ""]),
     ...(factsText ? [factsText, ""] : []),
     ...(body.button ? [`${body.button.label}: ${body.button.url}`, ""] : []),
     ...(body.footnote ? [body.footnote, ""] : []),
@@ -44,6 +47,12 @@ export function renderEmail(body: EmailBody, appUrl: string): { text: string; ht
         )
         .join("")}</table>`
     : "";
+  const items = (body.items ?? [])
+    .map(
+      (i) =>
+        `<div style="margin:0 0 20px;padding:0 0 20px;border-bottom:1px solid ${t.border}"><p style="margin:0 0 6px;font-size:18px;line-height:26px;font-weight:600"><a href="${escapeHtml(i.url)}" style="color:${t.primaryText};text-decoration:none">${escapeHtml(i.title)}</a></p><p style="margin:0;font-size:15px;line-height:22px;color:${t.textMuted}">${escapeHtml(i.summary)}</p></div>`,
+    )
+    .join("");
   const button = body.button
     ? `<p style="margin:0 0 24px"><a href="${escapeHtml(body.button.url)}" style="display:inline-block;background:${tokens.console.light.primaryFill};color:${t.onPrimary};text-decoration:none;font-weight:600;padding:12px 20px;border-radius:${tokens.radius.md}">${escapeHtml(body.button.label)}</a></p>`
     : "";
@@ -54,7 +63,7 @@ export function renderEmail(body: EmailBody, appUrl: string): { text: string; ht
 <img src="${escapeHtml(appUrl)}/brand/logo/fgt-logo.svg" width="168" height="44" alt="${escapeHtml(company.name)}" style="display:block;margin:0 0 32px">
 <h1 style="margin:0 0 16px;font-size:22px;line-height:30px;letter-spacing:${tokens.font.headlineTracking};color:${t.text}">${escapeHtml(body.heading)}</h1>
 ${body.paragraphs.map((p) => `<p style="margin:0 0 16px;font-size:16px;line-height:24px">${escapeHtml(p)}</p>`).join("")}
-${facts}${button}
+${items}${facts}${button}
 ${body.footnote ? `<p style="margin:0;font-size:14px;line-height:20px;color:${t.textMuted}">${escapeHtml(body.footnote)}</p>` : ""}
 </td></tr></table>
 <p style="margin:16px 0 0;font-size:12px;color:${t.textMuted}">${escapeHtml(company.legalName)}</p>

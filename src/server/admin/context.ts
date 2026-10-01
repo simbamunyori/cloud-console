@@ -2,7 +2,7 @@ import "server-only";
 import { redirect } from "next/navigation";
 import { cache } from "react";
 import { requireActiveStaffSession } from "@/server/auth/next";
-import { assertStaffCan, type StaffActor, type StaffPermission } from "@/server/staff/access";
+import { assertStaffCan, websiteRoleOf, type StaffActor, type StaffPermission } from "@/server/staff/access";
 
 /**
  * Everything a staff page needs: the signed-in staff member and their
@@ -21,4 +21,12 @@ export async function requireStaffCan(permission: StaffPermission) {
   const ctx = await requireStaff();
   assertStaffCan(ctx.staff, permission);
   return ctx;
+}
+
+/** For pages only website Editors and Publishers open (launch kits, the newsletter). */
+export async function requireWebsiteStaff() {
+  const ctx = await requireStaff();
+  const websiteRole = websiteRoleOf(ctx.session.user);
+  if (!websiteRole) redirect("/admin");
+  return { ...ctx, actor: { ...ctx.staff, websiteRole } };
 }

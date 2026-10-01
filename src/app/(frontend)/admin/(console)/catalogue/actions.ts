@@ -12,6 +12,7 @@ import { linkStubProduct } from "@/server/billing/stub/catalogue";
 import { StubBillingAdapter } from "@/server/billing/stub/stub-adapter";
 import { DEFAULT_TIME_ZONE } from "@/config/app";
 import { prisma } from "@/server/db";
+import { runSoon } from "@/server/jobs/boss";
 
 async function deps() {
   const { staff } = await requireStaff();
@@ -83,7 +84,8 @@ export async function saveProductAction(_prev: ActionState, form: FormData): Pro
   let created: string | null = null;
   const result = await run(
     async () => {
-      const { slug, changed } = await saveProduct(await deps(), { ...(v as Record<(typeof PRODUCT_FIELDS)[number], string>), markets, quantityAllowed }, existing);
+      const { slug, changed, launched } = await saveProduct(await deps(), { ...(v as Record<(typeof PRODUCT_FIELDS)[number], string>), markets, quantityAllowed }, existing);
+      if (launched) await runSoon("launch-kit-drafts").catch(() => undefined);
       // WHMCS gets new products from the product sync; the stub gets them here.
       if (billingAdapter() instanceof StubBillingAdapter) await linkStubProduct(prisma, slug);
       if (!existing) created = slug;
@@ -93,6 +95,9 @@ export async function saveProductAction(_prev: ActionState, form: FormData): Pro
   );
   revalidatePath("/admin/catalogue", "layout");
   revalidatePath("/admin/pricing");
+  revalidatePath("/admin/launch-kits", "layout");
+  // Product pages, pricing and the sitemap follow the catalogue.
+  revalidatePath("/[market]", "layout");
   if (created) redirect(`/admin/catalogue/products/${created}?added=1`);
   return result;
 }

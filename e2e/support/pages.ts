@@ -32,6 +32,9 @@ export const PAGES: PageSpec[] = [
   { name: "reset-link-expired", audience: "public", path: "/reset-password/expired-example" },
   { name: "staff-sign-in", audience: "public", path: "/admin/sign-in" },
   { name: "site-quote", audience: "public", path: "/bw/quote" },
+  { name: "site-product", audience: "public", path: "/bw/products/microsoft-365-business-standard" },
+  { name: "site-insights", audience: "public", path: "/bw/insights" },
+  { name: "site-insight", audience: "public", path: "/bw/insights/why-we-offer-microsoft-365-business-standard" },
   { name: "quote-link", audience: "public", path: "quote-link:" },
 
   { name: "home", audience: "customer", path: "/app" },
@@ -68,6 +71,12 @@ export const PAGES: PageSpec[] = [
   { name: "admin-orders", audience: "staff", path: "/admin/orders" },
   { name: "admin-quotes", audience: "staff", path: "/admin/quotes" },
   { name: "admin-quote", audience: "staff", path: "/admin/quotes", follow: 'main a[href^="/admin/quotes/QUO-"]' },
+  { name: "admin-leads", audience: "staff", path: "/admin/leads" },
+  { name: "admin-lead", audience: "staff", path: "/admin/leads", follow: 'main a[href^="/admin/leads/LEAD-"]' },
+  { name: "admin-launch-kits", audience: "staff", path: "/admin/launch-kits" },
+  { name: "admin-launch-kit", audience: "staff", path: "/admin/launch-kits", follow: 'main a[href^="/admin/launch-kits/"]' },
+  { name: "admin-newsletter", audience: "staff", path: "/admin/newsletter" },
+  { name: "admin-newsletter-issue", audience: "staff", path: "/admin/newsletter", follow: 'main a[href^="/admin/newsletter/"]' },
   { name: "admin-payments", audience: "staff", path: "/admin/payments" },
   { name: "admin-catalogue", audience: "staff", path: "/admin/catalogue" },
   { name: "admin-catalogue-product", audience: "staff", path: "/admin/catalogue/products/managed-vps-small" },
@@ -81,6 +90,7 @@ export const PAGES: PageSpec[] = [
   { name: "admin-waitlist", audience: "staff", path: "/admin/waitlist" },
   { name: "admin-staff", audience: "staff", path: "/admin/staff" },
   { name: "admin-website-access", audience: "staff", path: "/admin/website-access" },
+  { name: "admin-account", audience: "staff", path: "/admin/account" },
 ];
 
 /** The address to open for a page, following its link or looking up the demo customer's latest order. */
