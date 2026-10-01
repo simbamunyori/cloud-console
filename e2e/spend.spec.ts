@@ -30,8 +30,10 @@ test("a customer sees spend by month, picks a month, and sees ways to save", asy
 
   await page.getByText("Show as a table").click();
   await expect(page.getByRole("row", { name: new RegExp(month) })).toBeVisible();
-  await expect(page.getByRole("heading", { name: /^Azure usage in / })).toBeVisible();
-  await expect(page.getByRole("cell", { name: "kgale-erp" })).toBeVisible();
+  // The Azure card is always this month; on the 1st Microsoft hasn't reported any of it yet.
+  const azure = page.getByRole("region", { name: /^Azure usage in / });
+  await expect(azure).toBeVisible();
+  await expect(azure.getByRole("cell", { name: "kgale-erp" }).or(azure.getByText("No usage yet this month."))).toBeVisible();
 });
 
 test("an owner checks usage against the budget and saves it again", async ({ page, context, baseURL }) => {
