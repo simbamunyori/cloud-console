@@ -11,9 +11,6 @@ import { MarketSwitcher, type SwitcherMarket } from "./market-switcher";
 import { ServicesMenu, SiteMenu } from "./site-nav";
 
 export interface FrameMarket extends SwitcherMarket {
-  supportEmail: string;
-  supportPhone: string | null;
-  supportHours: string;
   paymentMethods: string[];
 }
 
@@ -137,15 +134,16 @@ export function SiteFrame({
           ))}
           <div className="flex flex-col gap-3">
             <h2 className="text-callout font-semibold text-on-navy">{content.contactHeading}</h2>
-            <a href={`mailto:${market.supportEmail}`} className="text-callout break-all hover:text-on-navy hover:underline">
-              {market.supportEmail}
+            <a href={`mailto:${content.contact.email}`} className="text-callout break-all hover:text-on-navy hover:underline">
+              {content.contact.email}
             </a>
-            {market.supportPhone ? (
-              <a href={`tel:${market.supportPhone.replace(/\s/g, "")}`} className="text-callout hover:text-on-navy hover:underline">
-                {market.supportPhone}
+            {content.contact.phone ? (
+              <a href={`tel:${content.contact.phone.replace(/\s/g, "")}`} className="text-callout hover:text-on-navy hover:underline">
+                {content.contact.phone}
               </a>
             ) : null}
-            <p className="text-callout">{market.supportHours}</p>
+            {content.contact.hours ? <p className="text-callout">{content.contact.hours}</p> : null}
+            {content.contact.address ? <address className="text-callout whitespace-pre-line not-italic">{content.contact.address}</address> : null}
             {statusUrl ? (
               <a href={statusUrl} className="inline-flex items-center gap-2 text-callout hover:text-on-navy hover:underline">
                 <Activity aria-hidden className="size-4" />
@@ -153,6 +151,17 @@ export function SiteFrame({
               </a>
             ) : null}
             {pay.length ? <p className="text-callout">Pay by {pay.join(" or ")}.</p> : null}
+            {content.social.length ? (
+              <ul aria-label="Follow us" className="flex flex-wrap gap-x-4 gap-y-2">
+                {content.social.map((l) => (
+                  <li key={l.label}>
+                    <a href={l.href} rel="noopener noreferrer" target="_blank" className="text-callout font-medium text-on-navy hover:underline">
+                      {l.label}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
           </div>
         </div>
         <div className="border-t border-on-navy/10">

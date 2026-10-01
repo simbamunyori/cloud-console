@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Rehearses production on a scratch folder, with the real deploy scripts
 # (run by CI on every change; needs Docker):
-#   1. a first deploy onto an empty database;
+#   1. a first deploy onto an empty database, which loads the launch catalogue;
 #   2. creating the staff Admin from the command line;
 #   3. a second deploy, which backs up first;
 #   4. a release that never becomes healthy, which must roll back to (3);
@@ -44,6 +44,8 @@ trap cleanup EXIT
 step "1. First deploy onto an empty database"
 pack one && bash deploy/deploy.sh one "$home/incoming/one.tar.gz"
 live | grep -q '"release":"one"'
+products=$(docker compose -p console -f "$home/current/docker-compose.prod.yml" --env-file "$home/.env" exec -T db psql -U console -d console -tAc 'SELECT count(*) FROM "Product"')
+[[ $products -gt 0 ]] || { echo "the launch catalogue was not loaded"; exit 1; }
 
 step "2. Create the staff Admin"
 printf 'rehearsal passphrase 2026\n' | docker compose -p console -f "$home/current/docker-compose.prod.yml" --env-file "$home/.env" exec -T app node ops.cjs create-admin "Rehearsal Admin" admin@example.test

@@ -21,12 +21,38 @@ export function pricingLayout(): Layout {
       intro: "Prices for {market}, per month unless it says otherwise. They are fixed for the month and every line on your invoice is explained.",
       showTaxNote: true,
     },
+    { blockType: "priceTables", domainsHeading: "Domain names", domainsIntro: "A year at a time, renewed on your monthly invoice." },
     {
       blockType: "callToAction",
       heading: "Not sure what you need? Tell us what you run today.",
       tone: "dark",
       primary: { label: "Get started", to: "site", path: "/sign-up" },
       secondary: { label: "Ask for a quote", to: "market", path: "/quote" },
+    },
+  ] as Layout;
+}
+
+/** The quote page's heading and its "How it works" panel, beside the form. */
+export function quoteLayout(): Layout {
+  return [
+    {
+      blockType: "pageIntro",
+      kicker: "Quotes",
+      heading: "Tell us what you need.",
+      intro: "We'll look at it and email you a quote in {currency}. You don't need an account to ask.",
+      showTaxNote: false,
+    },
+    {
+      blockType: "text",
+      heading: "How it works",
+      tone: "light",
+      body: richFromMarkdown(
+        [
+          "1. We read your request and call you if anything needs clearing up.",
+          "2. We email you a quote with a price for each part, monthly or once, and the date it holds until.",
+          "3. You accept it in the console, and it becomes an order at the quoted price.",
+        ].join("\n"),
+      ),
     },
   ] as Layout;
 }

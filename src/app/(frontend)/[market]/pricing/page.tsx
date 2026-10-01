@@ -24,9 +24,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 /**
- * The market's prices, always live from its price book. The heading and
- * the panel under the tables come from the editor's "pricing" page (its
- * Page heading and first Call to action); any other sections follow.
+ * The market's prices, always live from its price book. The heading, the
+ * words over the domain prices and the panel under the tables come from
+ * the editor's "pricing" page (its Page heading, Price tables and first
+ * Call to action); any other sections follow.
  */
 export default async function PricingPage({ params }: Props) {
   const m = await siteMarket((await params).market);
@@ -35,7 +36,10 @@ export default async function PricingPage({ params }: Props) {
   const layout = page?.layout ?? [];
   const intro = layout.find((b) => b.blockType === "pageIntro");
   const panel = layout.find((b) => b.blockType === "callToAction");
-  const rest = layout.filter((b) => b !== intro && b !== panel);
+  const tables = layout.find((b): b is Extract<typeof b, { blockType: "priceTables" }> => b.blockType === "priceTables");
+  const rest = layout.filter((b) => b !== intro && b !== panel && b !== tables);
+  const domainsHeading = tables?.domainsHeading || "Domain names";
+  const domainsIntro = tables?.domainsIntro || "A year at a time, renewed on your monthly invoice.";
   return (
     <SitePage code={m.code} path="/pricing">
       <div className="page-container py-12 lg:py-16">
@@ -63,7 +67,7 @@ export default async function PricingPage({ params }: Props) {
             {domains.length ? (
               <li>
                 <a href="#domains-title" className="inline-flex h-9 items-center whitespace-nowrap rounded-full border border-border bg-surface-0 px-4 text-callout font-semibold text-ink hover:border-border-strong hover:bg-surface-2">
-                  Domain names
+                  {domainsHeading}
                 </a>
               </li>
             ) : null}
@@ -118,9 +122,9 @@ export default async function PricingPage({ params }: Props) {
             <section aria-labelledby="domains-title" className="flex scroll-mt-24 flex-col gap-5">
               <div className="flex flex-col gap-1">
                 <h2 id="domains-title" className="scroll-mt-24 text-title-2 text-ink xl:text-title-1">
-                  Domain names
+                  {domainsHeading}
                 </h2>
-                <p className="text-callout text-ink-muted">A year at a time, renewed on your monthly invoice.</p>
+                {domainsIntro ? <p className="text-callout text-ink-muted">{domainsIntro}</p> : null}
               </div>
               <div className="overflow-x-auto rounded-lg border border-border bg-surface-1 lg:max-w-3xl">
                 <table className="w-full text-left text-callout">

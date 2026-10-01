@@ -68,6 +68,7 @@ export interface Config {
   blocks: {};
   collections: {
     pages: Page;
+    insights: Insight;
     legal: Legal;
     media: Media;
     staff: Staff;
@@ -80,6 +81,7 @@ export interface Config {
   collectionsJoins: {};
   collectionsSelect: {
     pages: PagesSelect<false> | PagesSelect<true>;
+    insights: InsightsSelect<false> | InsightsSelect<true>;
     legal: LegalSelect<false> | LegalSelect<true>;
     media: MediaSelect<false> | MediaSelect<true>;
     staff: StaffSelect<false> | StaffSelect<true>;
@@ -149,7 +151,7 @@ export interface Page {
    */
   title: string;
   /**
-   * home is the market's home page, pricing and security are those pages. Anything else becomes /<market>/<address>, e.g. about.
+   * home is the market's home page; pricing, security and quote are those pages. Anything else becomes /<market>/<address>, e.g. about.
    */
   slug: string;
   /**
@@ -164,11 +166,13 @@ export interface Page {
         | FeatureCardsBlock
         | ServicesGridBlock
         | PricingBlock
+        | PriceTablesBlock
         | TextBlock
         | ImageTextBlock
         | FaqBlock
         | TestimonialsBlock
         | LogoStripBlock
+        | InsightsStripBlock
         | CallToActionBlock
         | AssistantNoticeBlock
       )[]
@@ -455,12 +459,23 @@ export interface PricingBlock {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "PriceTablesBlock".
+ */
+export interface PriceTablesBlock {
+  domainsHeading?: string | null;
+  domainsIntro?: string | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'priceTables';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "TextBlock".
  */
 export interface TextBlock {
   heading?: string | null;
   /**
-   * You can write {market}, {support-email}, {data-protection-law} or {deletion-notice-days}; the market's own details appear in their place.
+   * You can write {market}, {currency}, {support-email}, {data-protection-law} or {deletion-notice-days}; the market's own details appear in their place.
    */
   body: {
     root: {
@@ -624,6 +639,32 @@ export interface LogoStripBlock {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "InsightsStripBlock".
+ */
+export interface InsightsStripBlock {
+  kicker?: string | null;
+  heading: string;
+  intro?: string | null;
+  tone: 'plain' | 'light' | 'dark';
+  /**
+   * Optional. Leave empty for the newest insights on any topic.
+   */
+  topic?: ('resilience' | 'compliance' | 'email-security' | 'productivity' | 'security' | 'websites') | null;
+  more?: {
+    label?: string | null;
+    to?: ('market' | 'site' | 'email') | null;
+    /**
+     * Starts with /. For this market's pricing page: /pricing
+     */
+    path?: string | null;
+    subject?: string | null;
+  };
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'insightsStrip';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "CallToActionBlock".
  */
 export interface CallToActionBlock {
@@ -666,6 +707,68 @@ export interface AssistantNoticeBlock {
   blockType: 'assistantNotice';
 }
 /**
+ * Articles for the Insights strip and page. Each market's version is a language in the switcher at the top; a market without its own words shows Botswana's.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "insights".
+ */
+export interface Insight {
+  id: number;
+  title: string;
+  /**
+   * The article's address: /<market>/insights/<address>, e.g. tested-backups.
+   */
+  slug: string;
+  topic: 'resilience' | 'compliance' | 'email-security' | 'productivity' | 'security' | 'websites';
+  /**
+   * Set on the first publish. Newest first in the Insights strip.
+   */
+  publishedAt?: string | null;
+  /**
+   * Worked out from the article's length.
+   */
+  readingMinutes?: number | null;
+  /**
+   * One or two sentences for the Insights strip and search results.
+   */
+  summary: string;
+  image?: (number | null) | Media;
+  body: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  };
+  /**
+   * The product the article ends with. Tick one product.
+   */
+  related?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  seo?: {
+    title?: string | null;
+    description?: string | null;
+  };
+  updatedAt: string;
+  createdAt: string;
+  _status?: ('draft' | 'published') | null;
+}
+/**
  * Each market's text is a language in the switcher at the top. A market without its own text shows a note that it is on its way, never another market's.
  *
  * This interface was referenced by `Config`'s JSON-Schema
@@ -691,7 +794,7 @@ export interface Legal {
    */
   approvedByLegal?: boolean | null;
   /**
-   * You can write {market}, {support-email}, {data-protection-law} or {deletion-notice-days}; the market's own details appear in their place.
+   * You can write {market}, {currency}, {support-email}, {data-protection-law} or {deletion-notice-days}; the market's own details appear in their place.
    */
   body: {
     root: {
@@ -854,6 +957,10 @@ export interface PayloadLockedDocument {
         value: number | Page;
       } | null)
     | ({
+        relationTo: 'insights';
+        value: number | Insight;
+      } | null)
+    | ({
         relationTo: 'legal';
         value: number | Legal;
       } | null)
@@ -924,11 +1031,13 @@ export interface PagesSelect<T extends boolean = true> {
         featureCards?: T | FeatureCardsBlockSelect<T>;
         servicesGrid?: T | ServicesGridBlockSelect<T>;
         pricing?: T | PricingBlockSelect<T>;
+        priceTables?: T | PriceTablesBlockSelect<T>;
         text?: T | TextBlockSelect<T>;
         imageText?: T | ImageTextBlockSelect<T>;
         faq?: T | FaqBlockSelect<T>;
         testimonials?: T | TestimonialsBlockSelect<T>;
         logoStrip?: T | LogoStripBlockSelect<T>;
+        insightsStrip?: T | InsightsStripBlockSelect<T>;
         callToAction?: T | CallToActionBlockSelect<T>;
         assistantNotice?: T | AssistantNoticeBlockSelect<T>;
       };
@@ -1083,6 +1192,16 @@ export interface PricingBlockSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "PriceTablesBlock_select".
+ */
+export interface PriceTablesBlockSelect<T extends boolean = true> {
+  domainsHeading?: T;
+  domainsIntro?: T;
+  id?: T;
+  blockName?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "TextBlock_select".
  */
 export interface TextBlockSelect<T extends boolean = true> {
@@ -1191,6 +1310,27 @@ export interface LogoStripBlockSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "InsightsStripBlock_select".
+ */
+export interface InsightsStripBlockSelect<T extends boolean = true> {
+  kicker?: T;
+  heading?: T;
+  intro?: T;
+  tone?: T;
+  topic?: T;
+  more?:
+    | T
+    | {
+        label?: T;
+        to?: T;
+        path?: T;
+        subject?: T;
+      };
+  id?: T;
+  blockName?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "CallToActionBlock_select".
  */
 export interface CallToActionBlockSelect<T extends boolean = true> {
@@ -1224,6 +1364,30 @@ export interface AssistantNoticeBlockSelect<T extends boolean = true> {
   heading?: T;
   id?: T;
   blockName?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "insights_select".
+ */
+export interface InsightsSelect<T extends boolean = true> {
+  title?: T;
+  slug?: T;
+  topic?: T;
+  publishedAt?: T;
+  readingMinutes?: T;
+  summary?: T;
+  image?: T;
+  body?: T;
+  related?: T;
+  seo?:
+    | T
+    | {
+        title?: T;
+        description?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+  _status?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -1502,6 +1666,26 @@ export interface Footer {
       }[]
     | null;
   contactHeading?: string | null;
+  /**
+   * Leave email, phone or hours empty to use the market's own settings in the staff console. Anything else left empty stays hidden.
+   */
+  contact?: {
+    email?: string | null;
+    phone?: string | null;
+    /**
+     * Shows a WhatsApp link with the social links.
+     */
+    whatsapp?: string | null;
+    hours?: string | null;
+    address?: string | null;
+  };
+  /**
+   * Each shows only when it has an address.
+   */
+  social?: {
+    linkedin?: string | null;
+    facebook?: string | null;
+  };
   _status?: ('draft' | 'published') | null;
   updatedAt?: string | null;
   createdAt?: string | null;
@@ -1585,6 +1769,21 @@ export interface FooterSelect<T extends boolean = true> {
         id?: T;
       };
   contactHeading?: T;
+  contact?:
+    | T
+    | {
+        email?: T;
+        phone?: T;
+        whatsapp?: T;
+        hours?: T;
+        address?: T;
+      };
+  social?:
+    | T
+    | {
+        linkedin?: T;
+        facebook?: T;
+      };
   _status?: T;
   updatedAt?: T;
   createdAt?: T;
@@ -1614,10 +1813,14 @@ export interface TaskSchedulePublish {
           value: number | Page;
         } | null)
       | ({
+          relationTo: 'insights';
+          value: number | Insight;
+        } | null)
+      | ({
           relationTo: 'legal';
           value: number | Legal;
         } | null);
-    global?: string | null;
+    global?: ('header' | 'footer') | null;
     user?: {
       relationTo: 'staff';
       value: number | Staff;

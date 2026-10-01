@@ -5,11 +5,11 @@ import { DEFAULT_FOOTER, DEFAULT_HEADER } from "../seed-frame";
 import type { Page } from "../payload-types";
 import { legalFromMarkdown } from "./legal-markdown";
 import { BW_LEGAL } from "./legal/bw";
-import { pricingLayout, securityLayout } from "./pages";
+import { pricingLayout, quoteLayout, securityLayout } from "./pages";
 
 /**
- * The website editor's first content: the home, pricing and security
- * pages in every market, Botswana's legal text, and the header and footer,
+ * The website editor's first content: the home, pricing, security and
+ * quote pages in every market, Botswana's legal text, and the header and footer,
  * all as the site showed them before the editor. Each part is added once
  * (remembered in the editor's key-value store) and only if it isn't there,
  * so an editor's work is never overwritten and a part they delete stays
@@ -36,6 +36,7 @@ export async function seedWebsite(payload: Payload): Promise<string | null> {
   await once("home", "the home page", page("home", "Home", homeLayout));
   await once("pricing", "the pricing page", page("pricing", "Pricing", pricingLayout));
   await once("security", "the security page", page("security", "Security", securityLayout));
+  await once("quote", "the quote page", page("quote", "Ask for a quote", quoteLayout));
 
   await once("legal-bw", "Botswana's legal text", async () => {
     let added = false;
