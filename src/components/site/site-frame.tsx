@@ -1,30 +1,29 @@
 /* eslint-disable @next/next/no-img-element -- the brand SVG lockups are fixed-size files. */
-import { Activity } from "lucide-react";
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/ui/logo";
 import { company } from "@/config/app";
 import type { Theme } from "@/lib/theme";
+import type { StatusState } from "@/server/status/status";
 import { ThemeSwitch } from "@/components/theme/theme-switch";
-import type { FrameContent } from "./frame-content";
+import type { FrameContent, FrameLink } from "./frame-content";
 import { MarketSwitcher, type SwitcherMarket } from "./market-switcher";
-import { ServicesMenu, SiteMenu } from "./site-nav";
+import { MenuFeature, type FeatureContext } from "./menu-features";
+import { NewsletterForm } from "./newsletter-form";
+import { MegaMenus, PhoneMenu } from "./site-nav";
+import { StatusDot } from "./status-dot";
 
-export interface FrameMarket extends SwitcherMarket {
-  paymentMethods: string[];
+export interface FrameStatus {
+  state: StatusState;
+  label: string;
+  href: string;
 }
 
-/** The header's pages for the phone menu, less any a service family above them already links to. */
-const phonePages = (content: FrameContent) => {
-  const inGroups = new Set(content.groups.flatMap((g) => g.links.map((l) => l.href)));
-  return content.pages.filter((p) => !inGroups.has(p.href));
-};
-
-const PAYMENT_WORDS: Record<string, string> = { card: "card", eft: "bank transfer" };
+const getStarted = "inline-flex items-center rounded-sm bg-brand text-on-brand hover:bg-brand-hover";
 
 /**
- * The public site's header and footer around a page. `path` is the page
- * after the market ("", "/pricing"), so the switcher keeps you on it.
+ * The public site's frame, as designed (docs/design/home-desktop.html):
+ * the top strip, the header with its menus, and the footer. `path` is the
+ * page after the market ("", "/pricing"), so the switcher keeps you on it.
  */
 export function SiteFrame({
   market,
@@ -32,73 +31,98 @@ export function SiteFrame({
   path,
   signedIn,
   theme,
-  statusUrl,
+  status,
   content,
+  features,
+  proof,
   children,
 }: {
-  market: FrameMarket;
+  market: SwitcherMarket;
   markets: SwitcherMarket[];
   path: string;
   signedIn: boolean;
   theme: Theme;
-  /** The service status page, when one is set up (STATUS_PAGE_URL). */
-  statusUrl?: string;
-  /** The header's menu and the footer's links, from the website editor. */
+  status: FrameStatus;
+  /** The header's menus and the footer's links, from the website editor. */
   content: FrameContent;
+  features: FeatureContext;
+  /** Approved partner badges for the footer, and the announcement while it is up (Proof). */
+  proof: { badges: { id: number; badge: string; link: string | null }[]; announcement: { text: string; link: FrameLink | null } | null };
   children: React.ReactNode;
 }) {
   const base = `/${market.code}`;
-  const pay = market.paymentMethods.map((p) => PAYMENT_WORDS[p] ?? p);
+  const left = content.menus.filter((m) => !m.right);
+  const right = content.menus.filter((m) => m.right);
+  const drawn = Object.fromEntries(content.menus.map((m) => [m.id, <MenuFeature key={m.id} feature={m.feature} ctx={features} />]));
+  const account = signedIn ? { label: "Open console", href: "/app" } : { label: "Sign in", href: "/sign-in" };
+  const start = signedIn ? { label: "Open console", href: "/app" } : { label: "Get started", href: "/sign-up" };
+
   return (
-    <div className="flex min-h-dvh flex-col bg-surface-0 text-ink-body">
+    <div className="flex min-h-dvh flex-col bg-surface-1 text-ink-body">
       <a href="#main" className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:rounded-md focus:bg-surface-1 focus:px-4 focus:py-2 focus:text-ink">
         Skip to content
       </a>
-      <header className="sticky top-0 z-30 border-b border-border bg-surface-1/95 backdrop-blur">
-        <div className="page-container flex h-16 items-center gap-2 lg:h-20 lg:gap-6">
-          <Link href={base} className="flex shrink-0 items-center rounded-sm" aria-label={`${company.name} home`}>
-            {/* The full lockup at every width: 42 px tall is its 160 px minimum width (brand/BRAND.md). */}
-            <Logo height={42} className="lg:hidden" />
-            <Logo height={48} className="hidden lg:inline-flex" />
-          </Link>
-          <nav aria-label="Site" className="hidden flex-1 items-center gap-1 lg:flex">
-            {content.groups.length ? <ServicesMenu groups={content.groups} note={content.menuNote} more={content.menuLink} /> : null}
-            {content.pages.map((p) => (
-              <Link key={p.href} href={p.href} aria-current={p.href === `${base}${path}` ? "page" : undefined} className="rounded-md px-3 py-2 text-callout font-medium text-ink hover:bg-surface-2 aria-[current=page]:text-link">
-                {p.label}
+
+      {proof.announcement ? (
+        <div role="region" aria-label="Announcement" className="bg-navy text-callout text-on-navy">
+          <p className="page-container flex min-h-9 flex-wrap items-center justify-center gap-x-3 gap-y-1 py-2 text-center">
+            <span>{proof.announcement.text}</span>
+            {proof.announcement.link ? (
+              <Link href={proof.announcement.link.href} className="font-semibold underline underline-offset-2 hover:no-underline">
+                {proof.announcement.link.label}
               </Link>
-            ))}
-          </nav>
-          <div className="ml-auto flex items-center gap-2">
-            <div className="hidden lg:block">
-              <MarketSwitcher markets={markets} current={market} path={path} />
-            </div>
-            {signedIn ? (
-              <Button asChild size="md">
-                <Link href="/app">Open console</Link>
-              </Button>
-            ) : (
-              <>
-                <Button asChild variant="ghost" size="md" className="hidden lg:inline-flex">
-                  <Link href="/sign-in">Sign in</Link>
-                </Button>
-                <Button asChild size="md" className="hidden sm:inline-flex">
-                  <Link href="/sign-up">Get started</Link>
-                </Button>
-              </>
-            )}
-            <div className="lg:hidden">
-              <SiteMenu
-                groups={content.groups}
-                pages={[...phonePages(content), ...(signedIn ? [] : [{ label: "Sign in", href: "/sign-in" }])]}
+            ) : null}
+          </p>
+        </div>
+      ) : null}
+
+      {/* Top strip: live status, country and currency, sign in. Phones have these in the menu and footer. */}
+      <div className="hidden bg-surface-0 text-site-strip text-ink-muted md:block">
+        <div className="page-container flex h-8.5 items-center justify-between">
+          <a href={status.href} className="flex items-center gap-2 hover:text-ink">
+            <StatusDot state={status.state} />
+            {status.label}
+          </a>
+          <div className="flex items-center gap-6">
+            <MarketSwitcher markets={markets} current={market} path={path} variant="strip" />
+            <Link href={account.href} className="hover:text-ink">
+              {account.label}
+            </Link>
+          </div>
+        </div>
+      </div>
+
+      <header className="sticky top-0 z-30 border-b border-border bg-surface-1">
+        <div className="page-container flex h-16 items-center justify-between gap-4 lg:h-19">
+          <div className="flex items-center gap-14">
+            <Link href={base} className="flex shrink-0 items-center rounded-sm" aria-label={`${company.name} home`}>
+              <Logo height={38} className="lg:hidden" />
+              <Logo height={46} className="hidden lg:inline-flex" />
+            </Link>
+            <nav aria-label="Site" className="hidden items-center gap-6.5 xl:flex">
+              <MegaMenus menus={left} features={drawn} />
+              {content.links.map((l) => (
+                <Link key={l.href} href={l.href} aria-current={l.href === `${base}${path}` ? "page" : undefined} className="text-site-nav text-ink hover:text-link aria-[current=page]:text-link">
+                  {l.label}
+                </Link>
+              ))}
+            </nav>
+          </div>
+          <div className="flex items-center gap-2.5 xl:gap-5.5">
+            {right.length ? <MegaMenus menus={right} features={drawn} className="hidden xl:flex" /> : null}
+            <Link href={start.href} className={`${getStarted} h-9.5 px-3.5 text-caption xl:h-9 xl:px-4 xl:text-site-nav xl:font-normal`}>
+              {start.label}
+            </Link>
+            <div className="xl:hidden">
+              <PhoneMenu
+                menus={content.menus}
+                links={[...content.links, { label: "Service status", href: status.href }]}
                 footer={
                   <>
                     <MarketSwitcher markets={markets} current={market} path={path} align="start" up />
-                    {signedIn ? null : (
-                      <Button asChild size="lg" className="w-full">
-                        <Link href="/sign-up">Get started</Link>
-                      </Button>
-                    )}
+                    <Link href={account.href} className="flex min-h-11 items-center justify-center rounded-sm border border-border text-body font-semibold text-ink">
+                      {account.label}
+                    </Link>
                   </>
                 }
               />
@@ -110,66 +134,125 @@ export function SiteFrame({
       <main id="main" className="flex-1">
         {children}
       </main>
+      <footer className="bg-footer text-ink-on-dark">
+        <div className="page-container">
+          {content.newsletter ? (
+            <div className="grid items-center gap-6 border-b border-footer-line py-11 lg:grid-cols-[1.2fr_1fr] lg:gap-16 lg:py-14">
+              <div className="flex flex-col gap-2">
+                <h2 className="text-title-2 text-on-navy lg:text-title-1 lg:font-semibold">{content.newsletter.heading}</h2>
+                {content.newsletter.text ? <p className="text-callout text-footer-muted lg:text-body">{content.newsletter.text}</p> : null}
+              </div>
+              <NewsletterForm market={market.code} privacyHref={`${base}/legal/privacy`} />
+            </div>
+          ) : null}
 
-      <footer className="bg-navy text-ink-on-dark">
-        <div className="page-container grid gap-10 py-12 md:grid-cols-4">
-          <div className="flex flex-col gap-4">
-            <Link href={base} aria-label={`${company.name} home`} className="w-fit rounded-sm">
-              <img src="/brand/logo/fgt-logo-reverse.svg" alt="" width={184} height={48} />
-            </Link>
-            {content.tagline ? <p className="text-callout">{content.tagline}</p> : null}
-            <MarketSwitcher markets={markets} current={market} path={path} align="start" tone="navy" />
+          <div className="grid py-11 lg:grid-cols-[1.5fr_1fr_1fr_1fr_1fr] lg:gap-12 lg:pt-14 lg:pb-12">
+            <div className="mb-10 flex flex-col gap-4.5 text-callout lg:mb-0">
+              <Link href={base} aria-label={`${company.name} home`} className="w-fit rounded-sm">
+                <img src="/brand/logo/fgt-logo-reverse.svg" alt="" width={176} height={46} className="h-10 w-auto lg:h-11.5" />
+              </Link>
+              {content.tagline ? <p className="whitespace-pre-line text-footer-muted">{content.tagline}</p> : null}
+              <div className="flex flex-col gap-1.5">
+                {content.contact.address ? <address className="whitespace-pre-line not-italic">{content.contact.address}</address> : null}
+                {content.contact.phone ? (
+                  <a href={`tel:${content.contact.phone.replace(/\s/g, "")}`} className="w-fit hover:text-on-navy hover:underline">
+                    {content.contact.phone}
+                  </a>
+                ) : null}
+                <a href={`mailto:${content.contact.email}`} className="w-fit break-all hover:text-on-navy hover:underline">
+                  {content.contact.email}
+                </a>
+              </div>
+              {content.social.length ? (
+                <ul aria-label="Follow us" className="flex flex-wrap gap-2">
+                  {content.social.map((l) => (
+                    <li key={l.label}>
+                      <a
+                        href={l.href}
+                        rel="noopener noreferrer"
+                        target="_blank"
+                        className="inline-flex h-9 items-center rounded-sm border border-footer-field-line px-3 text-caption hover:text-on-navy"
+                      >
+                        {l.label}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </div>
+            {content.columns.map((c, i) => {
+              const links = (
+                <ul className="flex flex-col gap-3 text-callout">
+                  {c.links.map((l) => (
+                    <li key={l.href + l.label}>
+                      <Link href={l.href} className="text-footer-link hover:text-on-navy hover:underline">
+                        {l.label}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              );
+              return (
+                <nav key={i} aria-labelledby={`footer-${i + 1}`}>
+                  {/* Wide screens: open columns. Phones: one row each that opens, as designed. */}
+                  <div className="hidden flex-col gap-3 lg:flex">
+                    <h2 id={`footer-${i + 1}`} className="text-callout font-semibold text-on-navy">
+                      {c.heading}
+                    </h2>
+                    {links}
+                  </div>
+                  <details className="group border-t border-footer-line lg:hidden [nav:last-child>&]:border-b">
+                    <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between font-semibold text-on-navy [&::-webkit-details-marker]:hidden">
+                      {c.heading}
+                      <span aria-hidden>
+                        <span className="group-open:hidden">+</span>
+                        <span className="hidden group-open:inline">−</span>
+                      </span>
+                    </summary>
+                    <div className="pb-4">{links}</div>
+                  </details>
+                </nav>
+              );
+            })}
           </div>
-          {content.columns.map((c, i) => (
-            <nav key={i} aria-labelledby={`footer-${i + 1}`} className="flex flex-col gap-3">
-              <h2 id={`footer-${i + 1}`} className="text-callout font-semibold text-on-navy">
-                {c.heading}
-              </h2>
-              {c.links.map((l) => (
-                <Link key={l.href + l.label} href={l.href} className="text-callout hover:text-on-navy hover:underline">
-                  {l.label}
-                </Link>
-              ))}
-            </nav>
-          ))}
-          <div className="flex flex-col gap-3">
-            <h2 className="text-callout font-semibold text-on-navy">{content.contactHeading}</h2>
-            <a href={`mailto:${content.contact.email}`} className="text-callout break-all hover:text-on-navy hover:underline">
-              {content.contact.email}
-            </a>
-            {content.contact.phone ? (
-              <a href={`tel:${content.contact.phone.replace(/\s/g, "")}`} className="text-callout hover:text-on-navy hover:underline">
-                {content.contact.phone}
-              </a>
-            ) : null}
-            {content.contact.hours ? <p className="text-callout">{content.contact.hours}</p> : null}
-            {content.contact.address ? <address className="text-callout whitespace-pre-line not-italic">{content.contact.address}</address> : null}
-            {statusUrl ? (
-              <a href={statusUrl} className="inline-flex items-center gap-2 text-callout hover:text-on-navy hover:underline">
-                <Activity aria-hidden className="size-4" />
-                Service status
-              </a>
-            ) : null}
-            {pay.length ? <p className="text-callout">Pay by {pay.join(" or ")}.</p> : null}
-            {content.social.length ? (
-              <ul aria-label="Follow us" className="flex flex-wrap gap-x-4 gap-y-2">
-                {content.social.map((l) => (
-                  <li key={l.label}>
-                    <a href={l.href} rel="noopener noreferrer" target="_blank" className="text-callout font-medium text-on-navy hover:underline">
-                      {l.label}
+
+          {proof.badges.length ? (
+            <ul aria-label="Partners and accreditations" className="flex flex-wrap gap-2.5 pb-8">
+              {proof.badges.map((b) => (
+                <li key={b.id}>
+                  {b.link ? (
+                    <a href={b.link} rel="noopener" className="inline-flex rounded-sm border border-footer-line px-3 py-1.5 text-caption font-medium text-footer-muted hover:text-on-navy">
+                      {b.badge}
                     </a>
-                  </li>
-                ))}
-              </ul>
-            ) : null}
-          </div>
-        </div>
-        <div className="border-t border-on-navy/10">
-          <div className="page-container flex flex-wrap items-center justify-between gap-4 py-6">
-            <p className="text-caption">
-              © {new Date().getFullYear()} {company.legalName}
+                  ) : (
+                    <span className="inline-flex rounded-sm border border-footer-line px-3 py-1.5 text-caption font-medium text-footer-muted">{b.badge}</span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          ) : null}
+
+          <div className="flex flex-col gap-3 border-t border-footer-line py-5.5 text-caption text-footer-muted lg:flex-row lg:items-center lg:justify-between lg:text-callout">
+            <p>
+              © {new Date().getFullYear()} {company.legalName} · Registration {company.registrationNumber}
             </p>
-            <ThemeSwitch current={theme} tone="navy" />
+            <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+              <Link href={`${base}/legal/privacy`} className="hover:text-on-navy">
+                Privacy
+              </Link>
+              <Link href={`${base}/legal/terms`} className="hover:text-on-navy">
+                Terms
+              </Link>
+              <Link href={`${base}/legal/refunds`} className="hover:text-on-navy">
+                Refunds
+              </Link>
+              <a href={status.href} className="inline-flex items-center gap-1.5 hover:text-on-navy">
+                <StatusDot state={status.state} className={status.state === "normal" ? "bg-footer-ok" : undefined} />
+                {status.label}
+              </a>
+              <MarketSwitcher markets={markets} current={market} path={path} variant="strip" tone="navy" />
+              <ThemeSwitch current={theme} tone="navy" />
+            </div>
           </div>
         </div>
       </footer>

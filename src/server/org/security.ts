@@ -21,8 +21,9 @@ export async function signInHistory(db: PrismaClient, tenant: TenantDb, actor: A
 }
 
 export async function twoStepCoverage(tenant: TenantDb) {
-  const members = await tenant.membership.findMany({ where: { active: true }, include: { user: { select: { totpEnabled: true } } } });
-  return { total: members.length, on: members.filter((m) => m.user.totpEnabled).length };
+  const members = await tenant.membership.findMany({ where: { active: true }, include: { user: { select: { totpEnabled: true, _count: { select: { passkeys: true } } } } } });
+  // A passkey is a second step too.
+  return { total: members.length, on: members.filter((m) => m.user.totpEnabled || m.user._count.passkeys > 0).length };
 }
 
 export async function auditLog(tenant: TenantDb, opts: { take?: number; before?: Date } = {}) {

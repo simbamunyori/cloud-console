@@ -16,7 +16,9 @@ export type SecretName =
   | "WHMCS_API_IDENTIFIER"
   | "WHMCS_API_SECRET"
   | "WHMCS_ACCESS_KEY"
-  | "WHMCS_SYNC_SECRET";
+  | "WHMCS_SYNC_SECRET"
+  | "MICROSOFT_CLIENT_SECRET"
+  | "GOOGLE_CLIENT_SECRET";
 
 export interface SecretSource {
   get(name: SecretName): string | undefined;

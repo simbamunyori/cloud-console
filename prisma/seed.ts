@@ -7,6 +7,7 @@
  * It refuses to run in production unless SEED_DEMO=yes, because the demo
  * accounts have a published password.
  */
+import { createHash, randomBytes } from "node:crypto";
 import { type Prisma, PrismaClient } from "@prisma/client";
 import { addDays, addMonths, startOfMonth, todayIn } from "../src/lib/dates";
 import { money } from "../src/lib/domain/money";
@@ -25,6 +26,7 @@ import { openTicket } from "../src/server/support/tickets";
 import { addSaving } from "../src/server/spend/tips";
 import { importUsage, linkSubscription } from "../src/server/spend/usage";
 import { requestQuote, saveQuote, sendQuote } from "../src/server/quotes/quotes";
+import { createLead } from "../src/server/sales/leads";
 import { syncStubTaxRules } from "../src/server/markets/tax-sync";
 
 const db = new PrismaClient();
@@ -65,6 +67,8 @@ async function main() {
   const thisMonth = startOfMonth(todayIn(DEFAULT_TIME_ZONE));
   await seedCatalogue(db, products, [-1, 0, 1].map((m) => addMonths(thisMonth, m).toISOString().slice(0, 7)));
   console.log("Marketplace catalogue loaded, with placeholder margins, buffer, exchange rates and price books.");
+  // The launch catalogue keeps plans internal until staff price them; the demo shows them live with demo prices.
+  await db.product.updateMany({ where: { categoryKey: "plans", status: "INTERNAL" }, data: { status: "LIVE" } });
 
   const passwordHash = await hashPassword(DEMO_PASSWORD);
   // One staff account per role, so each part of /admin can be tried.
@@ -76,6 +80,31 @@ async function main() {
   ];
   for (const s of staffAccounts) {
     await db.user.upsert({ where: { email: s.email }, update: {}, create: { ...s, kind: "STAFF", passwordHash } });
+  }
+
+  // A launch kit (Milestone 7) a Publisher has approved, so the demo has a product page to show.
+  const kitProduct = await db.product.findUnique({ where: { slug: "microsoft-365-business-standard" } });
+  if (kitProduct?.status === "LIVE" && !(await db.launchKit.findUnique({ where: { productId: kitProduct.id } }))) {
+    const admin = await db.user.findUniqueOrThrow({ where: { email: "staff@example.co.bw" } });
+    await db.launchKit.create({
+      data: {
+        productId: kitProduct.id,
+        campaign: "launch-microsoft-365-business-standard",
+        audience: "Teams of 2 to 300 people who want email on their own name and the Office desktop apps, without running their own servers.",
+        faq: [
+          { question: "Can we keep our existing email address?", answer: "Yes. We move your mail across to Microsoft 365 on your own domain, with nothing lost." },
+          { question: "How many computers can each person use?", answer: "Each person can install the Office desktop apps on up to 5 computers." },
+          { question: "Can we add people later?", answer: "Yes. Add or remove people from your console, and the next invoice follows." },
+        ],
+        linkedinText: "Microsoft 365 Business Standard is now available from Fourth Generation Technologies: email on your own name, the Office desktop apps and Teams, set up and looked after by our team.",
+        draftedAt: new Date(),
+        pageApprovedAt: new Date(),
+        pageApprovedById: admin.id,
+        linkedinApprovedAt: new Date(),
+        linkedinApprovedById: admin.id,
+      },
+    });
+    console.log("Demo launch kit: Microsoft 365 Business Standard, approved.");
   }
 
   if (await db.membership.findFirst({ where: { user: { email: "demo@kgalehill.co.bw" } } })) {
@@ -287,6 +316,31 @@ async function main() {
     ],
   });
   await sendQuote({ db, staff: staffActor }, asked.reference);
+
+  // A lead from Thapelo, the website's assistant, with its conversation.
+  const chatToken = randomBytes(24).toString("base64url");
+  await db.salesChat.create({
+    data: {
+      tokenHash: createHash("sha256").update(chatToken).digest("hex"),
+      market: "bw",
+      startedOn: "/bw",
+      purgeAfter: addDays(today, 90),
+      messages: {
+        create: [
+          { role: "USER", text: "We're a logistics company with 8 staff. What do you suggest for email?" },
+          { role: "ASSISTANT", text: "Grow fits best: Microsoft 365 for 8 users, branded signatures and daily backup. Would you like to talk to someone about moving your email?", toolTrace: [{ tool: "list_products", input: {} }] },
+          { role: "USER", text: "Yes please, someone should call me." },
+          { role: "ASSISTANT", text: "You can leave your details in the form below and someone from our team will contact you.", toolTrace: [{ tool: "offer_contact", input: { reason: "person", summary: "8 staff, wants Microsoft 365 and help moving email" } }] },
+        ],
+      },
+    },
+  });
+  await createLead(
+    db,
+    { code: "bw", supportEmail: "support@example.co.bw" },
+    { name: "Kagiso Molefe", email: "kagiso@kgalelogistics.example", phone: "+267 71 000 000", company: "Kgale Logistics", need: "8 staff, wants Microsoft 365 and help moving email", consent: true, reason: "person" },
+    { token: chatToken, ipAddress: null },
+  );
 
   const invoices = await stub.listInvoices(clientId);
   console.log(`Demo organisation: Kgale Hill Logistics, ${invoices.length} invoices from ${start.toISOString().slice(0, 10)}.`);

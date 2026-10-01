@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  Activity,
   Boxes,
   ChartColumn,
   Globe,
@@ -13,7 +14,10 @@ import {
   LayoutDashboard,
   Package,
   Percent,
+  Rocket,
   LifeBuoy,
+  Mail,
+  MessagesSquare,
   ReceiptText,
   Server,
   ShieldCheck,
@@ -50,8 +54,12 @@ const ICONS = {
   markets: Globe,
   waitlist: Hourglass,
   quotes: FileText,
+  leads: MessagesSquare,
+  launch: Rocket,
+  newsletter: Mail,
   website: SquarePen,
   staff: UserCog,
+  status: Activity,
 };
 
 export interface NavItem {

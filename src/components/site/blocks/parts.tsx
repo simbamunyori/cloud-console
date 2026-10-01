@@ -1,3 +1,4 @@
+import { ArrowRight } from "lucide-react";
 import Link from "next/link";
 import type { Media } from "@/cms/payload-types";
 import { Button } from "@/components/ui/button";
@@ -10,9 +11,11 @@ import { linkHref, type CmsLinkValue } from "../links";
 
 /** What every block knows about the page it is on. */
 export interface BlockContext {
-  market: HomeMarket & { dataProtectionLaw?: string | null };
+  market: HomeMarket & { dataProtectionLaw?: string | null; thebeUrl?: string | null };
   /** Unique per block on the page, for headings' ids. */
   id: string;
+  /** A name to search for straight away, from the menu's domain search (?domain=). */
+  domain?: string;
 }
 
 export type Tone = "plain" | "light" | "dark";
@@ -64,17 +67,23 @@ export function CmsButton({ link, market, variant }: { link: CmsLinkValue | null
   );
 }
 
-export function CmsTextLink({ link, market, className }: { link: CmsLinkValue | null | undefined; market: HomeMarket; className?: string }) {
+export function CmsTextLink({ link, market, className, arrow = false }: { link: CmsLinkValue | null | undefined; market: HomeMarket & { thebeUrl?: string | null }; className?: string; arrow?: boolean }) {
   const href = linkHref(link, market);
   if (!href) return null;
-  const cls = cn("text-callout font-semibold text-link hover:underline", className);
-  return href.startsWith("mailto:") ? (
-    <a href={href} className={cls}>
+  const cls = cn("text-callout font-semibold text-link hover:underline", arrow && "inline-flex items-center gap-1", className);
+  const inner = (
+    <>
       {link!.label}
+      {arrow ? <ArrowRight aria-hidden className="size-4 shrink-0" /> : null}
+    </>
+  );
+  return href.startsWith("mailto:") || /^https?:/.test(href) ? (
+    <a href={href} className={cls}>
+      {inner}
     </a>
   ) : (
     <Link href={href} className={cls}>
-      {link!.label}
+      {inner}
     </Link>
   );
 }

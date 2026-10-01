@@ -14,7 +14,7 @@ test("a quote goes from the website to an order", async ({ page, baseURL, browse
   try {
     const email = `e2e-${Date.now().toString(36)}@example.co.bw`;
     await page.goto("/bw/quote");
-    await page.getByLabel("Your name").fill("Mothusi Tau");
+    await page.getByLabel("Your name", { exact: true }).fill("Mothusi Tau");
     await page.getByLabel("Company (optional)").fill("Tau Farms");
     await page.getByLabel("Work email").fill(email);
     await page.getByLabel("Phone").fill("+267 72 000 000");
@@ -77,7 +77,7 @@ test("a quote goes from the website to an order", async ({ page, baseURL, browse
 test("the hidden field turns bots away without saving anything", async ({ page }) => {
   const email = `bot-${Date.now().toString(36)}@example.co.bw`;
   await page.goto("/bw/quote");
-  await page.getByLabel("Your name").fill("Bot");
+  await page.getByLabel("Your name", { exact: true }).fill("Bot");
   await page.getByLabel("Work email").fill(email);
   await page.getByLabel("Phone").fill("+267 72 000 000");
   await page.getByLabel("Country", { exact: true }).selectOption("BW");

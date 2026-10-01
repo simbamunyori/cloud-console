@@ -16,4 +16,5 @@ grep -q "Refusing to start in production" "$LOG" || fail "no refusal message"
 grep -q "support email is support@localhost" "$LOG" || fail "support@localhost not named"
 grep -q "bank details are the demo ones" "$LOG" || fail "demo bank details not named"
 grep -Eq "exchange rates? (is a demo value|are demo values)" "$LOG" || fail "demo exchange rates not named"
+if [ "${SALES_ASSISTANT_DEMO:-}" = "yes" ]; then grep -q "SALES_ASSISTANT_DEMO is yes" "$LOG" || fail "Thapelo's demo answers not named"; fi
 echo "OK: production start-up refused (exit $code) and named every placeholder."

@@ -146,15 +146,22 @@ the UI and never sent to the assistant.
 | `WHMCS_SYNC_SECRET` | For the price sync, secret | Shared with the sync addon in WHMCS |
 | `WHMCS_SYNC_URL` | No | The sync addon's address, if not beside `WHMCS_API_URL` |
 | `PAYMENT_ADAPTER` | No | `stub` only, until the card gateway is chosen |
-| `ANTHROPIC_API_KEY` | Optional, secret | Switches the support assistant on. Without it, the assistant page offers a ticket instead |
+| `ANTHROPIC_API_KEY` | Optional, secret | Switches the support assistant and Thapelo, the website assistant, on, and writes launch kit drafts. Without it, the assistant page offers a ticket instead, Thapelo stays hidden and launch kits get plain drafts from the catalogue |
 | `ANTHROPIC_MODEL` | No | Model the assistant uses (default `claude-sonnet-5`) |
+| `SALES_ASSISTANT_DEMO` | Demo and CI only | `yes` gives Thapelo, the website assistant, scripted answers. Refused in production |
 | `GEO_COUNTRY_HEADER` | No | Header the CDN puts the visitor's country in (default `cf-ipcountry`, Cloudflare's) |
 | `GEOLITE2_DB_PATH` | No | Path to a MaxMind GeoLite2 Country `.mmdb` file, for country detection without a CDN header |
 | `ADMIN_IP_ALLOWLIST` | Recommended in production | Comma-separated addresses or IPv4 ranges (CIDR) allowed to open `/admin`. Empty allows any address |
+| `MICROSOFT_CLIENT_ID`, `MICROSOFT_CLIENT_SECRET` | Recommended, secret | Sign in with Microsoft (docs/sign-in-setup.md). The button hides while either is unset |
+| `MICROSOFT_STAFF_TENANT_ID` | Recommended | Our Microsoft 365 tenant. Staff sign in with Microsoft only from it; unset keeps staff on passwords |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Recommended, secret | Sign in with Google, for customers (docs/sign-in-setup.md) |
+| `STAFF_PASSWORD_SIGN_IN` | No | `yes` keeps staff passwords working after Microsoft sign-in is set up, as a way in if Microsoft is down |
 | `CONSOLE_JOBS` | No | `off` stops background jobs on this server, for extra app servers |
 | `POSTGRES_PASSWORD`, `DOMAIN` | Production compose | Database password, and the domain Caddy gets a certificate for |
 | `SEED_DEMO` | No | `yes` lets the seed run in production. Don't |
-| `STATUS_PAGE_URL` | Recommended | The service status page linked from the site footer. The link is hidden while unset |
+| `STATUS_PAGE_URL` | No | An outside service status page. While unset, the site's status links go to its own `/status` page, which staff run at `/admin/status` |
+| `THEBE_TRY_URL`, `THEBE_URL`, `THEBE_DEMO_URL` | Recommended | Thebe's trial page, website and demo booking page, for the home page's Thebe section and the Expense management menu. Each button hides while its address is unset, and the menu's links need `THEBE_URL` |
+| `NSMC_URL` | Recommended | NSMC's website, for the on-site IT line in the home page's team section. The line hides while unset |
 | `SUPPORT_EMAIL` | Production set-up | Filled into every market still on the development support address when a release starts |
 | `OFFSITE_S3_ENDPOINT`, `OFFSITE_S3_BUCKET`, `OFFSITE_S3_ACCESS_KEY_ID`, `OFFSITE_S3_SECRET_ACCESS_KEY`, `OFFSITE_S3_PROVIDER` | Production | Where the nightly backups are copied off the server (Cloudflare R2 or any S3-compatible storage) |
 | `ALLOW_PLACEHOLDERS` | Demo servers only | In production the server refuses to start while a development placeholder is set: no real `SMTP_URL`, a `support@localhost` market email, the demo bank details, seeded exchange rates, the demo accounts, or a localhost `APP_URL` or `MAIL_FROM`. It lists each one and where to fix it. `yes` starts anyway with a warning, for demo and CI servers. CI proves the refusal on every run with `scripts/check-placeholder-refusal.sh` |
@@ -305,6 +312,33 @@ contact details (email, phone, hours, address, WhatsApp) fall back to the
 market's settings in the staff console when left empty; its LinkedIn and
 Facebook links show only when set. The header, footer and insights can be
 scheduled like pages.
+
+The Insights page (/<market>/insights, with topic chips) lists every
+published insight. It isn't in the main navigation: the home page strip,
+the footer and the Support menu link to it, and those links hide
+themselves while nothing is published.
+
+### Launch kits and the newsletter
+
+When a product is saved as live, it gets a launch kit (/admin/launch-kits,
+for website Editors and Publishers). A background job
+(`launch-kit-drafts`) writes first drafts with the AI service: who the
+product is for, questions and answers, an insight draft in the editor
+and a LinkedIn post. Without `ANTHROPIC_API_KEY` it writes plain drafts
+from the catalogue and says so. Nothing goes out until a Publisher
+approves it: the product page at /<market>/products/<slug> (catalogue
+words, the price book's price, the approved words, and Order or Ask for
+a quote), the insight by publishing it in the editor, and the LinkedIn
+post before its Copy button appears. The kit also has a branded share
+image (/api/share/<slug>, 1200 by 627) and tracked links for LinkedIn,
+Facebook, Google, the newsletter and email signatures, with the visits,
+leads, quote requests, sign-ups and orders each campaign brought.
+
+On the 1st, `newsletter-prepare` drafts each market's issue from the
+insights published there the month before (/admin/newsletter). A
+Publisher checks it and sends it to confirmed subscribers; every copy has
+tracked links and one-click unsubscribe (`List-Unsubscribe` and
+`/api/newsletter/unsubscribe/<token>`).
 
 Uploaded images go to `MEDIA_DIR` (a volume in `docker-compose.prod.yml`)
 and are served at /media. Storage sits behind `src/cms/storage`, so object

@@ -17,27 +17,18 @@ import { domainQuickPicks, withDataCentre } from "@/config/site";
 import { cn } from "@/lib/cn";
 import { formatMoney } from "@/lib/domain/money";
 import { selection } from "@/server/cms/catalogue-options";
+import { helpCentreOpen } from "@/server/site/cms";
+import { permittedClientLogos, permittedTestimonials } from "@/server/site/proof";
 import { lowestPrice, selected, siteMarket, sitePrices, taxNote } from "@/server/site/site";
 import { CATCH_ALL } from "@/lib/domain/markets";
+import { env } from "@/server/env";
 import { DomainSearch, type HomeMarket } from "../home";
 import { SiteHero } from "../hero";
 import { InsightsStripSection } from "../insights";
 import { AssistantNotice as AssistantNoticeText, PageIntro as PageIntroHeader, ProseSection } from "../prose";
 import { fill, SiteRichText, type TextMarket } from "../rich-text";
-import {
-  BlockIcon,
-  captionFor,
-  cardSurface,
-  CmsButton,
-  CmsTextLink,
-  Heading,
-  hasPicture,
-  MediaImage,
-  PictureBody,
-  Section,
-  type BlockContext,
-  type PictureValue,
-} from "./parts";
+import { BlockIcon, captionFor, cardSurface, CmsButton, CmsTextLink, Heading, hasPicture, MediaImage, PictureBody, Section, type BlockContext, type PictureValue } from "./parts";
+import { ClosingBanner, CompareTable, DomainStoreSection, EmailShowcase, HomeHero, NumberedServices, PlansTable, ProofStripSection, SecurityPanel, TeamSection, ThebeSection, WebsitesShowcase } from "./home";
 
 /**
  * Draws a page's sections from the website editor, with the brand's own
@@ -114,7 +105,13 @@ async function ServicesGrid({ block: b, ctx }: { block: ServicesGridBlock; ctx: 
         {(b.cards ?? []).map((card) => {
           const from = lowestPrice(prices, selection(card.products));
           return (
-            <li key={card.id ?? card.title} className={cn("flex flex-col gap-3 rounded-lg border border-border p-6 transition-shadow duration-fast hover:shadow-elevation-2 xl:p-8", b.tone === "plain" ? "bg-surface-1" : "bg-surface-0")}>
+            <li
+              key={card.id ?? card.title}
+              className={cn(
+                "flex flex-col gap-3 rounded-lg border border-border p-6 transition-shadow duration-fast hover:shadow-elevation-2 xl:p-8",
+                b.tone === "plain" ? "bg-surface-1" : "bg-surface-0",
+              )}
+            >
               <BlockIcon name={card.icon} className="size-6 text-link" />
               <h3 className="text-headline text-ink">{card.title}</h3>
               <div className="flex flex-1 flex-col gap-2 text-callout text-ink-muted">
@@ -177,7 +174,13 @@ async function Pricing({ block: b, ctx }: { block: PricingBlock; ctx: BlockConte
 function TextSection({ block: b, ctx }: { block: TextBlock; ctx: BlockContext }) {
   return (
     <Section tone={b.tone} labelledBy={`${ctx.id}-title`}>
-      {b.heading ? <Heading id={`${ctx.id}-title`} tone={b.tone} heading={b.heading} /> : <span id={`${ctx.id}-title`} className="sr-only">Text</span>}
+      {b.heading ? (
+        <Heading id={`${ctx.id}-title`} tone={b.tone} heading={b.heading} />
+      ) : (
+        <span id={`${ctx.id}-title`} className="sr-only">
+          Text
+        </span>
+      )}
       <div className={b.heading ? "mt-6" : undefined}>
         <SiteRichText data={b.body} market={ctx.market} style={b.tone === "dark" ? "block-dark" : "block"} />
       </div>
@@ -260,39 +263,93 @@ function ImageText({ block: b, ctx }: { block: ImageTextBlock; ctx: BlockContext
   );
 }
 
-function Faq({ block: b, ctx }: { block: FaqBlock; ctx: BlockContext }) {
+/** Questions beside their heading, as designed: every answer shown on wide screens, a shorter list that opens on phones. */
+async function Faq({ block: b, ctx }: { block: FaqBlock; ctx: BlockContext }) {
+  const items = b.items ?? [];
+  // A link to the help centre waits until it has articles.
+  const toHelp = b.more?.to !== "email" && b.more?.to !== "thebe" && /^\/help(\/|$|#)/.test(b.more?.path ?? "");
+  const more = toHelp && !(await helpCentreOpen(ctx.market.code)) ? null : b.more;
+  const panel = b.tone === "light" || b.tone === "dark";
+  const link = <CmsTextLink link={more} market={ctx.market} arrow className="w-fit text-body" />;
   return (
-    <Section tone={b.tone} labelledBy={`${ctx.id}-title`}>
-      <Heading id={`${ctx.id}-title`} tone={b.tone} kicker={b.kicker} heading={b.heading} intro={b.intro} />
-      <div className="mt-10 flex max-w-3xl flex-col divide-y divide-border rounded-lg border border-border">
-        {(b.items ?? []).map((q) => (
-          <details key={q.id ?? q.question} className={cn("group p-5", cardSurface(b.tone))}>
-            <summary className="cursor-pointer text-headline text-ink">{q.question}</summary>
-            <div className="mt-3">
-              <SiteRichText data={q.answer} market={ctx.market} style="block" />
+    <section aria-labelledby={`${ctx.id}-title`} className={cn("defer-render border-t border-border", panel && "bg-surface-0")}>
+      <div className="page-container grid gap-6 py-16 lg:grid-cols-[1fr_1.4fr] lg:gap-18 lg:py-30">
+        <div className="flex flex-col gap-4">
+          {b.kicker ? <p className="text-caption font-semibold tracking-widest text-link uppercase lg:text-site-kicker">{b.kicker}</p> : null}
+          <h2 id={`${ctx.id}-title`} className="text-site-h2-sm text-ink lg:text-display-lg">
+            {b.headingPhone ? (
+              <>
+                <span className="hidden lg:inline">{b.heading}</span>
+                <span className="lg:hidden">{b.headingPhone}</span>
+              </>
+            ) : (
+              b.heading
+            )}
+          </h2>
+          {b.intro ? <p className="hidden text-body text-ink-muted lg:block">{b.intro}</p> : null}
+          <div className="hidden lg:block">{link}</div>
+        </div>
+        <dl className="hidden border-t border-site-frame lg:block">
+          {items.map((q) => (
+            <div key={q.id ?? q.question} className="border-b border-site-frame py-5">
+              <dt className="flex justify-between gap-4 text-headline text-ink">
+                {q.question}
+                <span aria-hidden className="text-link">
+                  +
+                </span>
+              </dt>
+              <dd className="mt-2">
+                <SiteRichText data={q.answer} market={ctx.market} style="block" />
+              </dd>
             </div>
-          </details>
-        ))}
+          ))}
+        </dl>
+        <div className="border-t border-site-frame lg:hidden">
+          {items
+            .filter((q) => q.showOnPhone !== false)
+            .map((q) => (
+              <details key={q.id ?? q.question} className="group border-b border-site-frame">
+                <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-4 py-4.5 text-body font-semibold text-ink [&::-webkit-details-marker]:hidden">
+                  {q.question}
+                  <span aria-hidden className="text-link">
+                    <span className="group-open:hidden">+</span>
+                    <span className="hidden group-open:inline">−</span>
+                  </span>
+                </summary>
+                <div className="pb-4.5">
+                  <SiteRichText data={q.answer} market={ctx.market} style="block" />
+                </div>
+              </details>
+            ))}
+        </div>
+        <div className="lg:hidden">{link}</div>
       </div>
-    </Section>
+    </section>
   );
 }
 
-function Testimonials({ block: b, ctx }: { block: TestimonialsBlock; ctx: BlockContext }) {
-  if (!b.items?.length) return null;
+/** Quotes from Testimonials and case studies, those with permission. Hidden while there are none. */
+async function Testimonials({ block: b, ctx }: { block: TestimonialsBlock; ctx: BlockContext }) {
+  const items = await permittedTestimonials(ctx.market.code);
+  if (!items.length) return null;
   return (
     <Section tone={b.tone} labelledBy={`${ctx.id}-title`}>
       <h2 id={`${ctx.id}-title`} className={b.heading ? cn("mb-10 text-title-1 sm:text-display", b.tone === "dark" ? "text-on-navy" : "text-ink") : "sr-only"}>
         {b.heading || "What customers say"}
       </h2>
       <ul className="grid gap-4 md:grid-cols-2">
-        {b.items.map((t) => (
-          <li key={t.id ?? t.name} className={cn("rounded-lg border border-border p-6", cardSurface(b.tone))}>
+        {items.map((t) => (
+          <li key={t.id} className={cn("flex flex-col gap-3 rounded-lg border border-border p-6", cardSurface(b.tone))}>
+            {t.result ? <p className="text-callout font-semibold text-link">{t.result}</p> : null}
             <blockquote className="text-body text-ink">{t.quote}</blockquote>
-            <p className="mt-3 text-callout text-ink-muted">
-              {t.name}
-              {t.role ? `, ${t.role}` : ""}
-            </p>
+            <div className="mt-auto flex items-center justify-between gap-4">
+              <p className="text-callout text-ink-muted">{[t.name, t.role, t.company].filter(Boolean).join(", ")}</p>
+              {t.logo ? (
+                <div className="h-8 w-24 shrink-0">
+                  <MediaImage media={t.logo} sizes="96px" className="h-8 w-auto object-contain" />
+                </div>
+              ) : null}
+            </div>
           </li>
         ))}
       </ul>
@@ -300,17 +357,26 @@ function Testimonials({ block: b, ctx }: { block: TestimonialsBlock; ctx: BlockC
   );
 }
 
-function LogoStrip({ block: b, ctx }: { block: LogoStripBlock; ctx: BlockContext }) {
+/** Client logos, those with permission. Hidden while there are none. */
+async function LogoStrip({ block: b, ctx }: { block: LogoStripBlock; ctx: BlockContext }) {
+  const logos = await permittedClientLogos(ctx.market.code);
+  if (!logos.length) return null;
   return (
     <Section tone={b.tone} labelledBy={`${ctx.id}-title`}>
       <h2 id={`${ctx.id}-title`} className={b.heading ? cn("text-headline", b.tone === "dark" ? "text-on-navy" : "text-ink-muted") : "sr-only"}>
-        {b.heading || "Organisations we work with"}
+        {b.heading || "Businesses we look after"}
       </h2>
       <ul className="mt-6 flex flex-wrap items-center gap-x-10 gap-y-6">
-        {(b.logos ?? []).map((l) => (
-          <li key={l.id ?? l.name} className="h-10 w-32">
-            <MediaImage media={l.image} sizes="128px" className="h-10 w-auto object-contain" />
-            <span className="sr-only">{l.name}</span>
+        {logos.map((l) => (
+          <li key={l.id} className="flex h-10 items-center">
+            {l.logo && typeof l.logo === "object" ? (
+              <>
+                <MediaImage media={l.logo} sizes="128px" className="h-10 w-auto object-contain" />
+                <span className="sr-only">{l.company}</span>
+              </>
+            ) : (
+              <span className={cn("text-headline font-bold", b.tone === "dark" ? "text-on-navy" : "text-ink-muted")}>{l.company}</span>
+            )}
           </li>
         ))}
       </ul>
@@ -348,7 +414,10 @@ function fillDeep<T>(value: T, m: TextMarket): T {
   return value;
 }
 
-export type SiteMarket = HomeMarket & { dataProtectionLaw: string | null; taxEnabled?: boolean };
+export type SiteMarket = HomeMarket & {
+  dataProtectionLaw: string | null;
+  taxEnabled?: boolean;
+};
 
 async function PageIntro({ block: b, ctx }: { block: PageIntroBlock; ctx: BlockContext }) {
   const tax = b.showTaxNote ? taxNote(await siteMarket(ctx.market.code)) : null;
@@ -368,6 +437,28 @@ function assistantCountry(market: HomeMarket) {
 
 function Block({ block, ctx }: { block: AnyBlock; ctx: BlockContext }) {
   switch (block.blockType) {
+    case "homeHero":
+      return <HomeHero block={block} ctx={ctx} />;
+    case "domainStore":
+      return <DomainStoreSection block={block} ctx={ctx} />;
+    case "numberedServices":
+      return <NumberedServices block={block} ctx={ctx} />;
+    case "emailShowcase":
+      return <EmailShowcase block={block} ctx={ctx} />;
+    case "websitesShowcase":
+      return <WebsitesShowcase block={block} ctx={ctx} />;
+    case "securityPanel":
+      return <SecurityPanel block={block} ctx={ctx} />;
+    case "thebeSection":
+      return <ThebeSection block={block} ctx={ctx} />;
+    case "plansTable":
+      return <PlansTable block={block} ctx={ctx} />;
+    case "compareTable":
+      return <CompareTable block={block} ctx={ctx} />;
+    case "teamSection":
+      return <TeamSection block={block} ctx={ctx} />;
+    case "closingBanner":
+      return <ClosingBanner block={block} ctx={ctx} />;
     case "pageIntro":
       return (
         <div className="page-container pt-12 lg:pt-16">
@@ -392,6 +483,8 @@ function Block({ block, ctx }: { block: AnyBlock; ctx: BlockContext }) {
       return <Faq block={block} ctx={ctx} />;
     case "testimonials":
       return <Testimonials block={block} ctx={ctx} />;
+    case "proofStrip":
+      return <ProofStripSection block={block} ctx={ctx} />;
     case "logoStrip":
       return <LogoStrip block={block} ctx={ctx} />;
     case "callToAction":
@@ -442,7 +535,9 @@ function DocumentBlock({ block, ctx }: { block: AnyBlock; ctx: BlockContext }) {
   }
 }
 
-export function RenderBlocks({ blocks, market, style }: { blocks: Page["layout"]; market: SiteMarket; style?: Page["style"] }) {
+export function RenderBlocks({ blocks, market: m, style, domain }: { blocks: Page["layout"]; market: SiteMarket; style?: Page["style"]; domain?: string }) {
+  // Links to Thebe go to THEBE_URL, and hide while it is unset.
+  const market = { ...m, thebeUrl: env().THEBE_URL ?? null };
   const filled = fillDeep(blocks ?? [], market);
   if (style === "document") {
     return (
@@ -456,7 +551,7 @@ export function RenderBlocks({ blocks, market, style }: { blocks: Page["layout"]
   return (
     <>
       {filled.map((block, i) => (
-        <Block key={block.id ?? i} block={block} ctx={{ market, id: `s${i + 1}` }} />
+        <Block key={block.id ?? i} block={block} ctx={{ market, id: `s${i + 1}`, domain }} />
       ))}
     </>
   );

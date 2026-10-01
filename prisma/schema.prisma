@@ -202,7 +202,8 @@ model User {
   /// Stored lower-cased.
   email           String       @unique
   name            String
-  /// scrypt hash; see src/server/auth/password.ts.
+  /// scrypt hash; see src/server/auth/password.ts. Empty for someone who
+  /// signed up with Microsoft or Google and has no password.
   passwordHash    String
   emailVerifiedAt DateTime?
   /// AES-256-GCM encrypted TOTP secret; null until the authenticator is set up.
@@ -224,6 +225,8 @@ model User {
 
   memberships     Membership[]
   sessions        Session[]
+  identities      ExternalIdentity[]
+  passkeys        Passkey[]
   recoveryCodes   RecoveryCode[]
   passwordResets  PasswordReset[]
   signInEvents    SignInEvent[]
@@ -275,9 +278,56 @@ model Session {
   expiresAt            DateTime
   lastSeenAt           DateTime     @default(now())
   revokedAt            DateTime?
+  /// When this session last passed a passkey or authenticator check. Paying,
+  /// managing people and changing security settings need one in the last 15 minutes.
+  stepUpAt             DateTime?
   ipAddress            String?
   userAgent            String?
   createdAt            DateTime     @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+enum IdentityProvider {
+  MICROSOFT
+  GOOGLE
+}
+
+/// A Microsoft or Google account someone signs in with. Linked by verified
+/// email only after they confirm with their current sign-in.
+model ExternalIdentity {
+  id         String           @id @default(cuid())
+  userId     String
+  provider   IdentityProvider
+  /// The provider's stable id for the account: Microsoft's tenant and object
+  /// id ("tid:oid"), Google's "sub".
+  subject    String
+  email      String
+  createdAt  DateTime         @default(now())
+  lastUsedAt DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, subject])
+  @@unique([userId, provider])
+}
+
+/// A passkey (WebAuthn credential): fingerprint, face or device PIN.
+model Passkey {
+  id           String    @id @default(cuid())
+  userId       String
+  /// base64url credential id, as the browser reports it.
+  credentialId String    @unique
+  publicKey    Bytes
+  counter      Int       @default(0)
+  transports   String[]
+  /// Synced across the person's devices (e.g. iCloud Keychain, Google Password Manager).
+  backedUp     Boolean   @default(false)
+  name         String
+  createdAt    DateTime  @default(now())
+  lastUsedAt   DateTime?
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -622,9 +672,10 @@ model Product {
   createdAt          DateTime        @default(now())
   updatedAt          DateTime        @updatedAt
 
-  category ProductCategory @relation(fields: [categoryKey], references: [key], onDelete: Restrict)
-  orders   Order[]
-  quotes   Quote[]
+  category  ProductCategory @relation(fields: [categoryKey], references: [key], onDelete: Restrict)
+  orders    Order[]
+  quotes    Quote[]
+  launchKit LaunchKit?
 }
 
 /// A domain ending we sell, with what the registrar charges us.
@@ -1580,4 +1631,218 @@ model BudgetAlert {
 
   @@unique([subscriptionId, month, level])
   @@index([organisationId])
+}
+
+// ─── Service status and newsletter (Milestone 3) ──────────────────────
+
+enum IncidentImpact {
+  /// Working, but slower or partly unavailable.
+  DEGRADED
+  /// Not working.
+  OUTAGE
+  /// Planned work.
+  MAINTENANCE
+}
+
+/// Something wrong (or planned) with our services, shown in the site's status strip while open.
+model Incident {
+  id         String         @id @default(cuid())
+  title      String
+  impact     IncidentImpact
+  /// Plain words for customers: what is affected and what we are doing.
+  message    String?
+  startedAt  DateTime       @default(now())
+  resolvedAt DateTime?
+  /// "system" when opened by the console's own checks.
+  openedBy   String
+  resolvedBy String?
+  /// Set on incidents the console's own checks open, e.g. "check:billing", so they resolve themselves.
+  checkKey   String?
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+
+  @@index([resolvedAt, startedAt])
+  @@index([checkKey, resolvedAt])
+}
+
+/// Someone who asked for the monthly insights email. Receives it only once confirmed (double opt-in).
+model NewsletterSubscriber {
+  id               String    @id @default(cuid())
+  email            String    @unique
+  /// The market they signed up from, for the right edition.
+  marketCode       String
+  /// The words they agreed to, as shown.
+  consentText      String
+  consentAt        DateTime
+  ipAddress        String?
+  /// SHA-256 of the link in the confirmation email; cleared once used.
+  confirmTokenHash String?   @unique
+  confirmSentAt    DateTime?
+  confirmedAt      DateTime?
+  /// The one-click unsubscribe link's token (stays valid for good).
+  unsubscribeToken String    @unique
+  unsubscribedAt   DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@index([confirmedAt, unsubscribedAt])
+}
+
+// ─── Thapelo, the sales assistant on the public site ─────────────────
+// docs/FINAL_BUILD.md, Milestone 6. Visitors aren't signed in: a chat is
+// found by a random token kept in the visitor's cookie (only its hash is
+// stored). Chats and leads are deleted on the schedule in the Privacy
+// Notice (purgeAfter).
+
+model SalesChat {
+  id           String    @id @default(cuid())
+  tokenHash    String    @unique
+  market       String
+  /// The page the chat started on, e.g. /bw/pricing.
+  startedOn    String?
+  handedOverAt DateTime?
+  purgeAfter   DateTime
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  messages SalesChatMessage[]
+  lead     Lead?
+
+  @@index([purgeAfter])
+}
+
+model SalesChatMessage {
+  id        String        @id @default(cuid())
+  chatId    String
+  role      AssistantRole
+  text      String
+  /// What Thapelo looked up in this turn, for staff reading the lead.
+  toolTrace Json?
+  createdAt DateTime      @default(now())
+
+  chat SalesChat @relation(fields: [chatId], references: [id], onDelete: Cascade)
+
+  @@index([chatId, createdAt])
+}
+
+enum LeadStatus {
+  NEW
+  CONTACTED
+  CLOSED
+}
+
+enum LeadSource {
+  /// The visitor left their details for follow-up.
+  ASSISTANT
+  /// The visitor pressed "Talk to a person".
+  PERSON
+}
+
+/// Someone on the public site who asked to be contacted, with their consent.
+model Lead {
+  id          String     @id @default(cuid())
+  reference   String     @unique
+  market      String
+  source      LeadSource
+  status      LeadStatus @default(NEW)
+  name        String
+  email       String
+  phone       String?
+  company     String?
+  /// What they're after, in their words or Thapelo's summary.
+  need        String
+  /// The exact consent wording they agreed to, and when.
+  consentText String
+  consentAt   DateTime
+  chatId      String?    @unique
+  handledById String?
+  handledAt   DateTime?
+  purgeAfter  DateTime
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  chat SalesChat? @relation(fields: [chatId], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+  @@index([purgeAfter])
+}
+
+// ─── Launch kits, campaigns and the newsletter (final build, Milestone 7) ─
+
+/// Prepared when a product goes live: its public page, an insight
+/// draft, a LinkedIn post and tracked links. Nothing in it reaches the
+/// public until a website Publisher approves it.
+model LaunchKit {
+  id                   String    @id @default(cuid())
+  productId            String    @unique
+  /// The campaign tag on every link in the kit, e.g. "launch-m365-standard".
+  campaign             String    @unique
+  /// "Who it is for" on the product page.
+  audience             String    @default("")
+  /// Questions and answers for the product page: [{ question, answer }].
+  faq                  Json      @default("[]")
+  /// When a Publisher approved the product page; until then it isn't shown.
+  pageApprovedAt       DateTime?
+  pageApprovedById     String?
+  /// The insight draft in the website editor (its id there).
+  insightId            String?
+  linkedinText         String    @default("")
+  /// When a Publisher approved the LinkedIn post for staff to copy.
+  linkedinApprovedAt   DateTime?
+  linkedinApprovedById String?
+  /// When the AI drafts were written, or why they couldn't be.
+  draftedAt            DateTime?
+  draftError           String?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+}
+
+enum CampaignEventKind {
+  VISIT
+  LEAD
+  QUOTE
+  SIGN_UP
+}
+
+/// What a tracked link brought: a visit, then any lead, quote request or
+/// sign-up from the same browser. Orders are counted through sign-ups.
+model CampaignEvent {
+  id        String            @id @default(cuid())
+  campaign  String
+  source    String?
+  medium    String?
+  kind      CampaignEventKind
+  /// The lead or quote reference, or the organisation id for a sign-up.
+  ref       String?
+  createdAt DateTime          @default(now())
+
+  @@index([campaign, kind])
+}
+
+enum NewsletterIssueStatus {
+  DRAFT
+  SENT
+}
+
+/// A monthly newsletter for one market, prepared from recent insights.
+/// A website Publisher reads it and sends it.
+model NewsletterIssue {
+  id         String                @id @default(cuid())
+  market     String
+  /// The month it covers, e.g. "2026-09".
+  month      String
+  subject    String
+  intro      String
+  /// The insights in it, in order: [{ id, title, summary, url }].
+  items      Json
+  status     NewsletterIssueStatus @default(DRAFT)
+  sentAt     DateTime?
+  sentById   String?
+  recipients Int                   @default(0)
+  createdAt  DateTime              @default(now())
+  updatedAt  DateTime              @updatedAt
+
+  @@unique([market, month])
 }

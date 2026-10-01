@@ -21,18 +21,25 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     { href: "/admin/tasks", label: "Setup queue", icon: "tasks", needs: "viewCustomers", badge: counts.openTasks || undefined },
     { href: "/admin/tickets", label: "Tickets", icon: "support", needs: "viewCustomers", badge: counts.tickets || undefined },
     { href: "/admin/orders", label: "Orders", icon: "orders", needs: "viewCustomers" },
+    { href: "/admin/leads", label: "Leads", icon: "leads", needs: "viewCustomers", badge: counts.leads || undefined },
     { href: "/admin/quotes", label: "Quotes", icon: "quotes", needs: "manageQuotes", badge: counts.quotes || undefined },
     { href: "/admin/payments", label: "EFT payments", icon: "payments", needs: "confirmPayments", badge: counts.eft || undefined },
     { href: "/admin/catalogue", label: "Catalogue", icon: "catalogue", needs: "manageCatalogue" },
     { href: "/admin/cloud-usage", label: "Azure usage", icon: "spend", needs: "manageCloudSpend" },
     { href: "/admin/pricing", label: "Pricing", icon: "pricing", needs: "managePricing" },
     { href: "/admin/markets", label: "Markets", icon: "markets", needs: "manageMarkets" },
+    { href: "/admin/status", label: "Service status", icon: "status", needs: "manageStatus" },
     { href: "/admin/waitlist", label: "Waiting list", icon: "waitlist", needs: "viewCustomers", badge: counts.waitlist || undefined },
     { href: "/admin/staff", label: "Staff", icon: "staff", needs: "manageStaff" },
   ];
   const nav: NavItem[] = all.filter((i) => staffCan(staff, i.needs)).map(({ needs: _needs, ...i }) => i);
   // The website editor has its own page frame, so this link loads a new page.
-  if (websiteRoleOf(session.user)) nav.push({ href: "/admin/content", label: "Website", icon: "website" });
+  if (websiteRoleOf(session.user)) {
+    nav.push({ href: "/admin/content", label: "Website", icon: "website" });
+    nav.push({ href: "/admin/launch-kits", label: "Launch kits", icon: "launch", badge: counts.launchKits || undefined });
+    nav.push({ href: "/admin/newsletter", label: "Newsletter", icon: "newsletter", badge: counts.newsletter || undefined });
+  }
+  nav.push({ href: "/admin/account", label: "Your sign-in", icon: "security" });
   const user = <UserCard name={staff.name} role={`${STAFF_ROLE_LABEL[staff.staffRole]} staff`} signOut={staffSignOutAction} />;
 
   const themeSwitch = <ThemeSwitch current={await currentTheme()} />;

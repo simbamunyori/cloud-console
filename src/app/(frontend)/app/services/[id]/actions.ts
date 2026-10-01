@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { toJson, type MoneyJson } from "@/lib/domain/money";
 import { field, run, type ActionState } from "@/server/action-state";
+import { requireRecentCheck } from "@/server/auth/next";
 import { requireBilling } from "@/server/billing/context";
 import { runSoon } from "@/server/jobs/boss";
 import { changeQuantity, previewQuantityChange } from "@/server/orders/orders";
@@ -14,13 +15,14 @@ export interface QuantityState extends ActionState {
 
 /** Shows what a change costs first ("preview"), then makes it ("confirm"). */
 export async function changeQuantityAction(_prev: QuantityState, form: FormData): Promise<QuantityState> {
-  const { db, billing, organisation, actor } = await requireBilling();
+  const { db, billing, organisation, actor, session } = await requireBilling();
   const deps = { db, billing, organisation, actor };
   const serviceId = field(form, "serviceId");
   const quantity = field(form, "quantity");
   const values = { quantity };
 
   if (field(form, "intent") === "confirm") {
+    await requireRecentCheck(session, "CUSTOMER", `/app/services/${encodeURIComponent(serviceId)}`);
     let reference = "";
     const result = await run(async () => {
       const done = await changeQuantity(deps, serviceId, quantity);

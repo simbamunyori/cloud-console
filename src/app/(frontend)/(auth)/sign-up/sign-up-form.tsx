@@ -12,7 +12,23 @@ import { joinWaitlistAction, signUpAction, type FormState } from "../actions";
 
 type Option = { value: string; label: string };
 
-export function SignUpForm({ consoleName, countries, detectedCountry }: { consoleName: string; countries: Option[]; detectedCountry?: string }) {
+export function SignUpForm({
+  consoleName,
+  countries,
+  detectedCountry,
+  identity,
+  expired,
+  others,
+}: {
+  consoleName: string;
+  countries: Option[];
+  detectedCountry?: string;
+  /** Signing up with a Microsoft or Google account: its email, and no password. */
+  identity?: { provider: string; email: string; name: string };
+  expired?: boolean;
+  /** "Sign up with Microsoft" and "Sign up with Google", above the form. */
+  others?: React.ReactNode;
+}) {
   const [state, action, pending] = useActionState<FormState, FormData>(signUpAction, {});
   const fe = state.fieldErrors ?? {};
   if (state.unavailable) {
@@ -21,9 +37,12 @@ export function SignUpForm({ consoleName, countries, detectedCountry }: { consol
   return (
     <form action={action} className="flex flex-col gap-6" noValidate>
       <AuthHeading eyebrow="Step 1 of 2" title="Open an account">
-        One account for your organisation&apos;s cloud services. You can invite your team once you&apos;re in.
+        {identity
+          ? `You're signing up with your ${identity.provider} account, so there's no password to choose. Tell us about your organisation.`
+          : "One account for your organisation's cloud services. You can invite your team once you're in."}
       </AuthHeading>
-      {state.error ? <Alert>{state.error}</Alert> : null}
+      {state.error ? <Alert>{state.error}</Alert> : expired ? <Alert tone="info">That took too long. Try again.</Alert> : null}
+      {identity ? <input type="hidden" name="with" value="1" /> : others}
       <TextField
         id="organisation"
         label="Organisation name"
@@ -44,24 +63,21 @@ export function SignUpForm({ consoleName, countries, detectedCountry }: { consol
         error={fe.country}
         hint="Where your organisation is billed. It sets your currency and can't be changed later without our help."
       />
-      <TextField id="name" label="Your name" autoComplete="name" required defaultValue={state.values?.name} error={fe.name} />
-      <TextField
-        id="email"
-        label="Work email"
-        type="email"
-        autoComplete="email"
-        inputMode="email"
-        required
-        defaultValue={state.values?.email}
-        error={fe.email}
-      />
-      <PasswordField id="password" label="Password" autoComplete="new-password" showStrength error={fe.password} />
+      <TextField id="name" label="Your name" autoComplete="name" required defaultValue={state.values?.name ?? identity?.name} error={fe.name} />
+      {identity ? (
+        <TextField id="email" label="Work email" type="email" readOnly value={identity.email} hint={`From your ${identity.provider} account.`} />
+      ) : (
+        <>
+          <TextField id="email" label="Work email" type="email" autoComplete="email" inputMode="email" required defaultValue={state.values?.email} error={fe.email} />
+          <PasswordField id="password" label="Password" autoComplete="new-password" showStrength error={fe.password} />
+        </>
+      )}
       <div className="flex flex-col gap-3">
         <Button type="submit" size="lg" disabled={pending} className="w-full">
           {pending ? "Opening your account…" : "Continue"}
         </Button>
         <p className="text-center text-callout text-ink-muted">
-          Next you&apos;ll set up an authenticator app. Every account needs one.
+          Next you&apos;ll set up a passkey or an authenticator app. Every account needs one.
         </p>
       </div>
       <p className="border-t border-border pt-4 text-callout text-ink-muted">

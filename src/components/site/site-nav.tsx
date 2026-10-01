@@ -2,35 +2,73 @@
 
 import { ChevronDown, Menu, X } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useId, useRef } from "react";
+import { usePathname } from "next/navigation";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/cn";
 import { usePageToggle } from "@/lib/use-page-toggle";
-import type { FrameLink, MenuGroupView } from "./frame-content";
-import { BlockIcon } from "./icons";
+import type { FrameLink, MenuView } from "./frame-content";
 
-const link = "rounded-md px-3 py-2 text-callout font-medium text-ink hover:bg-surface-2";
+type Menus = Pick<MenuView, "id" | "label" | "columns">[];
+
+/** A menu's link columns: each link with its one-line description. */
+function Columns({ menu, onFollow, where }: { menu: Menus[number]; onFollow: () => void; where: "wide" | "phone" }) {
+  return (
+    <>
+      {menu.columns.map((c, i) => (
+        <section key={i} aria-labelledby={c.heading ? `${where}-${menu.id}-col-${i}` : undefined} className="flex min-w-0 flex-col gap-4">
+          {c.heading ? (
+            <h2 id={`${where}-${menu.id}-col-${i}`} className="text-caption font-semibold tracking-widest text-ink-muted uppercase">
+              {c.heading}
+            </h2>
+          ) : null}
+          <ul className="flex flex-col gap-4">
+            {c.links.map((l) => (
+              <li key={l.label}>
+                <Link href={l.href} onClick={onFollow} className="group flex flex-col gap-0.5 rounded-sm">
+                  <span className="text-callout font-semibold text-ink group-hover:text-link">{l.label}</span>
+                  {l.description ? <span className="text-callout text-ink-muted">{l.description}</span> : null}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ))}
+    </>
+  );
+}
 
 /**
- * The Services mega menu on wide screens: one button, a panel of the five
- * service families. Closes on Escape (focus returns to the button), on a
- * click outside and when a link is followed.
+ * The header's menus on wide screens. Each opens a full-width panel on
+ * hover, on click, and when its button gets keyboard focus; Escape closes
+ * it and returns focus to the button, as do a click outside and following
+ * a link. `features` is each menu's feature area, drawn on the server.
  */
-export function ServicesMenu({ groups, note, more }: { groups: MenuGroupView[]; note: string | null; more: FrameLink | null }) {
-  const [open, setOpen] = usePageToggle();
-  const button = useRef<HTMLButtonElement>(null);
+export function MegaMenus({ menus, features, className }: { menus: Menus; features: Record<string, React.ReactNode>; className?: string }) {
+  const [openId, setOpenId] = useOpenMenu();
   const root = useRef<HTMLDivElement>(null);
-  const panelId = useId();
+  const leave = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+
+  const open = useCallback(
+    (id: string) => {
+      clearTimeout(leave.current);
+      setOpenId(id);
+    },
+    [setOpenId],
+  );
+  const closeSoon = () => {
+    clearTimeout(leave.current);
+    leave.current = setTimeout(() => setOpenId(null), 150);
+  };
 
   useEffect(() => {
-    if (!open) return;
+    if (!openId) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        setOpen(false);
-        button.current?.focus();
-      }
+      if (e.key !== "Escape") return;
+      document.getElementById(`${openId}-button`)?.focus({ preventScroll: true });
+      setOpenId(null);
     };
     const onClick = (e: MouseEvent) => {
-      if (root.current && !root.current.contains(e.target as Node)) setOpen(false);
+      if (root.current && !root.current.contains(e.target as Node)) setOpenId(null);
     };
     document.addEventListener("keydown", onKey);
     document.addEventListener("mousedown", onClick);
@@ -38,62 +76,65 @@ export function ServicesMenu({ groups, note, more }: { groups: MenuGroupView[]; 
       document.removeEventListener("keydown", onKey);
       document.removeEventListener("mousedown", onClick);
     };
-  }, [open, setOpen]);
+  }, [openId, setOpenId]);
 
   return (
-    <div ref={root}>
-      <button ref={button} type="button" aria-expanded={open} aria-controls={panelId} onClick={() => setOpen(!open)} className={cn(link, "flex items-center gap-1 aria-expanded:bg-surface-2")}>
-        Services
-        <ChevronDown aria-hidden className={cn("size-4 transition-transform duration-fast motion-reduce:transition-none", open && "rotate-180")} />
-      </button>
-      <div id={panelId} hidden={!open} className="absolute inset-x-0 top-full border-b border-border bg-surface-1 shadow-elevation-3">
-        <div className="page-container grid grid-cols-5 gap-6 py-8">
-          {groups.map((g) => {
-            return (
-              <section key={g.id} aria-labelledby={`menu-${g.id}`} className="flex flex-col gap-3">
-                <span className="flex size-10 items-center justify-center rounded-md bg-brand-soft text-link">
-                  <BlockIcon name={g.icon} className="size-5" />
-                </span>
-                <h2 id={`menu-${g.id}`} className="text-headline text-ink">
-                  {g.title}
-                </h2>
-                <p className="text-callout text-ink-muted">{g.blurb}</p>
-                {g.from ? <p className="text-callout font-semibold text-ink">{g.from}</p> : null}
-                <ul className="flex flex-col gap-1">
-                  {g.links.map((l) => (
-                    <li key={l.label}>
-                      <Link href={l.href} onClick={() => setOpen(false)} className="block rounded-sm py-1 text-callout font-medium text-link hover:underline">
-                        {l.label}
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            );
-          })}
-        </div>
-        {note || more ? (
-          <div className="border-t border-border bg-surface-0">
-            <div className="page-container flex items-center justify-between gap-4 py-4 text-callout">
-              <span className="text-ink-muted">{note}</span>
-              {more ? (
-                <Link href={more.href} onClick={() => setOpen(false)} className="font-semibold text-link hover:underline">
-                  {more.label}
-                </Link>
-              ) : null}
+    <div ref={root} className={cn("flex items-center gap-6.5", className)}>
+      {menus.map((m) => {
+        const isOpen = openId === m.id;
+        return (
+          <div
+            key={m.id}
+            onMouseEnter={() => open(m.id)}
+            onMouseLeave={closeSoon}
+            onBlur={(e) => {
+              if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setOpenId(null);
+            }}
+          >
+            <button
+              id={`${m.id}-button`}
+              type="button"
+              aria-expanded={isOpen}
+              aria-controls={`${m.id}-panel`}
+              onClick={() => setOpenId(isOpen ? null : m.id)}
+              onFocus={(e) => {
+                // Keyboard focus opens the menu; a mouse press is handled by the click.
+                if (e.currentTarget.matches(":focus-visible")) open(m.id);
+              }}
+              className="flex h-19 items-center gap-1 text-site-nav text-ink hover:text-link aria-expanded:text-link"
+            >
+              {m.label}
+              <ChevronDown aria-hidden className={cn("size-3.5 transition-transform duration-fast motion-reduce:transition-none", isOpen && "rotate-180")} />
+            </button>
+            <div id={`${m.id}-panel`} hidden={!isOpen} className="absolute inset-x-0 top-full z-40 border-y border-border bg-surface-1 shadow-elevation-3">
+              <div className="page-container grid grid-cols-[1fr_var(--layout-aside-wide)] gap-12 py-10">
+                <div className={cn("grid gap-10", m.columns.length === 1 ? "grid-cols-1" : m.columns.length === 2 ? "grid-cols-2" : "grid-cols-3")}>
+                  <Columns menu={m} onFollow={() => setOpenId(null)} where="wide" />
+                </div>
+                <div onClickCapture={(e) => (e.target as HTMLElement).closest("a") && setOpenId(null)}>{features[m.id]}</div>
+              </div>
             </div>
           </div>
-        ) : null}
-      </div>
+        );
+      })}
     </div>
   );
 }
 
+/** One menu open at a time, closed again when the page changes. */
+function useOpenMenu(): [string | null, (id: string | null) => void] {
+  const pathname = usePathname();
+  const [state, setState] = useState<{ id: string; on: string } | null>(null);
+  const set = useCallback((id: string | null) => setState(id ? { id, on: pathname } : null), [pathname]);
+  return [state && state.on === pathname ? state.id : null, set];
+}
+
 /**
- * The whole navigation behind one button on phones, so the header stays
- * one row. A modal sheet: focus stays inside until it closes.
+ * Everything behind one button on phones: each menu as an expandable
+ * list, then the plain links. A modal sheet: focus stays inside until it
+ * closes.
  */
-export function SiteMenu({ groups, pages, footer }: { groups: MenuGroupView[]; pages: FrameLink[]; footer: React.ReactNode }) {
+export function PhoneMenu({ menus, links, footer }: { menus: Menus; links: FrameLink[]; footer: React.ReactNode }) {
   const ref = useRef<HTMLDialogElement>(null);
   const [open, setOpen] = usePageToggle();
 
@@ -106,8 +147,8 @@ export function SiteMenu({ groups, pages, footer }: { groups: MenuGroupView[]; p
 
   return (
     <>
-      <button type="button" onClick={() => setOpen(true)} className="flex size-11 items-center justify-center rounded-md text-ink hover:bg-surface-2" aria-label="Open menu" aria-haspopup="dialog">
-        <Menu aria-hidden className="size-6" />
+      <button type="button" onClick={() => setOpen(true)} className="flex size-10.5 items-center justify-center rounded-lg border border-border text-ink hover:bg-surface-2" aria-label="Open menu" aria-haspopup="dialog">
+        <Menu aria-hidden className="size-5" />
       </button>
       <dialog
         ref={ref}
@@ -123,28 +164,23 @@ export function SiteMenu({ groups, pages, footer }: { groups: MenuGroupView[]; p
               <X aria-hidden className="size-5" />
             </button>
           </div>
-          <nav aria-label="Site" className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-4 pb-4">
-            <div className="flex flex-col gap-4">
-              <h2 className="label-kicker text-ink-muted">Services</h2>
-              {groups.map((g) => {
-                return (
-                  <Link key={g.id} href={g.links[0].href} onClick={() => setOpen(false)} className="flex items-start gap-3 rounded-md p-2 hover:bg-surface-2">
-                    <BlockIcon name={g.icon} className="mt-1 size-5 shrink-0 text-link" />
-                    <span className="flex flex-col">
-                      <span className="text-body font-semibold text-ink">{g.title}</span>
-                      <span className="text-callout text-ink-muted">{g.blurb}</span>
-                    </span>
-                  </Link>
-                );
-              })}
-            </div>
-            <div className="flex flex-col gap-1 border-t border-border pt-4">
-              {pages.map((p) => (
-                <Link key={p.href} href={p.href} onClick={() => setOpen(false)} className={cn(link, "min-h-11 content-center text-body")}>
-                  {p.label}
-                </Link>
-              ))}
-            </div>
+          <nav aria-label="Site" className="flex min-h-0 flex-1 flex-col overflow-y-auto px-4 pb-4">
+            {menus.map((m) => (
+              <details key={m.id} className="group border-t border-border">
+                <summary className="flex min-h-13 cursor-pointer list-none items-center justify-between text-body font-semibold text-ink [&::-webkit-details-marker]:hidden">
+                  {m.label}
+                  <ChevronDown aria-hidden className="size-4 transition-transform duration-fast group-open:rotate-180 motion-reduce:transition-none" />
+                </summary>
+                <div className="flex flex-col gap-5 pb-5">
+                  <Columns menu={m} onFollow={() => setOpen(false)} where="phone" />
+                </div>
+              </details>
+            ))}
+            {links.map((l) => (
+              <Link key={l.href} href={l.href} onClick={() => setOpen(false)} className="flex min-h-13 items-center border-t border-border text-body font-semibold text-ink">
+                {l.label}
+              </Link>
+            ))}
           </nav>
           {/* Pinned below the scrolling links, so "Get started" is always in view. */}
           <div className="flex flex-col gap-3 border-t border-border p-4">{footer}</div>

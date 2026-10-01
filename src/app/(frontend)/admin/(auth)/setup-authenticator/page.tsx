@@ -25,6 +25,7 @@ export default async function StaffSetupPage() {
         consoleName="the staff console"
         home="/admin"
         action={staffConfirmSetupAction}
+        audience="STAFF"
         completed={completed}
         qrSvg={qrSvg}
         secret={setup ? groupSecret(setup.secret) : ""}

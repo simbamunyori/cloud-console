@@ -5,11 +5,14 @@ import { getPayload, type Where } from "payload";
 import { cache } from "react";
 import { DEFAULT_LOCALE, isMarketLocale } from "@/cms/locales";
 import type { LegalKindValue } from "@/cms/collections/legal";
-import type { Insight, Legal, Page } from "@/cms/payload-types";
+import type { Help, Insight, Legal, Page } from "@/cms/payload-types";
 import { DEFAULT_FOOTER, DEFAULT_HEADER } from "@/cms/seed-frame";
 import { frameContent, type FrameContent, type FrameMarketContact } from "@/components/site/frame-content";
 import { authDeps } from "@/server/auth/next";
+import { selection } from "@/server/cms/catalogue-options";
 import { websiteStaffFromCookies } from "@/server/cms/staff-session";
+import { env } from "@/server/env";
+import { selected, sitePrices } from "@/server/site/site";
 
 export const cms = () => getPayload({ config });
 
@@ -68,8 +71,9 @@ export const siteFrameContent = cache(async (market: FrameMarketContact): Promis
   const draft = await showingDrafts();
   const payload = await cms();
   const read = <S extends "header" | "footer">(slug: S) => payload.findGlobal({ slug, locale: marketLocale(market.code), fallbackLocale: DEFAULT_LOCALE, draft, depth: 0, overrideAccess: true });
-  const [header, footer] = await Promise.all([read("header"), read("footer")]);
-  return frameContent(header?.groups?.length ? header : DEFAULT_HEADER, footer?.columns?.length ? footer : DEFAULT_FOOTER, market, footer ?? {});
+  const [header, footer, prices, helpOpen, insights] = await Promise.all([read("header"), read("footer"), sitePrices(market.code), helpCentreOpen(market.code), latestInsights(market.code, null, 1)]);
+  const gates = { helpOpen, insightsOpen: insights.length > 0, onSale: (products: unknown) => selected(prices, selection(products)).length > 0 };
+  return frameContent(header?.menus?.length ? header : DEFAULT_HEADER, footer?.columns?.length ? footer : DEFAULT_FOOTER, { ...market, thebeUrl: env().THEBE_URL }, gates, footer ?? {});
 });
 
 /** The newest published insights for a market (drafts too in preview), optionally on one topic. */
@@ -108,3 +112,26 @@ export const insightBySlug = cache(async (market: string, slug: string): Promise
   const doc = docs[0];
   return doc?.title && doc.body ? doc : null;
 });
+
+/** A market's published help articles (drafts too in preview), by section and order. */
+export const helpArticles = cache(async (market: string): Promise<Help[]> => {
+  const draft = await showingDrafts();
+  const payload = await cms();
+  const { docs } = await payload.find({
+    collection: "help",
+    where: draft ? {} : { _status: { equals: "published" } },
+    sort: "order",
+    locale: marketLocale(market),
+    fallbackLocale: DEFAULT_LOCALE,
+    draft,
+    depth: 0,
+    limit: 500,
+    overrideAccess: true,
+  });
+  return docs.filter((d) => d.title && d.summary && d.body);
+});
+
+/** Whether the help centre has anything to show, so links to it can hide while it is empty. */
+export const helpCentreOpen = cache(async (market: string) => (await helpArticles(market)).length > 0);
+
+export const helpArticle = cache(async (market: string, slug: string): Promise<Help | null> => (await helpArticles(market)).find((d) => d.slug === slug) ?? null);

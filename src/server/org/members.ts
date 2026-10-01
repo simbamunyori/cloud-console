@@ -126,7 +126,7 @@ export async function teamOverview(db: TenantDb, now = new Date()) {
   const [members, invitations] = await Promise.all([
     db.membership.findMany({
       where: { active: true },
-      include: { user: { select: { name: true, email: true, totpEnabled: true, lastLoginAt: true } } },
+      include: { user: { select: { name: true, email: true, totpEnabled: true, lastLoginAt: true, _count: { select: { passkeys: true } } } } },
       orderBy: { createdAt: "asc" },
     }),
     db.invitation.findMany({
@@ -142,7 +142,7 @@ export async function teamOverview(db: TenantDb, now = new Date()) {
       name: m.user.name,
       email: m.user.email,
       role: m.role,
-      twoStepOn: m.user.totpEnabled,
+      twoStepOn: m.user.totpEnabled || m.user._count.passkeys > 0,
       lastSignIn: m.user.lastLoginAt,
     })),
     invitations: invitations.map((i) => ({

@@ -49,6 +49,103 @@
   --color-warning-soft: var(--warning-soft);
   --color-focus: var(--focus);
   --color-scrim: var(--scrim);
+  /* The public site's own colours (tokens.json "site") and the other brands it draws ("demo"). */
+  --color-site-frame: var(--site-frame);
+  --color-site-highlight: var(--site-highlight);
+  --color-footer: var(--site-footer);
+  --color-footer-line: var(--site-footer-line);
+  --color-footer-field: var(--site-footer-field);
+  --color-footer-field-line: var(--site-footer-field-line);
+  --color-footer-muted: var(--site-footer-muted);
+  --color-footer-link: var(--site-footer-link);
+  --color-footer-ok: var(--site-footer-ok);
+  --color-navy-line: var(--site-navy-line);
+  --color-navy-field-line: var(--site-navy-field-line);
+  --color-navy-kicker: var(--site-navy-kicker);
+  --color-device-frame: var(--site-device-frame);
+  --color-quiet: var(--site-quiet);
+  --color-assistant-online: var(--site-assistant-online);
+  --color-thebe-teal: var(--demo-thebe-teal);
+  --color-thebe-ink: var(--demo-thebe-ink);
+  --color-thebe-muted: var(--demo-thebe-muted);
+  --color-thebe-kicker: var(--demo-thebe-kicker);
+  --color-thebe-line: var(--demo-thebe-line);
+  --color-thebe-panel: var(--demo-thebe-panel);
+  --color-thebe-panel-line: var(--demo-thebe-panel-line);
+  --color-thebe-panel-muted: var(--demo-thebe-panel-muted);
+  --color-thebe-row-line: var(--demo-thebe-row-line);
+  --color-thebe-ok-text: var(--demo-thebe-ok-text);
+  --color-thebe-ok-bg: var(--demo-thebe-ok-bg);
+  --color-thebe-wait-text: var(--demo-thebe-wait-text);
+  --color-thebe-wait-bg: var(--demo-thebe-wait-bg);
+  --color-thebe-white: var(--demo-thebe-white);
+  --color-kgale-rust: var(--demo-kgale-rust);
+  --color-kgale-amber: var(--demo-kgale-amber);
+  --color-kgale-dark: var(--demo-kgale-dark);
+  --color-kgale-text: var(--demo-kgale-text);
+  --color-kgale-muted: var(--demo-kgale-muted);
+  --color-kgale-fine: var(--demo-kgale-fine);
+  --color-kgale-white: var(--demo-kgale-white);
+  --color-mothibi-ink: var(--demo-mothibi-ink);
+  --color-mothibi-gold: var(--demo-mothibi-gold);
+  --color-mothibi-paper: var(--demo-mothibi-paper);
+  --color-mothibi-line: var(--demo-mothibi-line);
+  --color-mothibi-kicker: var(--demo-mothibi-kicker);
+  --color-mothibi-nav: var(--demo-mothibi-nav);
+  --color-mothibi-stat: var(--demo-mothibi-stat);
+  --color-mothibi-stone: var(--demo-mothibi-stone);
+  --color-mothibi-ground: var(--demo-mothibi-ground);
+  --color-mothibi-muted: var(--demo-mothibi-muted);
+  --color-mothibi-white: var(--demo-mothibi-white);
+
+  --font-thebe: var(--font-family-thebe);
+  --font-showcase-serif: var(--font-family-showcase-serif);
+
+  --text-site-hero: var(--type-site-hero-size);
+  --text-site-hero--line-height: var(--type-site-hero-line);
+  --text-site-hero--letter-spacing: var(--type-site-hero-tracking);
+  --text-site-hero--font-weight: var(--type-site-hero-weight);
+  --text-site-hero-sm: var(--type-site-hero-sm-size);
+  --text-site-hero-sm--line-height: var(--type-site-hero-sm-line);
+  --text-site-hero-sm--letter-spacing: var(--type-site-hero-sm-tracking);
+  --text-site-hero-sm--font-weight: var(--type-site-hero-sm-weight);
+  --text-site-closing: var(--type-site-closing-size);
+  --text-site-closing--line-height: var(--type-site-closing-line);
+  --text-site-closing--letter-spacing: var(--type-site-closing-tracking);
+  --text-site-closing--font-weight: var(--type-site-closing-weight);
+  --text-site-closing-sm: var(--type-site-closing-sm-size);
+  --text-site-closing-sm--line-height: var(--type-site-closing-sm-line);
+  --text-site-closing-sm--letter-spacing: var(--type-site-closing-sm-tracking);
+  --text-site-closing-sm--font-weight: var(--type-site-closing-sm-weight);
+  --text-site-h2: var(--type-site-h2-size);
+  --text-site-h2--line-height: var(--type-site-h2-line);
+  --text-site-h2--letter-spacing: var(--type-site-h2-tracking);
+  --text-site-h2--font-weight: var(--type-site-h2-weight);
+  --text-site-h2-sm: var(--type-site-h2-sm-size);
+  --text-site-h2-sm--line-height: var(--type-site-h2-sm-line);
+  --text-site-h2-sm--letter-spacing: var(--type-site-h2-sm-tracking);
+  --text-site-h2-sm--font-weight: var(--type-site-h2-sm-weight);
+  --text-site-lead: var(--type-site-lead-size);
+  --text-site-lead--line-height: var(--type-site-lead-line);
+  --text-site-lead--letter-spacing: var(--type-site-lead-tracking);
+  --text-site-lead--font-weight: var(--type-site-lead-weight);
+  --text-site-kicker: var(--type-site-kicker-size);
+  --text-site-kicker--line-height: var(--type-site-kicker-line);
+  --text-site-kicker--letter-spacing: var(--type-site-kicker-tracking);
+  --text-site-kicker--font-weight: var(--type-site-kicker-weight);
+  --text-site-stat: var(--type-site-stat-size);
+  --text-site-stat--line-height: var(--type-site-stat-line);
+  --text-site-stat--letter-spacing: var(--type-site-stat-tracking);
+  --text-site-stat--font-weight: var(--type-site-stat-weight);
+  --text-site-nav: var(--type-site-nav-size);
+  --text-site-nav--line-height: var(--type-site-nav-line);
+  --text-site-nav--letter-spacing: var(--type-site-nav-tracking);
+  --text-site-nav--font-weight: var(--type-site-nav-weight);
+  --text-site-strip: var(--type-site-strip-size);
+  --text-site-strip--line-height: var(--type-site-strip-line);
+  --text-site-strip--letter-spacing: var(--type-site-strip-tracking);
+  --text-site-strip--font-weight: var(--type-site-strip-weight);
+
   --color-transparent: transparent;
   --color-current: currentColor;
 
@@ -58,6 +155,7 @@
   --radius-sm: var(--radius-token-sm);
   --radius-md: var(--radius-token-md);
   --radius-lg: var(--radius-token-lg);
+  --radius-device: var(--radius-token-device);
   --radius-full: 9999px;
 
   --spacing: var(--space-unit);
@@ -131,6 +229,14 @@
  * the content width, and side margins that grow with the screen (16 px on
  * phones to 64 px on wide desktops). Sections put this inside a full-width band.
  */
+/* Sections below the fold: the browser lays them out only as they come near
+   the screen, so a long page starts fast. The height is a first guess until
+   the section has been drawn once. */
+@utility defer-render {
+  content-visibility: auto;
+  contain-intrinsic-size: auto var(--layout-defer-height);
+}
+
 @utility page-container {
   margin-inline: auto;
   width: 100%;

@@ -2,6 +2,7 @@ import type { Block, Field } from "payload";
 import { heading, icon, image, link, richText, text, textarea, tone } from "../fields";
 import { TOKENS_HELP } from "../tokens";
 import { INSIGHT_TOPICS } from "../topics";
+import { HOME_BLOCKS } from "./home";
 
 /**
  * The page blocks. Each is one section of a page, drawn with the brand's
@@ -166,7 +167,22 @@ export const Faq: Block = {
   slug: "faq",
   labels: { singular: "Questions and answers", plural: "Questions and answers" },
   interfaceName: "FaqBlock",
-  fields: [...heading(), tone, { name: "items", type: "array", minRows: 1, fields: [text("question", { required: true, maxLength: 160 }), richText("answer", { required: true })] }],
+  fields: [
+    ...heading(),
+    text("headingPhone", { label: "Shorter heading for phones", maxLength: 140 }),
+    tone,
+    {
+      name: "items",
+      type: "array",
+      minRows: 1,
+      fields: [
+        text("question", { required: true, maxLength: 160 }),
+        richText("answer", { required: true }),
+        { name: "showOnPhone", label: "Show on phones too", type: "checkbox", defaultValue: true, admin: { description: "Phones show a shorter list, as designed." } },
+      ],
+    },
+    { ...link("more", "Link beside the questions"), admin: { description: "A link to the help centre stays hidden until the help centre has articles." } } as Field,
+  ],
 };
 
 export const Testimonials: Block = {
@@ -176,21 +192,19 @@ export const Testimonials: Block = {
   fields: [
     text("heading", { maxLength: 80, description: "Hidden from view (read by screen readers) when left empty." }),
     tone,
-    {
-      name: "items",
-      label: "Quotes",
-      type: "array",
-      admin: { description: "Real customers only, with their permission. The section stays hidden while there are none." },
-      fields: [textarea("quote", { required: true, maxLength: 400 }), text("name", { required: true, maxLength: 80 }), text("role", { maxLength: 80 })],
-    },
+    // The quotes come from Testimonials and case studies (Proof), those with permission, in their order. Hidden while there are none.
   ],
 };
 
 export const LogoStrip: Block = {
   slug: "logoStrip",
-  labels: { singular: "Logos", plural: "Logos" },
+  labels: { singular: "Client logos", plural: "Client logos" },
   interfaceName: "LogoStripBlock",
-  fields: [text("heading", { maxLength: 80 }), tone, { name: "logos", type: "array", minRows: 1, maxRows: 12, fields: [text("name", { required: true, maxLength: 60 }), image("image", { required: true })] }],
+  fields: [
+    text("heading", { maxLength: 80 }),
+    tone,
+    // The logos come from Client logos (Proof), those with permission, in their order. Hidden while there are none.
+  ],
 };
 
 export const CallToAction: Block = {
@@ -229,7 +243,9 @@ export const InsightsStrip: Block = {
   admin: { disableBlockName: true },
   fields: [
     ...heading(),
+    text("headingPhone", { label: "Shorter heading for phones", maxLength: 140 }),
     tone,
+    { name: "anchor", type: "text", admin: { description: "Optional. Lets a link jump here, e.g. insights for /bw#insights." }, validate: (v: unknown) => (!v || /^[a-z][a-z0-9-]*$/.test(String(v)) ? true : "Lower-case letters, numbers and dashes.") },
     {
       name: "topic",
       label: "Only this topic",
@@ -260,4 +276,4 @@ export const PriceTables: Block = {
   ],
 };
 
-export const PAGE_BLOCKS: Block[] = [PageIntro, Hero, DomainSearch, FeatureCards, ServicesGrid, Pricing, PriceTables, Text, ImageText, Faq, Testimonials, LogoStrip, InsightsStrip, CallToAction, AssistantNotice];
+export const PAGE_BLOCKS: Block[] = [...HOME_BLOCKS, PageIntro, Hero, DomainSearch, FeatureCards, ServicesGrid, Pricing, PriceTables, Text, ImageText, Faq, Testimonials, LogoStrip, InsightsStrip, CallToAction, AssistantNotice];
