@@ -77,6 +77,7 @@ Refresh with `npm run screenshots -- --commit` against a running console with th
 | admin-quote | [view](staff/admin-quote-390-light.webp) | [view](staff/admin-quote-390-dark.webp) | [view](staff/admin-quote-1440-light.webp) | [view](staff/admin-quote-1440-dark.webp) |
 | admin-leads | [view](staff/admin-leads-390-light.webp) | [view](staff/admin-leads-390-dark.webp) | [view](staff/admin-leads-1440-light.webp) | [view](staff/admin-leads-1440-dark.webp) |
 | admin-bookings | [view](staff/admin-bookings-390-light.webp) | [view](staff/admin-bookings-390-dark.webp) | [view](staff/admin-bookings-1440-light.webp) | [view](staff/admin-bookings-1440-dark.webp) |
+| admin-lead | [view](staff/admin-lead-390-light.webp) | [view](staff/admin-lead-390-dark.webp) | [view](staff/admin-lead-1440-light.webp) | [view](staff/admin-lead-1440-dark.webp) |
 | admin-launch-kits | [view](staff/admin-launch-kits-390-light.webp) | [view](staff/admin-launch-kits-390-dark.webp) | [view](staff/admin-launch-kits-1440-light.webp) | [view](staff/admin-launch-kits-1440-dark.webp) |
 | admin-launch-kit | [view](staff/admin-launch-kit-390-light.webp) | [view](staff/admin-launch-kit-390-dark.webp) | [view](staff/admin-launch-kit-1440-light.webp) | [view](staff/admin-launch-kit-1440-dark.webp) |
 | admin-newsletter | [view](staff/admin-newsletter-390-light.webp) | [view](staff/admin-newsletter-390-dark.webp) | [view](staff/admin-newsletter-1440-light.webp) | [view](staff/admin-newsletter-1440-dark.webp) |
