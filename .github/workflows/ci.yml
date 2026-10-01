@@ -90,6 +90,8 @@ jobs:
       PAYLOAD_SECRET: ci-only-website-editor-secret
       # Thapelo, the website assistant, with scripted answers through the real tools.
       SALES_ASSISTANT_DEMO: "yes"
+      # The email security check, with fixed records instead of public DNS.
+      TOOLS_DEMO: "yes"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

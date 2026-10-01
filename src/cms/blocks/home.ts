@@ -135,7 +135,7 @@ export const ThebeSection: Block = {
       defaultValue: false,
       admin: { description: "Leave off until those connections exist in Thebe. The accounting feature stays hidden while it is off." },
     },
-    // The buttons go to THEBE_TRY_URL and THEBE_URL on the server, each hidden while unset.
+    // Try Thebe goes to Website, Thebe links (or THEBE_TRY_URL); Learn more to THEBE_URL. Both default to Thebe's website.
   ],
 };
 
@@ -188,8 +188,14 @@ export const TeamSection: Block = {
       name: "nsmc",
       label: "Sister company line",
       type: "group",
-      admin: { description: "Shows while NSMC's address is set on the server (NSMC_URL)." },
-      fields: [text("lead", { label: "Bold start", maxLength: 80 }), text("text", { maxLength: 140 }), phone("leadPhone", 60), phone("textPhone", 120), text("linkLabel", { label: "Words on the link", maxLength: 30 })],
+      admin: { description: "Links to NSMC's website, https://www.nsmc.africa." },
+      fields: [
+        text("lead", { label: "Bold start", maxLength: 80 }),
+        text("text", { maxLength: 140 }),
+        phone("leadPhone", 60),
+        phone("textPhone", 120),
+        text("linkLabel", { label: "Words on the link", maxLength: 30 }),
+      ],
     },
     text("replyLine", {
       label: "Median first reply sentence",

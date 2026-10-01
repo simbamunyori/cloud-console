@@ -107,6 +107,15 @@ async function main() {
     console.log("Demo launch kit: Microsoft 365 Business Standard, approved.");
   }
 
+  // A pre-sales engineer with weekday hours (Milestone 8), so the booking page has times to offer.
+  const presales = await db.user.findUniqueOrThrow({ where: { email: "support@example.co.bw" } });
+  if (!(await db.presalesEngineer.findUnique({ where: { userId: presales.id } }))) {
+    await db.presalesEngineer.create({
+      data: { userId: presales.id, hours: [1, 2, 3, 4, 5].map((day) => ({ day, from: "09:00", to: "16:00" })), timeZone: DEFAULT_TIME_ZONE },
+    });
+    console.log("Demo pre-sales hours: Boitumelo Support, weekdays 09:00 to 16:00.");
+  }
+
   if (await db.membership.findFirst({ where: { user: { email: "demo@kgalehill.co.bw" } } })) {
     console.log("The demo organisation is already there; leaving it as it is.");
     return;

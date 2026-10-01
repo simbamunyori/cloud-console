@@ -42,6 +42,24 @@ const JOBS: Job[] = [
   { name: "status-check-billing", cron: "*/5 * * * *", run: () => checkBilling(prisma, () => billingAdapter().getTldPricing("BWP")) },
   // Thapelo's chats and leads past their keep-until date (Privacy Notice).
   { name: "sales-purge", cron: "45 3 * * *", run: () => purgeSales(prisma) },
+  // Follow-up emails to leads (Milestone 8); each stops when they buy or unsubscribe.
+  {
+    name: "lead-follow-ups",
+    cron: "*/15 * * * *",
+    run: async () => {
+      const { sendFollowUps } = await import("@/server/leads/capture");
+      if (await sendFollowUps(prisma)) await deliverDue(prisma, emailAdapter());
+    },
+  },
+  // A reminder to the visitor a day before a pre-sales call.
+  {
+    name: "booking-reminders",
+    cron: "5 * * * *",
+    run: async () => {
+      const { sendReminders } = await import("@/server/presales/booking");
+      return sendReminders(prisma);
+    },
+  },
   // First drafts for launch kits; saving a product as live also asks for it at once.
   {
     name: "launch-kit-drafts",

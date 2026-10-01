@@ -29,7 +29,7 @@ import { clearPending, readPending } from "@/server/auth/flow-cookies";
 import { staffPasswordAllowed } from "@/server/auth/sign-in-options";
 import { stepUpWithCode } from "@/server/auth/step-up";
 import { lockedMessage, rateLimitedMessage } from "./messages";
-import { afterSignIn, field, limitByIp, PATHS, safeNext } from "./shared";
+import { afterSignIn, field, limitByIp, PATHS, rememberNext, safeNext } from "./shared";
 
 export interface FormState {
   error?: string;
@@ -80,6 +80,7 @@ export async function signUpAction(_prev: FormState, form: FormData): Promise<Fo
     );
     await setSessionCookie(result.token);
     if (identity) await clearPending();
+    await rememberNext(safeNext(field(form, "next"), "CUSTOMER"));
     await countForCampaign("SIGN_UP", result.organisationId);
     // Opens the organisation's billing account now. If the billing engine
     // is down, it is opened the first time billing is used instead.

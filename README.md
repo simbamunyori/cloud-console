@@ -149,6 +149,7 @@ the UI and never sent to the assistant.
 | `ANTHROPIC_API_KEY` | Optional, secret | Switches the support assistant and Thapelo, the website assistant, on, and writes launch kit drafts. Without it, the assistant page offers a ticket instead, Thapelo stays hidden and launch kits get plain drafts from the catalogue |
 | `ANTHROPIC_MODEL` | No | Model the assistant uses (default `claude-sonnet-5`) |
 | `SALES_ASSISTANT_DEMO` | Demo and CI only | `yes` gives Thapelo, the website assistant, scripted answers. Refused in production |
+| `TOOLS_DEMO` | Demo and CI only | `yes` makes the free email security check answer from fixed records (`secure.example` passes) instead of public DNS. Refused in production |
 | `GEO_COUNTRY_HEADER` | No | Header the CDN puts the visitor's country in (default `cf-ipcountry`, Cloudflare's) |
 | `GEOLITE2_DB_PATH` | No | Path to a MaxMind GeoLite2 Country `.mmdb` file, for country detection without a CDN header |
 | `ADMIN_IP_ALLOWLIST` | Recommended in production | Comma-separated addresses or IPv4 ranges (CIDR) allowed to open `/admin`. Empty allows any address |
@@ -160,8 +161,8 @@ the UI and never sent to the assistant.
 | `POSTGRES_PASSWORD`, `DOMAIN` | Production compose | Database password, and the domain Caddy gets a certificate for |
 | `SEED_DEMO` | No | `yes` lets the seed run in production. Don't |
 | `STATUS_PAGE_URL` | No | An outside service status page. While unset, the site's status links go to its own `/status` page, which staff run at `/admin/status` |
-| `THEBE_TRY_URL`, `THEBE_URL`, `THEBE_DEMO_URL` | Recommended | Thebe's trial page, website and demo booking page, for the home page's Thebe section and the Expense management menu. Each button hides while its address is unset, and the menu's links need `THEBE_URL` |
-| `NSMC_URL` | Recommended | NSMC's website, for the on-site IT line in the home page's team section. The line hides while unset |
+| `THEBE_TRY_URL`, `THEBE_URL`, `THEBE_DEMO_URL` | Optional | Override Thebe's addresses. Unset, Learn more and Try Thebe go to https://www.thebe.africa (Try Thebe can be changed in the site editor under Website, Thebe links), and Book a demo goes to our pre-sales booking page while anyone takes bookings |
+| `NSMC_URL` | Optional | Overrides NSMC's website for the on-site IT line on the home page. Unset means https://www.nsmc.africa |
 | `SUPPORT_EMAIL` | Production set-up | Filled into every market still on the development support address when a release starts |
 | `OFFSITE_S3_ENDPOINT`, `OFFSITE_S3_BUCKET`, `OFFSITE_S3_ACCESS_KEY_ID`, `OFFSITE_S3_SECRET_ACCESS_KEY`, `OFFSITE_S3_PROVIDER` | Production | Where the nightly backups are copied off the server (Cloudflare R2 or any S3-compatible storage) |
 | `ALLOW_PLACEHOLDERS` | Demo servers only | In production the server refuses to start while a development placeholder is set: no real `SMTP_URL`, a `support@localhost` market email, the demo bank details, seeded exchange rates, the demo accounts, or a localhost `APP_URL` or `MAIL_FROM`. It lists each one and where to fix it. `yes` starts anyway with a warning, for demo and CI servers. CI proves the refusal on every run with `scripts/check-placeholder-refusal.sh` |
@@ -343,6 +344,23 @@ tracked links and one-click unsubscribe (`List-Unsubscribe` and
 Uploaded images go to `MEDIA_DIR` (a volume in `docker-compose.prod.yml`)
 and are served at /media. Storage sits behind `src/cms/storage`, so object
 storage can be added later without changing pages or the editor.
+
+### Free tools, follow-ups and pre-sales calls
+
+The free tools are at /<market>/tools: the email security check, the
+Microsoft 365 and Google Workspace cost calculator and the data protection
+readiness checklist. Each answers on the page; "Email me this" creates or
+updates a lead (with its source, tool and campaign) and starts a short
+follow-up sequence, sent by the `lead-follow-ups` job every 15 minutes.
+Quote requests, newsletter confirmations, Thapelo and bookings create
+leads too. Staff see them at /admin/leads, filtered by source, and can stop
+a sequence; every email has a one-click unsubscribe.
+
+Pre-sales calls are booked at /<market>/book. Each engineer sets weekly
+hours, a time zone and a meeting link at /admin/bookings; the booking
+links on the site show only while someone has hours set. Both sides get a
+calendar invite, a reminder the day before (`booking-reminders`), and a
+cancel link.
 
 ### Backups
 

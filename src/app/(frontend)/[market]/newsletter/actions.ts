@@ -4,7 +4,9 @@ import { field, run, type ActionState } from "@/server/action-state";
 import { requestContext } from "@/server/auth/next";
 import { prisma } from "@/server/db";
 import { runSoon } from "@/server/jobs/boss";
-import { confirmSubscription, subscribe, unsubscribe } from "@/server/newsletter/newsletter";
+import { currentTouch } from "@/server/campaigns/cookie";
+import { captureLead } from "@/server/leads/capture";
+import { confirmSubscription, NEWSLETTER_CONSENT, subscribe, unsubscribe } from "@/server/newsletter/newsletter";
 import { enforce, LIMITS, RateLimitedError } from "@/server/security/rate-limit";
 import { siteMarket } from "@/server/site/site";
 
@@ -29,7 +31,27 @@ export async function subscribeAction(_prev: ActionState, form: FormData): Promi
 
 export async function confirmAction(_prev: ActionState, form: FormData): Promise<ActionState> {
   return run(async () => {
-    await confirmSubscription(prisma, field(form, "token"));
+    const email = await confirmSubscription(prisma, field(form, "token"));
+    // A confirmed sign-up is a lead too (Milestone 8), with one welcome email of free tools.
+    const sub = await prisma.newsletterSubscriber.findUnique({ where: { email } });
+    if (sub) {
+      const touch = await currentTouch();
+      await prisma
+        .$transaction((tx) =>
+          captureLead(tx, {
+            market: sub.marketCode,
+            source: "NEWSLETTER",
+            tool: "newsletter",
+            email,
+            need: "Signed up for the monthly insights email.",
+            consentText: NEWSLETTER_CONSENT,
+            followUps: true,
+            touch,
+          }),
+        )
+        .then(() => runSoon("email-deliver"))
+        .catch((e) => console.error("Lead not recorded for newsletter sign-up:", e instanceof Error ? e.message : e));
+    }
     return "You're subscribed. The next insights email arrives at the start of the month.";
   });
 }

@@ -19,6 +19,7 @@ export function SignUpForm({
   identity,
   expired,
   others,
+  next = "/app",
 }: {
   consoleName: string;
   countries: Option[];
@@ -28,6 +29,8 @@ export function SignUpForm({
   expired?: boolean;
   /** "Sign up with Microsoft" and "Sign up with Google", above the form. */
   others?: React.ReactNode;
+  /** Where to go once the account is set up, e.g. an order from a free tool. */
+  next?: string;
 }) {
   const [state, action, pending] = useActionState<FormState, FormData>(signUpAction, {});
   const fe = state.fieldErrors ?? {};
@@ -36,6 +39,7 @@ export function SignUpForm({
   }
   return (
     <form action={action} className="flex flex-col gap-6" noValidate>
+      {next !== "/app" ? <input type="hidden" name="next" value={next} /> : null}
       <AuthHeading eyebrow="Step 1 of 2" title="Open an account">
         {identity
           ? `You're signing up with your ${identity.provider} account, so there's no password to choose. Tell us about your organisation.`
@@ -82,7 +86,7 @@ export function SignUpForm({
       </div>
       <p className="border-t border-border pt-4 text-callout text-ink-muted">
         Already use {consoleName}?{" "}
-        <Link href="/sign-in" className="font-medium text-link hover:underline">
+        <Link href={next !== "/app" ? `/sign-in?next=${encodeURIComponent(next)}` : "/sign-in"} className="font-medium text-link hover:underline">
           Sign in
         </Link>
       </p>

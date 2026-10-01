@@ -23,8 +23,10 @@ import { OrderForm } from "./order-form";
 
 export const metadata: Metadata = { title: "Product" };
 
-export default async function ProductPage({ params }: { params: Promise<{ slug: string }> }) {
+export default async function ProductPage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<{ quantity?: string }> }) {
   const { slug } = await params;
+  // A free tool's estimate arrives with its number of people (Milestone 8).
+  const asked = Number((await searchParams).quantity);
   const { actor, today, market, locale, organisation } = await requireBilling();
   const audience = audienceFor(organisation);
   const product = await productBySlug(prisma, slug, audience);
@@ -68,6 +70,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
                 locale={locale}
                 unitLabel={product.unitLabel}
                 quantityAllowed={product.quantityAllowed}
+                initialQuantity={Number.isInteger(asked) && asked > 0 ? Math.min(asked, MAX_QUANTITY) : undefined}
                 minQuantity={product.minQuantity}
                 maxQuantity={MAX_QUANTITY}
                 options={productOptions(product)}

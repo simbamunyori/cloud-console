@@ -6,6 +6,7 @@ import { SitePage } from "@/components/site/site-page";
 import { Button } from "@/components/ui/button";
 import { company } from "@/config/app";
 import { formatMoney } from "@/lib/domain/money";
+import { partnerLinks } from "@/server/site/partner-links";
 import { productPage, siteMarket, siteMetadata, taxNote } from "@/server/site/site";
 
 type Props = { params: Promise<{ market: string; slug: string }> };
@@ -35,6 +36,7 @@ const months = (n: number) => (n === 1 ? "1 month" : `${n} months`);
  */
 export default async function ProductPage(props: Props) {
   const { m, product: p, price, audience, faq } = await load(props);
+  const { bookingHref } = await partnerLinks(m.code);
   const note = taxNote(m);
   const quote = p.fulfilment === "QUOTE";
   const order = `/sign-in?next=${encodeURIComponent(`/app/marketplace/${p.slug}`)}`;
@@ -158,6 +160,11 @@ export default async function ProductPage(props: Props) {
                   <Link href={`/${m.code}/quote?product=${p.slug}`}>Talk to us first</Link>
                 </Button>
               )}
+              {bookingHref ? (
+                <Link href={`${bookingHref}?topic=product&about=${encodeURIComponent(p.slug)}`} className="text-center text-callout font-semibold text-link hover:underline">
+                  Book a call with a pre-sales engineer
+                </Link>
+              ) : null}
             </div>
           </aside>
         </div>

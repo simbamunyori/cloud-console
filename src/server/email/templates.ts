@@ -5,6 +5,7 @@ import { company } from "@/config/app";
 import { newToken, hashToken } from "@/server/auth/tokens";
 import { issueEmail } from "@/server/newsletter/issues";
 import { newConfirmLink } from "@/server/newsletter/newsletter";
+import { FUNNEL_TEMPLATES } from "./funnel-templates";
 import type { EmailBody } from "./layout";
 
 /**
@@ -23,9 +24,15 @@ export interface TemplateContext {
   timeZone: string;
 }
 
-export type Rendered = { subject: string; body: EmailBody; headers?: Record<string, string> } | null;
+export type Rendered = {
+  subject: string;
+  body: EmailBody;
+  headers?: Record<string, string>;
+  /** A calendar invite sent with the email, which calendars offer to add. */
+  calendar?: { method: "REQUEST" | "CANCEL"; content: string };
+} | null;
 
-type Template = (payload: Record<string, unknown>, ctx: TemplateContext) => Promise<Rendered>;
+export type Template = (payload: Record<string, unknown>, ctx: TemplateContext) => Promise<Rendered>;
 
 const str = (v: unknown) => (typeof v === "string" ? v : "");
 
@@ -487,6 +494,7 @@ export const TEMPLATES: Record<string, Template> = {
       },
     };
   },
+  ...FUNNEL_TEMPLATES,
 };
 
 export function registerTemplate(kind: string, template: Template) {

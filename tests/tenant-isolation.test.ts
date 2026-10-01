@@ -11,7 +11,10 @@ describe("tenant models", () => {
       .map((m) => m.name)
       // Outbound email is written by the system for sign-in notices too, and
       // is never read by customer pages.
-      .filter((name) => name !== "OutboundEmail");
+      .filter((name) => name !== "OutboundEmail")
+      // A readiness check is saved by a visitor with no account; the first
+      // organisation to open its link claims it (src/server/tools/readiness-store.ts).
+      .filter((name) => name !== "ReadinessCheck");
     expect([...withOrg].sort()).toEqual([...TENANT_MODELS].sort());
   });
 });

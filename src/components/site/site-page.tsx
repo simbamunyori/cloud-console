@@ -2,6 +2,7 @@ import { currentSession } from "@/server/auth/next";
 import { prisma } from "@/server/db";
 import { env } from "@/server/env";
 import { showingDrafts, siteFrameContent } from "@/server/site/cms";
+import { partnerLinks } from "@/server/site/partner-links";
 import { approvedPartners, emailPartner, liveAnnouncement } from "@/server/site/proof";
 import { enabledMarkets, siteMarket } from "@/server/site/site";
 import { serviceStatus } from "@/server/status/status";
@@ -19,14 +20,15 @@ import { Thapelo } from "./thapelo";
 export async function SitePage({ code, path, children }: { code: string; path: string; children: React.ReactNode }) {
   const [market, markets, session, theme, drafts, status] = await Promise.all([siteMarket(code), enabledMarkets(), currentSession(), currentTheme(), showingDrafts(), serviceStatus(prisma)]);
   const e = env();
-  const [content, partners, partner, announcement, sales] = await Promise.all([
+  const [content, partners, partner, announcement, sales, links] = await Promise.all([
     siteFrameContent(market),
     approvedPartners(market.code),
     emailPartner(market.code),
     liveAnnouncement(market.code),
     salesModel() ? salesSettings(market.code) : null,
+    partnerLinks(market.code),
   ]);
-  const announcementHref = announcement ? linkHref(announcement.link, { ...market, thebeUrl: e.THEBE_URL }) : null;
+  const announcementHref = announcement ? linkHref(announcement.link, { ...market, thebeUrl: links.thebeUrl }) : null;
   return (
     <SiteFrame
       market={market}
@@ -40,7 +42,7 @@ export async function SitePage({ code, path, children }: { code: string; path: s
         code: market.code,
         money: { locale: market.locale, currency: market.currency },
         contact: content.contact,
-        thebe: { tryUrl: e.THEBE_TRY_URL, demoUrl: e.THEBE_DEMO_URL },
+        thebe: { tryUrl: links.thebeTryUrl, demoUrl: links.thebeDemoUrl ?? undefined },
         partner: partner ? { badge: partner.badge, link: partner.link ?? null } : null,
       }}
       proof={{
@@ -51,7 +53,16 @@ export async function SitePage({ code, path, children }: { code: string; path: s
       {drafts ? <LivePreview /> : null}
       {children}
       <CampaignBeacon />
-      {sales ? <Thapelo market={market.code} greeting={sales.greeting} quickReplies={sales.quickReplies} consentText={CONSENT_TEXT} privacyHref={`/${market.code}/legal/privacy`} /> : null}
+      {sales ? (
+        <Thapelo
+          market={market.code}
+          greeting={sales.greeting}
+          quickReplies={sales.quickReplies}
+          consentText={CONSENT_TEXT}
+          privacyHref={`/${market.code}/legal/privacy`}
+          bookingHref={links.bookingHref}
+        />
+      ) : null}
     </SiteFrame>
   );
 }

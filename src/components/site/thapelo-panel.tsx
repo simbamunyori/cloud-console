@@ -20,6 +20,7 @@ export default function ThapeloPanel({
   quickReplies,
   consentText,
   privacyHref,
+  bookingHref,
   onClose,
 }: {
   id: string;
@@ -28,6 +29,7 @@ export default function ThapeloPanel({
   quickReplies: string[];
   consentText: string;
   privacyHref: string;
+  bookingHref: string | null;
   onClose: () => void;
 }) {
   const [lines, setLines] = useState<Line[]>([]);
@@ -168,6 +170,11 @@ export default function ThapeloPanel({
             >
               Talk to a person
             </button>
+            {bookingHref ? (
+              <a href={bookingHref} className="rounded-sm border border-border-strong bg-surface-0 px-2.5 py-1.75 text-caption text-link hover:bg-brand-soft">
+                Book a call with an engineer
+              </a>
+            ) : null}
           </div>
         )}
       </div>

@@ -17,6 +17,7 @@ export function OrderForm({
   unitPrice,
   unitLabel,
   quantityAllowed,
+  initialQuantity,
   minQuantity,
   maxQuantity,
   options,
@@ -27,6 +28,8 @@ export function OrderForm({
   unitPrice: MoneyJson;
   unitLabel: string;
   quantityAllowed: boolean;
+  /** Where the quantity starts, e.g. from the cost calculator. */
+  initialQuantity?: number;
   minQuantity: number;
   maxQuantity: number;
   options: OptionSpec[];
@@ -35,7 +38,7 @@ export function OrderForm({
   refundsHref: string | null;
 }) {
   const [state, action, pending] = useActionState<ActionState, FormData>(placeOrderAction, {});
-  const [quantity, setQuantity] = useState(Math.max(minQuantity, Number(state.values?.quantity) || (quantityAllowed ? 5 : 1)));
+  const [quantity, setQuantity] = useState(Math.max(minQuantity, Number(state.values?.quantity) || (quantityAllowed ? (initialQuantity ?? 5) : 1)));
   const clamp = (n: number) => Math.min(maxQuantity, Math.max(minQuantity, Math.round(n) || minQuantity));
   const total = times(fromJson(unitPrice), quantity);
   const fe = state.fieldErrors ?? {};

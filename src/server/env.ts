@@ -60,13 +60,13 @@ const schema = z.object({
   STAFF_PASSWORD_SIGN_IN: z.enum(["yes", "no"]).optional(),
   /** An outside service status page. While unset, the site's status links go to its own /status page. */
   STATUS_PAGE_URL: optionalUrl(),
-  /** Thebe's sign-up or trial page ("Try Thebe"). The button is hidden while this is unset. */
+  /** Thebe's sign-up or trial page ("Try Thebe"). The site editor's Thebe links come first; unset means Thebe's website. */
   THEBE_TRY_URL: optionalUrl(),
-  /** Thebe's own website ("Learn more about Thebe"). Hidden while unset. */
+  /** Thebe's own website ("Learn more about Thebe"). Unset means https://www.thebe.africa. */
   THEBE_URL: optionalUrl(),
-  /** Where to book a Thebe demo, for the Expense management menu. Hidden while unset. */
+  /** Where to book a Thebe demo. Unset means our pre-sales booking page, hidden while nobody takes bookings. */
   THEBE_DEMO_URL: optionalUrl(),
-  /** NSMC's website, for the on-site IT line. The line is hidden while this is unset. */
+  /** NSMC's website, for the on-site IT line. Unset means https://www.nsmc.africa. */
   NSMC_URL: optionalUrl(),
   /** Set to "off" to stop background jobs on this server. */
   CONSOLE_JOBS: z.enum(["on", "off"]).default("on"),

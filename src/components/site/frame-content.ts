@@ -57,6 +57,8 @@ export interface FrameGates {
   helpOpen: boolean;
   /** False while nothing is published on the Insights page; links to it hide. Shown when left out. */
   insightsOpen?: boolean;
+  /** False while no pre-sales engineer has hours set; links to the booking page hide. Shown when left out. */
+  bookingOpen?: boolean;
 }
 
 type LinkRow = { link?: CmsLinkValue | null };
@@ -97,6 +99,7 @@ export function frameContent(header: HeaderData, footer: FooterData, market: Fra
     if (!href) return null;
     if (!gates.helpOpen && under(href, help)) return null;
     if (gates.insightsOpen === false && under(href, insights)) return null;
+    if (gates.bookingOpen === false && under(href, `/${market.code}/book`)) return null;
     return { label: link!.label!, href };
   };
   const all = (rows: LinkRow[] | null | undefined) => (rows ?? []).flatMap((r) => resolve(r.link) ?? []);

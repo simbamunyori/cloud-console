@@ -36,6 +36,8 @@ export interface KnowledgeSource {
   products(): Promise<{ taxNote: string | null; products: KnowledgeProduct[] }>;
   search(query: string): Promise<{ kind: string; title: string; url: string; text: string }[]>;
   domains(query: string): Promise<{ name: string; state: string; price: string | null; alternative: string | null }[]>;
+  /** Whether a pre-sales engineer takes bookings. Left out means no. */
+  bookingOpen?(): Promise<boolean>;
 }
 
 export interface SalesDeps {
@@ -88,10 +90,14 @@ const TOOLS: ToolSpec[] = [
   {
     name: "suggest_next_step",
     description:
-      "Shows the visitor a button for their next step: open an account, order a product (by its slug from list_products), register a domain that check_domain found free, or ask for a quote.",
+      "Shows the visitor a button for their next step: open an account, order a product (by its slug from list_products), register a domain that check_domain found free, ask for a quote, book a call with a pre-sales engineer, or use a free tool (email security check, cost calculator, data protection checklist).",
     input_schema: {
       type: "object",
-      properties: { step: { type: "string", enum: ["sign_up", "order", "domain", "quote"] }, product_slug: { type: "string" }, domain: { type: "string" } },
+      properties: {
+        step: { type: "string", enum: ["sign_up", "order", "domain", "quote", "book_call", "email_check", "cost_calculator", "data_protection"] },
+        product_slug: { type: "string" },
+        domain: { type: "string" },
+      },
       required: ["step"],
     },
   },
@@ -158,7 +164,13 @@ async function runTool(deps: SalesDeps, name: string, input: Record<string, unkn
         const name = str(input.domain).toLowerCase();
         if (!/^[a-z0-9][a-z0-9-]{0,62}(\.[a-z0-9-]{2,63})+$/.test(name)) return { error: "Give the full domain name that check_domain found free." };
         cards.push({ kind: "link", label: `Register ${name}`, href: `/sign-in?next=${encodeURIComponent(`/app/marketplace/domains?q=${name}`)}` });
-      } else return { error: "Unknown step." };
+      } else if (step === "book_call") {
+        if (!(await k.bookingOpen?.())) return { error: "Nobody takes bookings just now. Offer a person with offer_contact instead." };
+        cards.push({ kind: "link", label: "Book a call with an engineer", href: `/${code}/book` });
+      } else if (step === "email_check") cards.push({ kind: "link", label: "Check your email security", href: `/${code}/tools/email-security` });
+      else if (step === "cost_calculator") cards.push({ kind: "link", label: "Work out your monthly cost", href: `/${code}/tools/cost-calculator` });
+      else if (step === "data_protection") cards.push({ kind: "link", label: "Check your data protection readiness", href: `/${code}/tools/data-protection` });
+      else return { error: "Unknown step." };
       return { shown: true, note: "The button is shown under your answer. Mention it briefly." };
     }
     case "offer_contact": {

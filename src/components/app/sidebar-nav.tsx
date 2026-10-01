@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  CalendarClock,
   Activity,
   Boxes,
   ChartColumn,
@@ -55,6 +56,7 @@ const ICONS = {
   waitlist: Hourglass,
   quotes: FileText,
   leads: MessagesSquare,
+  bookings: CalendarClock,
   launch: Rocket,
   newsletter: Mail,
   website: SquarePen,

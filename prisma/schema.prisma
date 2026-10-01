@@ -237,6 +237,7 @@ model User {
   settingsChanged PricingChange[]
   marketChanges   MarketChange[]
   pricesApproved  PriceBookEntry[]
+  presales        PresalesEngineer?
 }
 
 enum WebsiteRole {
@@ -1736,6 +1737,18 @@ enum LeadSource {
   ASSISTANT
   /// The visitor pressed "Talk to a person".
   PERSON
+  /// A quote request from the public site.
+  QUOTE
+  /// A confirmed newsletter sign-up.
+  NEWSLETTER
+  /// The free email security check.
+  EMAIL_CHECK
+  /// The Microsoft 365 and Google Workspace cost calculator.
+  COST_CALCULATOR
+  /// The Data Protection Act readiness checklist.
+  DPA_CHECKLIST
+  /// A call booked with a pre-sales engineer.
+  BOOKING
 }
 
 /// Someone on the public site who asked to be contacted, with their consent.
@@ -1761,9 +1774,121 @@ model Lead {
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
 
-  chat SalesChat? @relation(fields: [chatId], references: [id], onDelete: SetNull)
+  /// The free tool that last brought them, e.g. "email-check" (Milestone 8).
+  tool              String?
+  /// The tracked link they came through, if any.
+  campaign          String?
+  campaignSource    String?
+  campaignMedium    String?
+  /// What the tool found or worked out, for staff and the follow-up emails.
+  toolResult        Json?
+  /// The follow-up email sequence (src/server/leads/follow-ups.ts), the
+  /// next step to send and when. Stops when they buy or unsubscribe.
+  followUp          String?
+  followUpStep      Int       @default(0)
+  followUpAt        DateTime?
+  followUpStoppedAt DateTime?
+  followUpStopped   String?
+  /// For the unsubscribe link in follow-up emails.
+  unsubscribeToken  String?   @unique
+
+  chat     SalesChat?        @relation(fields: [chatId], references: [id], onDelete: SetNull)
+  touches  LeadTouch[]
+  bookings PresalesBooking[]
 
   @@index([status, createdAt])
+  @@index([purgeAfter])
+  @@index([email])
+  @@index([followUpAt])
+}
+
+/// Each time a lead came back: which source and tool, and which campaign.
+model LeadTouch {
+  id             String     @id @default(cuid())
+  leadId         String
+  source         LeadSource
+  tool           String?
+  campaign       String?
+  campaignSource String?
+  campaignMedium String?
+  summary        String
+  createdAt      DateTime   @default(now())
+
+  lead Lead @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  @@index([leadId, createdAt])
+}
+
+// ─── Pre-sales bookings (final build, Milestone 8) ───────────────────
+
+/// A staff member who takes pre-sales calls, with their weekly hours.
+model PresalesEngineer {
+  id         String   @id @default(cuid())
+  userId     String   @unique
+  active     Boolean  @default(true)
+  /// Their Teams or Meet link, put in the calendar invite. Optional.
+  meetingUrl String?
+  /// Weekly hours in timeZone: [{ day: 1 (Monday) to 7, from: "09:00", to: "12:00" }].
+  hours      Json
+  timeZone   String   @default("Africa/Gaborone")
+  updatedAt  DateTime @updatedAt
+
+  user     User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bookings PresalesBooking[]
+}
+
+enum BookingStatus {
+  BOOKED
+  CANCELLED
+}
+
+/// A call a visitor booked with a pre-sales engineer.
+model PresalesBooking {
+  id              String        @id @default(cuid())
+  reference       String        @unique
+  engineerId      String
+  market          String
+  startsAt        DateTime
+  endsAt          DateTime
+  /// What the call is about, e.g. "thebe" or "email-check"; "general" otherwise.
+  topic           String
+  name            String
+  email           String
+  phone           String?
+  company         String?
+  notes           String
+  leadId          String?
+  status          BookingStatus @default(BOOKED)
+  /// Hash of the visitor's cancel link.
+  cancelTokenHash String        @unique
+  cancelledAt     DateTime?
+  cancelledBy     String?
+  /// Raised each time the invite changes, as calendars expect.
+  sequence        Int           @default(0)
+  reminderSentAt  DateTime?
+  createdAt       DateTime      @default(now())
+
+  engineer PresalesEngineer @relation(fields: [engineerId], references: [id], onDelete: Restrict)
+  lead     Lead?            @relation(fields: [leadId], references: [id], onDelete: SetNull)
+
+  @@index([engineerId, startsAt])
+  @@index([status, startsAt])
+}
+
+/// A Data Protection Act readiness checklist someone filled in. The
+/// summary downloads once they have an account; the link is the token.
+model ReadinessCheck {
+  id             String   @id @default(cuid())
+  /// Random, in the visitor's link to their summary.
+  token          String   @unique
+  market         String
+  answers        Json
+  score          Int
+  organisationId String?
+  leadId         String?
+  createdAt      DateTime @default(now())
+  purgeAfter     DateTime
+
   @@index([purgeAfter])
 }
 

@@ -58,6 +58,7 @@ export const DEFAULT_HEADER = {
           heading: "Looked after",
           links: [
             item(market("Move your existing email", "/quote"), "We move your mail across with nothing lost."),
+            item(market("Cost calculator", "/tools/cost-calculator"), "Your team's plan and monthly total in a minute.", [...M365, ...GWS]),
             item(market("Email backup", "/pricing#cat-protection"), "Daily copies of every mailbox.", ["backup-microsoft-365", "backup-google-workspace"]),
           ],
         },
@@ -91,8 +92,20 @@ export const DEFAULT_HEADER = {
             item(market("Data protection support", "/security"), "How we keep your data, and help you meet the Act."),
           ],
         },
+        {
+          heading: "Free checks",
+          links: [
+            item(market("Email security check", "/tools/email-security"), "See whether someone could send email as you."),
+            item(market("Data protection checklist", "/tools/data-protection"), "Your readiness score and next steps."),
+          ],
+        },
       ],
-      feature: { kind: "note", heading: "Protected, without the jargon", text: "Two-step login on every account and backups we test every month.", link: { label: "How we keep your data safe", to: "market", path: "/security" } },
+      feature: {
+        kind: "note",
+        heading: "Free security check",
+        text: "Enter your domain and see in a minute whether your email can be faked, and how to fix it.",
+        link: { label: "Check your domain", to: "market", path: "/tools/email-security" },
+      },
     },
     {
       label: "Hosting and backup",
@@ -168,7 +181,7 @@ export const DEFAULT_FOOTER = {
         market("Expense management", "/#thebe"),
       ],
     },
-    { heading: "Company", links: [market("Pricing", "/pricing"), market("Insights", "/insights"), market("Ask for a quote", "/quote")] },
+    { heading: "Company", links: [market("Pricing", "/pricing"), market("Insights", "/insights"), market("Free tools", "/tools"), market("Ask for a quote", "/quote")] },
     { heading: "Trust", links: [market("Service status", "/status"), market("Security", "/security"), market("Service providers", "/legal/service-providers"), market("Legal", "/legal/terms")] },
     {
       heading: "Support",

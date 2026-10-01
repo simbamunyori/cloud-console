@@ -1,6 +1,7 @@
 import type { Page } from "@playwright/test";
 import { PrismaClient } from "@prisma/client";
 import { hashToken, newToken } from "../../src/server/auth/tokens";
+import { answersOf, readinessScore } from "../../src/server/tools/readiness";
 import { DEMO_CUSTOMER } from "./sessions";
 
 /**
@@ -36,6 +37,12 @@ export const PAGES: PageSpec[] = [
   { name: "site-insights", audience: "public", path: "/bw/insights" },
   { name: "site-insight", audience: "public", path: "/bw/insights/why-we-offer-microsoft-365-business-standard" },
   { name: "quote-link", audience: "public", path: "quote-link:" },
+  { name: "site-tools", audience: "public", path: "/bw/tools" },
+  { name: "site-email-check", audience: "public", path: "/bw/tools/email-security?domain=kgalehill.example" },
+  { name: "site-cost-calculator", audience: "public", path: "/bw/tools/cost-calculator?users=12&provider=either&need=archive" },
+  { name: "site-readiness", audience: "public", path: "/bw/tools/data-protection" },
+  { name: "site-readiness-result", audience: "public", path: "readiness:" },
+  { name: "site-book", audience: "public", path: "/bw/book" },
 
   { name: "home", audience: "customer", path: "/app" },
   { name: "search", audience: "customer", path: "/app/search?q=backup" },
@@ -72,6 +79,7 @@ export const PAGES: PageSpec[] = [
   { name: "admin-quotes", audience: "staff", path: "/admin/quotes" },
   { name: "admin-quote", audience: "staff", path: "/admin/quotes", follow: 'main a[href^="/admin/quotes/QUO-"]' },
   { name: "admin-leads", audience: "staff", path: "/admin/leads" },
+  { name: "admin-bookings", audience: "staff", path: "/admin/bookings" },
   { name: "admin-lead", audience: "staff", path: "/admin/leads", follow: 'main a[href^="/admin/leads/LEAD-"]' },
   { name: "admin-launch-kits", audience: "staff", path: "/admin/launch-kits" },
   { name: "admin-launch-kit", audience: "staff", path: "/admin/launch-kits", follow: 'main a[href^="/admin/launch-kits/"]' },
@@ -117,6 +125,31 @@ export async function resolvePath(page: Page, spec: PageSpec, base: string): Pro
       const token = newToken();
       await db.quote.update({ where: { id: quote.id }, data: { tokenHash: hashToken(token) } });
       return `/quote/${token}`;
+    } finally {
+      await db.$disconnect();
+    }
+  }
+  if (spec.path === "readiness:") {
+    // A saved checklist result, as the visitor's own link opens it.
+    const db = new PrismaClient();
+    try {
+      const token = newToken();
+      const answers = {
+        inventory: "yes",
+        officer: "partly",
+        notice: "no",
+        consent: "partly",
+        access: "yes",
+        devices: "no",
+        backup: "partly",
+        breach: "no",
+        suppliers: "partly",
+        transfers: "no",
+        retention: "no",
+        training: "partly",
+      };
+      await db.readinessCheck.create({ data: { token, market: "bw", answers, score: readinessScore(answersOf(answers)), purgeAfter: new Date(Date.now() + 86_400_000) } });
+      return `/bw/tools/data-protection/${token}`;
     } finally {
       await db.$disconnect();
     }

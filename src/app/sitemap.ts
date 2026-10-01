@@ -1,10 +1,12 @@
 import type { MetadataRoute } from "next";
 import { FOOTER_LEGAL } from "@/config/site";
+import { prisma } from "@/server/db";
 import { env } from "@/server/env";
+import { bookingOpen } from "@/server/presales/booking";
 import { hreflang, enabledMarkets, productPageSlugs } from "@/server/site/site";
 
 // Data protection is on the Security page, so it has no entry of its own.
-const PATHS = ["", "/pricing", "/security", "/insights", ...FOOTER_LEGAL.map((k) => `/legal/${k}`)];
+const PATHS = ["", "/pricing", "/security", "/insights", "/tools", "/tools/email-security", "/tools/cost-calculator", "/tools/data-protection", ...FOOTER_LEGAL.map((k) => `/legal/${k}`)];
 
 // Read per request: markets are switched on in the admin console, and APP_URL is only known at run time.
 export const dynamic = "force-dynamic";
@@ -14,8 +16,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const base = env().APP_URL.replace(/\/$/, "");
   const markets = await enabledMarkets();
   const products = await Promise.all(markets.map((m) => productPageSlugs(m.code)));
+  // The booking page only while someone takes bookings.
+  const paths = (await bookingOpen(prisma)) ? [...PATHS, "/book"] : PATHS;
   const pages = markets.flatMap((m) =>
-    PATHS.map((path) => ({
+    paths.map((path) => ({
       url: `${base}/${m.code}${path}`,
       changeFrequency: "weekly" as const,
       priority: path === "" ? 1 : 0.6,
