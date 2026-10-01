@@ -64,6 +64,7 @@
   --color-navy-kicker: var(--site-navy-kicker);
   --color-device-frame: var(--site-device-frame);
   --color-quiet: var(--site-quiet);
+  --color-assistant-online: var(--site-assistant-online);
   --color-thebe-teal: var(--demo-thebe-teal);
   --color-thebe-ink: var(--demo-thebe-ink);
   --color-thebe-muted: var(--demo-thebe-muted);

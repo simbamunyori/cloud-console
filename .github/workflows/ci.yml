@@ -88,6 +88,8 @@ jobs:
       ALLOW_PLACEHOLDERS: "yes"
       STATUS_PAGE_URL: https://status.example.com
       PAYLOAD_SECRET: ci-only-website-editor-secret
+      # Thapelo, the website assistant, with scripted answers through the real tools.
+      SALES_ASSISTANT_DEMO: "yes"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

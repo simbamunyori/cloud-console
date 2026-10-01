@@ -3,6 +3,7 @@ import { formatLongDate, formatMoment, formatMonth } from "@/lib/dates";
 import { formatMoney, fromJson, type MoneyJson } from "@/lib/domain/money";
 import { company } from "@/config/app";
 import { newToken, hashToken } from "@/server/auth/tokens";
+import { issueEmail } from "@/server/newsletter/issues";
 import { newConfirmLink } from "@/server/newsletter/newsletter";
 import type { EmailBody } from "./layout";
 
@@ -22,7 +23,7 @@ export interface TemplateContext {
   timeZone: string;
 }
 
-export type Rendered = { subject: string; body: EmailBody } | null;
+export type Rendered = { subject: string; body: EmailBody; headers?: Record<string, string> } | null;
 
 type Template = (payload: Record<string, unknown>, ctx: TemplateContext) => Promise<Rendered>;
 
@@ -129,6 +130,30 @@ export const TEMPLATES: Record<string, Template> = {
     };
   },
 
+  async "security.sign_in_method_added"(p, ctx) {
+    return {
+      subject: `${str(p.what)} was added to your sign-in`,
+      body: {
+        heading: `${str(p.what)} was added`,
+        paragraphs: [`You can now sign in to your account with ${str(p.what)}.`],
+        facts: [["When", formatMoment(new Date(str(p.at)), ctx.timeZone)]],
+        footnote: "If this wasn't you, reply to this email straight away, and remove it on the Security page.",
+      },
+    };
+  },
+
+  async "security.sign_in_method_removed"(p, ctx) {
+    return {
+      subject: `${str(p.what)} was removed from your sign-in`,
+      body: {
+        heading: `${str(p.what)} was removed`,
+        paragraphs: [`${str(p.what)} no longer signs in to your account.`],
+        facts: [["When", formatMoment(new Date(str(p.at)), ctx.timeZone)]],
+        footnote: "If this wasn't you, reply to this email straight away.",
+      },
+    };
+  },
+
   async "security.new_sign_in"(p, ctx) {
     return {
       subject: "New sign-in to your account",
@@ -176,6 +201,45 @@ export const TEMPLATES: Record<string, Template> = {
     };
   },
 
+  async "lead.new"(p, ctx) {
+    const lead = await ctx.db.lead.findUnique({ where: { id: str(p.leadId) } });
+    if (!lead) return null;
+    return {
+      subject: `${lead.source === "PERSON" ? "Talk to a person" : "Follow-up request"} from ${lead.company ?? lead.name} (${lead.reference})`,
+      body: {
+        heading: lead.source === "PERSON" ? "A visitor wants to talk to a person" : "A visitor asked us to get back to them",
+        paragraphs: [`${lead.name}${lead.company ? ` of ${lead.company}` : ""} left their details in a chat with Thapelo. The whole conversation is on the lead.`],
+        facts: [
+          ["Reference", lead.reference],
+          ["Email", lead.email],
+          ["Phone", lead.phone ?? "None"],
+          ["Market", lead.market],
+          ["What they need", lead.need],
+        ],
+        button: { label: "Open the lead", url: `${ctx.appUrl}/admin/leads/${encodeURIComponent(lead.reference)}` },
+      },
+    };
+  },
+
+  async "lead.received"(p, ctx) {
+    const lead = await ctx.db.lead.findUnique({ where: { id: str(p.leadId) } });
+    if (!lead) return null;
+    return {
+      subject: "We'll be in touch",
+      body: {
+        heading: "Thanks for getting in touch",
+        paragraphs: [
+          "Someone from our team will contact you, usually within one working day.",
+          "We keep your details and your conversation with Thapelo for 12 months so we can help you, and then delete them. Reply to this email if you'd like them deleted sooner.",
+        ],
+        facts: [
+          ["Reference", lead.reference],
+          ["What you asked about", lead.need],
+        ],
+      },
+    };
+  },
+
   async "quote.requested"(p, ctx) {
     const quote = await ctx.db.quote.findUnique({ where: { id: str(p.quoteId) }, include: { product: { select: { name: true } } } });
     if (!quote) return null;
@@ -211,6 +275,23 @@ export const TEMPLATES: Record<string, Template> = {
         ],
         button: { label: "Confirm my subscription", url: link.url },
         footnote: `The link works for 7 days. If you didn't ask for this, ignore this email and you won't hear from us. To make sure we never email this address, use ${link.unsubscribe}`,
+      },
+    };
+  },
+
+  /** The monthly newsletter, one copy per subscriber, with one-click unsubscribe (RFC 8058). */
+  async "newsletter.issue"(p, ctx) {
+    const e = await issueEmail(ctx.db, ctx.appUrl, str(p.issueId), str(p.subscriberId));
+    if (!e) return null;
+    return {
+      subject: e.subject,
+      headers: e.headers,
+      body: {
+        heading: e.heading,
+        paragraphs: e.intro ? [e.intro] : [],
+        items: e.items,
+        button: { label: "See every insight", url: e.more },
+        footnote: `You get this because you asked for our monthly insights email. Unsubscribe at any time: ${e.unsubscribe}`,
       },
     };
   },

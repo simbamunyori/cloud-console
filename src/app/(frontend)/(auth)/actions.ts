@@ -3,6 +3,7 @@
 import type { UserKind } from "@prisma/client";
 import { redirect } from "next/navigation";
 import { authDeps, clearSessionCookie, currentSession, readSessionToken, requestContext, setSessionCookie } from "@/server/auth/next";
+import { countForCampaign } from "@/server/campaigns/cookie";
 import {
   acceptInvitationAsExistingUser,
   acceptInvitationAsNewUser,
@@ -20,11 +21,15 @@ import { billingAdapter } from "@/server/billing";
 import { ensureBillingAccount } from "@/server/billing/accounts";
 import { prisma } from "@/server/db";
 import { runSoon } from "@/server/jobs/boss";
-import { enforce, hit, LIMITS, RateLimitedError } from "@/server/security/rate-limit";
+import { hit, LIMITS, RateLimitedError } from "@/server/security/rate-limit";
 import { isCountryCode } from "@/lib/countries";
 import { joinWaitlist } from "@/server/markets/waitlist";
 import { DomainError } from "@/server/org/access";
+import { clearPending, readPending } from "@/server/auth/flow-cookies";
+import { staffPasswordAllowed } from "@/server/auth/sign-in-options";
+import { stepUpWithCode } from "@/server/auth/step-up";
 import { lockedMessage, rateLimitedMessage } from "./messages";
+import { afterSignIn, field, limitByIp, PATHS, safeNext } from "./shared";
 
 export interface FormState {
   error?: string;
@@ -45,33 +50,14 @@ export interface SetupState extends FormState {
   recoveryCodes?: string[];
 }
 
-function field(form: FormData, key: string): string {
-  const v = form.get(key);
-  return typeof v === "string" ? v : "";
-}
-
-/** Only relative paths inside the console, so a link can't bounce people elsewhere. */
-function safeNext(next: string, audience: UserKind): string {
-  if (audience === "STAFF") return /^\/admin(\/[\w\-/]*)?$/.test(next) ? next : "/admin";
-  // The domain search may carry its query, as the site's "Find your domain" sends it.
-  if (/^\/app\/marketplace\/domains\?q=[\w.%-]{1,300}$/.test(next)) return next;
-  return /^\/(app(\/[\w\-/]*)?|(invite|quote)\/[\w\-%]+)$/.test(next) ? next : "/app";
-}
-
-const PATHS: Record<UserKind, { signIn: string; code: string; setup: string }> = {
-  CUSTOMER: { signIn: "/sign-in", code: "/sign-in/code", setup: "/setup-authenticator" },
-  STAFF: { signIn: "/admin/sign-in", code: "/admin/sign-in/code", setup: "/admin/setup-authenticator" },
-};
-
-async function limitByIp(kind: keyof typeof LIMITS) {
-  const ip = (await requestContext()).ipAddress ?? "unknown";
-  await enforce(prisma, `${kind}:${ip}`, LIMITS[kind]);
-}
-
 // ─── Customers ───────────────────────────────────────────────────────
 
 export async function signUpAction(_prev: FormState, form: FormData): Promise<FormState> {
-  const values = { organisation: field(form, "organisation"), name: field(form, "name"), email: field(form, "email"), country: field(form, "country") };
+  // Signing up with a Microsoft or Google account: its verified email, and no password.
+  const pending = field(form, "with") ? await readPending() : null;
+  const identity = pending?.intent === "sign-up" ? pending : null;
+  if (field(form, "with") && !identity) return { error: "The Microsoft or Google sign-in timed out. Start again." };
+  const values = { organisation: field(form, "organisation"), name: field(form, "name"), email: identity?.email ?? field(form, "email"), country: field(form, "country") };
   const fieldErrors: Record<string, string> = {};
   if (!values.organisation.trim()) fieldErrors.organisation = "Enter your organisation's name.";
   if (!values.name.trim()) fieldErrors.name = "Enter your name.";
@@ -83,10 +69,18 @@ export async function signUpAction(_prev: FormState, form: FormData): Promise<Fo
     await limitByIp("signUpPerIp");
     const result = await signUp(
       authDeps(),
-      { organisationName: values.organisation, name: values.name, email: values.email, password: field(form, "password"), country: values.country },
+      {
+        organisationName: values.organisation,
+        name: values.name,
+        email: values.email,
+        country: values.country,
+        ...(identity ? { identity: { provider: identity.provider, subject: identity.subject, email: identity.email } } : { password: field(form, "password") }),
+      },
       await requestContext(),
     );
     await setSessionCookie(result.token);
+    if (identity) await clearPending();
+    await countForCampaign("SIGN_UP", result.organisationId);
     // Opens the organisation's billing account now. If the billing engine
     // is down, it is opened the first time billing is used instead.
     await ensureBillingAccount(prisma, billingAdapter(), result.organisationId).catch((err) => console.error("Billing account not opened at sign-up:", err));
@@ -94,6 +88,7 @@ export async function signUpAction(_prev: FormState, form: FormData): Promise<Fo
     if (e instanceof RateLimitedError) return { error: rateLimitedMessage(e.retryAt), values };
     if (e instanceof AuthError) {
       if (e.code === "email-taken") return { fieldErrors: { email: "There's already an account with this email. Sign in instead." }, values };
+      if (e.code === "invalid-input" && identity) return { error: e.message, values };
       if (e.code === "weak-password") return { fieldErrors: { password: "Use at least 12 characters, and avoid your name or email." }, values };
       if (e.code === "invalid-input") return { error: "Fill in every field.", values };
       if (e.code === "no-market") return { unavailable: true, values };
@@ -121,6 +116,7 @@ async function passwordStep(audience: UserKind, form: FormData): Promise<FormSta
   const values = { email: field(form, "email") };
   const next = safeNext(field(form, "next"), audience);
   let stage: string;
+  if (audience === "STAFF" && !staffPasswordAllowed()) return { error: "Staff sign in with Microsoft.", values };
   try {
     await limitByIp("signInPerIp");
     const result = await startSignIn(authDeps(), { email: values.email, password: field(form, "password") }, await requestContext(), audience);
@@ -142,10 +138,12 @@ async function codeStep(audience: UserKind, form: FormData): Promise<FormState> 
   const next = safeNext(field(form, "next"), audience);
   const code = field(form, "code") || field(form, "recovery");
   if (!code.trim()) return { error: "Enter the code first." };
+  let destination = next;
   try {
     await limitByIp("codePerIp");
     const result = await completeSignIn(authDeps(), token ?? "", code, await requestContext());
     await setSessionCookie(result.token, audience);
+    if (audience === "CUSTOMER") destination = await afterSignIn(result.token, next);
   } catch (e) {
     if (e instanceof RateLimitedError) return { attempt: Date.now(), error: rateLimitedMessage(e.retryAt) };
     if (e instanceof AuthError) {
@@ -163,7 +161,7 @@ async function codeStep(audience: UserKind, form: FormData): Promise<FormState> 
     }
     throw e;
   }
-  redirect(next);
+  redirect(destination);
 }
 
 async function setupStep(audience: UserKind, form: FormData): Promise<SetupState> {
@@ -296,4 +294,36 @@ export async function joinWithAccountAction(_prev: FormState, form: FormData): P
     throw e;
   }
   redirect("/app?joined=1");
+}
+
+// ─── The recent check before sensitive actions ───────────────────────
+
+async function confirmStep(audience: UserKind, form: FormData): Promise<FormState> {
+  const next = safeNext(field(form, "next"), audience);
+  const session = await currentSession(audience);
+  if (session?.stage !== "ACTIVE") redirect(`${PATHS[audience].signIn}?expired=1`);
+  try {
+    await limitByIp("codePerIp");
+    await stepUpWithCode(authDeps(), session, field(form, "code"), await requestContext());
+  } catch (e) {
+    if (e instanceof RateLimitedError) return { attempt: Date.now(), error: rateLimitedMessage(e.retryAt) };
+    if (e instanceof AuthError) {
+      if (e.code === "locked") {
+        await signOut(authDeps(), await readSessionToken(audience));
+        await clearSessionCookie(audience);
+        redirect(`${PATHS[audience].signIn}?locked=${e.lockedUntil?.toISOString() ?? ""}`);
+      }
+      return { attempt: Date.now(), error: e.message === "That didn't match." ? "That code didn't work. Use the one showing now." : e.message };
+    }
+    throw e;
+  }
+  redirect(next);
+}
+
+export async function confirmCodeAction(_prev: FormState, form: FormData) {
+  return confirmStep("CUSTOMER", form);
+}
+
+export async function staffConfirmCodeAction(_prev: FormState, form: FormData) {
+  return confirmStep("STAFF", form);
 }

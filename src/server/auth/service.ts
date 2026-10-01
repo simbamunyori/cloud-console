@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import type { Prisma, PrismaClient, Role, Session, SessionStage, SignInOutcome, User, UserKind } from "@prisma/client";
+import type { IdentityProvider, Prisma, PrismaClient, Role, Session, SessionStage, SignInOutcome, User, UserKind } from "@prisma/client";
 import { defaultMarket, marketForCountry } from "@/lib/domain/markets";
 import { audit } from "@/server/org/audit";
 import { queueEmail } from "@/server/email/outbox";
@@ -8,11 +8,15 @@ import { generateRecoveryCodes, hashRecoveryCode, looksLikeRecoveryCode } from "
 import { open, seal } from "./secret-box";
 import { hashToken, newToken } from "./tokens";
 import { generateTotpSecret, otpauthUri, verifyTotp } from "./totp";
+import { assertStepUp } from "./step-up";
 
 /**
- * Sign-up, sign-in and sessions for customers and staff. Every account
- * uses a password plus an authenticator app; there is no way to reach
- * ACTIVE without both.
+ * Sign-up, sign-in and sessions for customers and staff. Every sign-in
+ * takes two steps: a password or a Microsoft or Google account, then an
+ * authenticator code or a passkey (src/server/auth/identities.ts and
+ * passkeys.ts). A passkey on its own is enough, since it is already two
+ * factors: the device and the fingerprint, face or PIN that unlocks it.
+ * There is no way to reach ACTIVE otherwise.
  *
  * Adapted from Thebe (docs/shared-with-thebe.md). Functions take the
  * database client and key so they can be tested without Next.js.
@@ -61,7 +65,9 @@ export class AuthError extends Error {
       | "weak-password"
       | "invalid-input"
       | "no-market"
-      | "no-session",
+      | "no-session"
+      /** A sensitive action needs a passkey or code in the last 15 minutes (src/server/auth/step-up.ts). */
+      | "step-up",
     message: string,
     public readonly lockedUntil?: Date,
   ) {
@@ -78,7 +84,7 @@ export function normaliseEmail(email: string): string {
 
 export const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-function clock(deps: AuthDeps): Date {
+export function clock(deps: AuthDeps): Date {
   return deps.now ? deps.now() : new Date();
 }
 
@@ -90,13 +96,14 @@ function expiryFor(stage: SessionStage, audience: UserKind, now: Date): Date {
   return new Date(now.getTime() + (stage === "ACTIVE" ? idleTtl(audience) : PENDING_TTL_MS));
 }
 
-async function createSession(
+export async function createSession(
   tx: Prisma.TransactionClient,
   user: Pick<User, "id" | "kind">,
   stage: SessionStage,
   organisationId: string | null,
   ctx: RequestContext,
   now: Date,
+  stepUpAt: Date | null = null,
 ): Promise<string> {
   const token = newToken();
   await tx.session.create({
@@ -106,6 +113,7 @@ async function createSession(
       audience: user.kind,
       stage,
       activeOrganisationId: organisationId,
+      stepUpAt,
       expiresAt: expiryFor(stage, user.kind, now),
       lastSeenAt: now,
       ipAddress: ctx.ipAddress ?? null,
@@ -115,7 +123,7 @@ async function createSession(
   return token;
 }
 
-async function primaryOrganisationId(tx: Prisma.TransactionClient, userId: string): Promise<string | null> {
+export async function primaryOrganisationId(tx: Prisma.TransactionClient, userId: string): Promise<string | null> {
   const m = await tx.membership.findFirst({
     where: { userId, active: true, organisation: { deletedAt: null } },
     orderBy: { createdAt: "asc" },
@@ -124,7 +132,7 @@ async function primaryOrganisationId(tx: Prisma.TransactionClient, userId: strin
   return m?.organisationId ?? null;
 }
 
-async function recordSignIn(
+export async function recordSignIn(
   tx: Prisma.TransactionClient,
   userId: string,
   outcome: SignInOutcome,
@@ -163,9 +171,12 @@ export interface SignUpInput {
   organisationName: string;
   name: string;
   email: string;
-  password: string;
+  /** Left out when signing up with a Microsoft or Google account instead. */
+  password?: string;
   /** ISO 3166-1 alpha-2 billing country. Decides the market; the default market when left out. */
   country?: string;
+  /** The Microsoft or Google account signed up with; its email is verified and must be this email. */
+  identity?: { provider: IdentityProvider; subject: string; email: string };
 }
 
 /**
@@ -184,21 +195,27 @@ export async function signUp(
   if (!organisationName || !name || !EMAIL_PATTERN.test(email) || organisationName.length > 120 || name.length > 80) {
     throw new AuthError("invalid-input", "Fill in every field.");
   }
-  if (passwordStrength(input.password, [email, name, organisationName]) !== "strong") {
+  if (input.identity) {
+    if (normaliseEmail(input.identity.email) !== email) throw new AuthError("invalid-input", "Use the email of the account you signed up with.");
+  } else if (passwordStrength(input.password ?? "", [email, name, organisationName]) !== "strong") {
     throw new AuthError("weak-password", "Choose a password of at least 12 characters that isn't easy to guess.");
   }
   const markets = await deps.db.market.findMany();
   const market = input.country ? marketForCountry(input.country, markets) : defaultMarket(markets);
   if (!market) throw new AuthError("no-market", "We don't serve that country yet.");
   const country = (input.country ?? market.countries[0] ?? "BW").toUpperCase();
-  const passwordHash = await hashPassword(input.password);
+  // No password with a Microsoft or Google account: an empty hash never matches one. They can add one later with "Forgot password?".
+  const passwordHash = input.identity ? "" : await hashPassword(input.password ?? "");
   const now = clock(deps);
 
   return deps.db.$transaction(async (tx) => {
     if (await tx.user.findUnique({ where: { email }, select: { id: true } })) {
       throw new AuthError("email-taken", "An account with this email already exists.");
     }
-    const user = await tx.user.create({ data: { email, name, passwordHash, kind: "CUSTOMER" } });
+    const user = await tx.user.create({ data: { email, name, passwordHash, kind: "CUSTOMER", emailVerifiedAt: input.identity ? now : null } });
+    if (input.identity) {
+      await tx.externalIdentity.create({ data: { userId: user.id, provider: input.identity.provider, subject: input.identity.subject, email, lastUsedAt: now } });
+    }
     const base = slugify(organisationName);
     const slug = (await tx.organisation.findUnique({ where: { slug: base }, select: { id: true } }))
       ? `${base}-${randomBytes(3).toString("hex")}`
@@ -234,7 +251,7 @@ export async function signUp(
 
 // ─── Sign-in, step 1: password ───────────────────────────────────────
 
-async function recordFailure(deps: AuthDeps, user: User, outcome: SignInOutcome, ctx: RequestContext, now: Date): Promise<never> {
+export async function recordFailure(deps: AuthDeps, user: User, outcome: SignInOutcome, ctx: RequestContext, now: Date): Promise<never> {
   const attempts = user.failedAttempts + 1;
   const lock = attempts >= MAX_FAILED_ATTEMPTS;
   const lockedUntil = lock ? new Date(now.getTime() + LOCKOUT_MS) : null;
@@ -256,7 +273,7 @@ async function recordFailure(deps: AuthDeps, user: User, outcome: SignInOutcome,
   throw new AuthError(outcome === "WRONG_CODE" ? "invalid-code" : "invalid-credentials", "That didn't match.");
 }
 
-function assertNotLocked(user: User, now: Date) {
+export function assertNotLocked(user: User, now: Date) {
   if (user.lockedUntil && user.lockedUntil.getTime() > now.getTime()) {
     throw new AuthError("locked", "Too many attempts.", user.lockedUntil);
   }
@@ -284,11 +301,17 @@ export async function startSignIn(
   if (!(await verifyPassword(input.password, user.passwordHash))) {
     return recordFailure(deps, user, "WRONG_PASSWORD", ctx, now);
   }
-  const stage: SessionStage = user.totpEnabled ? "CODE_PENDING" : "SETUP_PENDING";
+  const stage = await secondStepStage(deps.db, user);
   const token = await deps.db.$transaction(async (tx) =>
     createSession(tx, user, stage, audience === "CUSTOMER" ? await primaryOrganisationId(tx, user.id) : null, ctx, now),
   );
   return { token, stage };
+}
+
+/** After the first step: the code or passkey, or setting one up when there is neither yet. */
+export async function secondStepStage(db: PrismaClient | Prisma.TransactionClient, user: Pick<User, "id" | "totpEnabled">): Promise<SessionStage> {
+  if (user.totpEnabled) return "CODE_PENDING";
+  return (await db.passkey.count({ where: { userId: user.id } })) > 0 ? "CODE_PENDING" : "SETUP_PENDING";
 }
 
 // ─── Sessions ────────────────────────────────────────────────────────
@@ -316,7 +339,7 @@ export async function getSession(
   return session;
 }
 
-async function requireStage(deps: AuthDeps, token: string, stages: SessionStage[]): Promise<SessionWithUser> {
+export async function requireStage(deps: AuthDeps, token: string, stages: SessionStage[]): Promise<SessionWithUser> {
   const tokenHash = hashToken(token);
   const peek = await deps.db.session.findUnique({ where: { tokenHash }, select: { audience: true } });
   const session = peek ? await getSession(deps, token, peek.audience) : null;
@@ -331,7 +354,7 @@ async function requireStage(deps: AuthDeps, token: string, stages: SessionStage[
  * token, so a token seen before sign-in is worthless afterwards. Records
  * the sign-in and emails the person when the device is new to us.
  */
-async function promote(
+export async function promote(
   tx: Prisma.TransactionClient,
   session: SessionWithUser,
   method: string,
@@ -341,29 +364,35 @@ async function promote(
   await tx.session.update({ where: { id: session.id }, data: { revokedAt: now } });
   const orgId =
     session.user.kind === "CUSTOMER" ? (session.activeOrganisationId ?? (await primaryOrganisationId(tx, session.userId))) : null;
-  const firstSignIn = session.user.lastLoginAt === null;
+  return finishSignIn(tx, session.user, orgId, method, ctx, now);
+}
+
+/** The fully signed-in session: records the sign-in and emails the person when the device is new to us. */
+export async function finishSignIn(tx: Prisma.TransactionClient, user: User, orgId: string | null, method: string, ctx: RequestContext, now: Date): Promise<string> {
+  const firstSignIn = user.lastLoginAt === null;
   await tx.user.update({
-    where: { id: session.userId },
+    where: { id: user.id },
     data: { failedAttempts: 0, lockedUntil: null, lastLoginAt: now },
   });
   const known = await tx.signInEvent.findFirst({
     where: {
-      userId: session.userId,
+      userId: user.id,
       outcome: "SUCCEEDED",
       userAgent: ctx.userAgent?.slice(0, 400) ?? null,
       createdAt: { gt: new Date(now.getTime() - KNOWN_DEVICE_MS) },
     },
     select: { id: true },
   });
-  await recordSignIn(tx, session.userId, "SUCCEEDED", method, ctx, now);
+  await recordSignIn(tx, user.id, "SUCCEEDED", method, ctx, now);
   if (!known && !firstSignIn) {
     await queueEmail(tx, {
-      to: session.user.email,
+      to: user.email,
       kind: "security.new_sign_in",
       payload: { at: now.toISOString(), ipAddress: ctx.ipAddress ?? null, userAgent: ctx.userAgent?.slice(0, 400) ?? null },
     });
   }
-  return createSession(tx, session.user, "ACTIVE", orgId, ctx, now);
+  // Every way in ends with a code or a passkey, which counts as the recent check for sensitive actions.
+  return createSession(tx, user, "ACTIVE", orgId, ctx, now, now);
 }
 
 export async function signOut(deps: AuthDeps, token: string | undefined | null) {
@@ -455,8 +484,8 @@ export async function completeSignIn(
   const session = await requireStage(deps, token, ["CODE_PENDING"]);
   const user = session.user;
   assertNotLocked(user, now);
-  if (!user.totpSecret || !user.totpEnabled) throw new AuthError("no-session", "Start again.");
 
+  // Backup codes work for everyone, including people whose second step is a passkey.
   if (looksLikeRecoveryCode(code)) {
     const hash = hashRecoveryCode(code);
     const used = await deps.db.recoveryCode.updateMany({
@@ -471,6 +500,7 @@ export async function completeSignIn(
     });
   }
 
+  if (!user.totpSecret || !user.totpEnabled) return recordFailure(deps, user, "WRONG_CODE", ctx, now);
   const step = verifyTotp(open(user.totpSecret, deps.encryptionKey), code, { at: now, lastUsedStep: user.totpLastStep });
   if (step === null) return recordFailure(deps, user, "WRONG_CODE", ctx, now);
   return deps.db.$transaction(async (tx) => {
@@ -510,6 +540,33 @@ export async function regenerateRecoveryCodes(
         actorKind: "CUSTOMER",
         actorUserId: user.id,
         actorLabel: user.name,
+        action: "auth.backup_codes_replaced",
+        summary: "Made new backup codes; the old ones stopped working",
+        ipAddress: ctx.ipAddress,
+      });
+    }
+  });
+  return codes;
+}
+
+/**
+ * New backup codes after the recent check, for people whose second step is
+ * a passkey rather than an authenticator app.
+ */
+export async function replaceRecoveryCodes(deps: AuthDeps, session: SessionWithUser, ctx: RequestContext = {}): Promise<string[]> {
+  const now = clock(deps);
+  if (session.stage !== "ACTIVE") throw new AuthError("no-session", "Sign in again.");
+  assertStepUp(session, now);
+  const codes = generateRecoveryCodes();
+  await deps.db.$transaction(async (tx) => {
+    await tx.recoveryCode.deleteMany({ where: { userId: session.userId } });
+    await tx.recoveryCode.createMany({ data: codes.map((c) => ({ userId: session.userId, codeHash: hashRecoveryCode(c) })) });
+    if (session.activeOrganisationId) {
+      await audit(tx, {
+        organisationId: session.activeOrganisationId,
+        actorKind: "CUSTOMER",
+        actorUserId: session.userId,
+        actorLabel: session.user.name,
         action: "auth.backup_codes_replaced",
         summary: "Made new backup codes; the old ones stopped working",
         ipAddress: ctx.ipAddress,

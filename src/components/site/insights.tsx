@@ -11,7 +11,7 @@ import { CmsTextLink, type BlockContext } from "./blocks/parts";
 /** "Resilience · 4 min read" */
 export const insightMeta = (i: Pick<Insight, "topic" | "readingMinutes">) => [topicLabel(i.topic), i.readingMinutes ? `${i.readingMinutes} min read` : null].filter(Boolean).join(" · ");
 
-async function InsightCard({ insight: i, market }: { insight: Insight; market: BlockContext["market"] }) {
+export async function InsightCard({ insight: i, market }: { insight: Insight; market: BlockContext["market"] }) {
   const href = `/${market.code}${insightPath(i.slug)}`;
   const product = await relatedProduct(market.code, i.related);
   const titleId = `insight-${i.id}`;

@@ -7,6 +7,7 @@ import { env } from "@/server/env";
 import { totpKey } from "@/server/secrets";
 import { SESSION_COOKIE } from "./cookies";
 import { getSession, type AuthDeps, type RequestContext, type SessionWithUser } from "./service";
+import { stepUpFresh } from "./step-up";
 
 /**
  * Next.js glue for the auth service: the session cookies, request
@@ -82,4 +83,14 @@ export async function requireActiveStaffSession(): Promise<SessionWithUser> {
   const session = await currentSession("STAFF");
   if (session?.stage !== "ACTIVE") redirect(staffHomeFor(session));
   return session;
+}
+
+/**
+ * Before a sensitive action: a passkey or authenticator code in the last 15
+ * minutes (docs/FINAL_BUILD.md, Milestone 5), or off to confirm it and then
+ * `back` to the page the action is on (the site sends no Referer).
+ */
+export async function requireRecentCheck(session: SessionWithUser, audience: UserKind, back: string): Promise<void> {
+  if (stepUpFresh(session)) return;
+  redirect(`${audience === "STAFF" ? "/admin" : "/app"}/confirm?next=${encodeURIComponent(back)}`);
 }

@@ -18,6 +18,7 @@ import { cn } from "@/lib/cn";
 import { formatMoney } from "@/lib/domain/money";
 import { selection } from "@/server/cms/catalogue-options";
 import { helpCentreOpen } from "@/server/site/cms";
+import { permittedClientLogos, permittedTestimonials } from "@/server/site/proof";
 import { lowestPrice, selected, siteMarket, sitePrices, taxNote } from "@/server/site/site";
 import { CATCH_ALL } from "@/lib/domain/markets";
 import { env } from "@/server/env";
@@ -27,7 +28,7 @@ import { InsightsStripSection } from "../insights";
 import { AssistantNotice as AssistantNoticeText, PageIntro as PageIntroHeader, ProseSection } from "../prose";
 import { fill, SiteRichText, type TextMarket } from "../rich-text";
 import { BlockIcon, captionFor, cardSurface, CmsButton, CmsTextLink, Heading, hasPicture, MediaImage, PictureBody, Section, type BlockContext, type PictureValue } from "./parts";
-import { ClosingBanner, CompareTable, DomainStoreSection, EmailShowcase, HomeHero, NumberedServices, PlansTable, SecurityPanel, TeamSection, ThebeSection, WebsitesShowcase } from "./home";
+import { ClosingBanner, CompareTable, DomainStoreSection, EmailShowcase, HomeHero, NumberedServices, PlansTable, ProofStripSection, SecurityPanel, TeamSection, ThebeSection, WebsitesShowcase } from "./home";
 
 /**
  * Draws a page's sections from the website editor, with the brand's own
@@ -327,21 +328,28 @@ async function Faq({ block: b, ctx }: { block: FaqBlock; ctx: BlockContext }) {
   );
 }
 
-function Testimonials({ block: b, ctx }: { block: TestimonialsBlock; ctx: BlockContext }) {
-  if (!b.items?.length) return null;
+/** Quotes from Testimonials and case studies, those with permission. Hidden while there are none. */
+async function Testimonials({ block: b, ctx }: { block: TestimonialsBlock; ctx: BlockContext }) {
+  const items = await permittedTestimonials(ctx.market.code);
+  if (!items.length) return null;
   return (
     <Section tone={b.tone} labelledBy={`${ctx.id}-title`}>
       <h2 id={`${ctx.id}-title`} className={b.heading ? cn("mb-10 text-title-1 sm:text-display", b.tone === "dark" ? "text-on-navy" : "text-ink") : "sr-only"}>
         {b.heading || "What customers say"}
       </h2>
       <ul className="grid gap-4 md:grid-cols-2">
-        {b.items.map((t) => (
-          <li key={t.id ?? t.name} className={cn("rounded-lg border border-border p-6", cardSurface(b.tone))}>
+        {items.map((t) => (
+          <li key={t.id} className={cn("flex flex-col gap-3 rounded-lg border border-border p-6", cardSurface(b.tone))}>
+            {t.result ? <p className="text-callout font-semibold text-link">{t.result}</p> : null}
             <blockquote className="text-body text-ink">{t.quote}</blockquote>
-            <p className="mt-3 text-callout text-ink-muted">
-              {t.name}
-              {t.role ? `, ${t.role}` : ""}
-            </p>
+            <div className="mt-auto flex items-center justify-between gap-4">
+              <p className="text-callout text-ink-muted">{[t.name, t.role, t.company].filter(Boolean).join(", ")}</p>
+              {t.logo ? (
+                <div className="h-8 w-24 shrink-0">
+                  <MediaImage media={t.logo} sizes="96px" className="h-8 w-auto object-contain" />
+                </div>
+              ) : null}
+            </div>
           </li>
         ))}
       </ul>
@@ -349,17 +357,26 @@ function Testimonials({ block: b, ctx }: { block: TestimonialsBlock; ctx: BlockC
   );
 }
 
-function LogoStrip({ block: b, ctx }: { block: LogoStripBlock; ctx: BlockContext }) {
+/** Client logos, those with permission. Hidden while there are none. */
+async function LogoStrip({ block: b, ctx }: { block: LogoStripBlock; ctx: BlockContext }) {
+  const logos = await permittedClientLogos(ctx.market.code);
+  if (!logos.length) return null;
   return (
     <Section tone={b.tone} labelledBy={`${ctx.id}-title`}>
       <h2 id={`${ctx.id}-title`} className={b.heading ? cn("text-headline", b.tone === "dark" ? "text-on-navy" : "text-ink-muted") : "sr-only"}>
-        {b.heading || "Organisations we work with"}
+        {b.heading || "Businesses we look after"}
       </h2>
       <ul className="mt-6 flex flex-wrap items-center gap-x-10 gap-y-6">
-        {(b.logos ?? []).map((l) => (
-          <li key={l.id ?? l.name} className="h-10 w-32">
-            <MediaImage media={l.image} sizes="128px" className="h-10 w-auto object-contain" />
-            <span className="sr-only">{l.name}</span>
+        {logos.map((l) => (
+          <li key={l.id} className="flex h-10 items-center">
+            {l.logo && typeof l.logo === "object" ? (
+              <>
+                <MediaImage media={l.logo} sizes="128px" className="h-10 w-auto object-contain" />
+                <span className="sr-only">{l.company}</span>
+              </>
+            ) : (
+              <span className={cn("text-headline font-bold", b.tone === "dark" ? "text-on-navy" : "text-ink-muted")}>{l.company}</span>
+            )}
           </li>
         ))}
       </ul>
@@ -466,6 +483,8 @@ function Block({ block, ctx }: { block: AnyBlock; ctx: BlockContext }) {
       return <Faq block={block} ctx={ctx} />;
     case "testimonials":
       return <Testimonials block={block} ctx={ctx} />;
+    case "proofStrip":
+      return <ProofStripSection block={block} ctx={ctx} />;
     case "logoStrip":
       return <LogoStrip block={block} ctx={ctx} />;
     case "callToAction":

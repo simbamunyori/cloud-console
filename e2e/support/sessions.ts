@@ -12,7 +12,11 @@ export const DEMO_STAFF = "staff@example.co.bw";
 
 const COOKIE: Record<UserKind, string> = { CUSTOMER: "console_session", STAFF: "console_staff" };
 
-export async function testSession(email: string): Promise<{ name: string; value: string }> {
+/**
+ * `confirmed` makes the session count as recently checked for the whole run
+ * (sensitive actions ask for a passkey or code otherwise).
+ */
+export async function testSession(email: string, { confirmed = true }: { confirmed?: boolean } = {}): Promise<{ name: string; value: string }> {
   if (process.env.NODE_ENV === "production") throw new Error("Test sessions are for development and CI only.");
   const db = new PrismaClient();
   try {
@@ -26,6 +30,7 @@ export async function testSession(email: string): Promise<{ name: string; value:
         stage: "ACTIVE",
         activeOrganisationId: user.memberships[0]?.organisationId ?? null,
         expiresAt: new Date(Date.now() + 8 * 3_600_000),
+        stepUpAt: confirmed ? new Date(Date.now() + 8 * 3_600_000) : null,
         userAgent: "test session",
       },
     });

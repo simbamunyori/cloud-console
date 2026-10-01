@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { field, run, type ActionState } from "@/server/action-state";
+import { requireRecentCheck } from "@/server/auth/next";
 import { requireBilling } from "@/server/billing/context";
 import { setInvoicePo } from "@/server/billing/po";
 import { env } from "@/server/env";
@@ -32,6 +33,7 @@ async function paymentDeps() {
 export async function payByCardAction(form: FormData) {
   const invoiceId = field(form, "invoiceId");
   let target = `/app/billing/invoices/${encodeURIComponent(invoiceId)}`;
+  await requireRecentCheck((await requireBilling()).session, "CUSTOMER", target);
   try {
     target = (await startCardPayment(await paymentDeps(), invoiceId)).redirectUrl;
   } catch (e) {

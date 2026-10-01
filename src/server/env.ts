@@ -43,6 +43,21 @@ const schema = z.object({
   GEOLITE2_DB_PATH: optionalText(),
   /** Comma-separated IPs or IPv4 ranges (CIDR) allowed to open /admin. Empty allows any address. */
   ADMIN_IP_ALLOWLIST: z.string().default(""),
+  /**
+   * Sign in with Microsoft: the console's app registration in Microsoft Entra ID
+   * (docs/sign-in-setup.md). Its secret is MICROSOFT_CLIENT_SECRET. The buttons
+   * hide while either is unset.
+   */
+  MICROSOFT_CLIENT_ID: optionalText(),
+  /** Our own Microsoft 365 tenant's id. Staff sign in with Microsoft only from this tenant; unset hides staff Microsoft sign-in. */
+  MICROSOFT_STAFF_TENANT_ID: optionalText(),
+  /** Sign in with Google: the OAuth client's id (docs/sign-in-setup.md). Its secret is GOOGLE_CLIENT_SECRET. */
+  GOOGLE_CLIENT_ID: optionalText(),
+  /**
+   * Once staff sign in with Microsoft, their passwords stop working unless this is "yes":
+   * a way in if Microsoft is down. A code or passkey is still needed either way.
+   */
+  STAFF_PASSWORD_SIGN_IN: z.enum(["yes", "no"]).optional(),
   /** An outside service status page. While unset, the site's status links go to its own /status page. */
   STATUS_PAGE_URL: optionalUrl(),
   /** Thebe's sign-up or trial page ("Try Thebe"). The button is hidden while this is unset. */
