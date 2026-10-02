@@ -7,6 +7,8 @@ import { scopedBilling } from "../src/server/billing/scoped";
 import { linkStubProduct, seedStubCatalogue } from "../src/server/billing/stub/catalogue";
 import { StubBillingAdapter } from "../src/server/billing/stub/stub-adapter";
 import { seedCatalogue } from "../src/server/catalogue/seed-data";
+import { MemoryEmailAdapter } from "../src/server/email/adapter";
+import { deliverDue } from "../src/server/email/outbox";
 import type { OrderDeps } from "../src/server/orders/orders";
 import type { Actor } from "../src/server/org/access";
 import {
@@ -14,6 +16,7 @@ import {
   claimQuote,
   closeQuote,
   declineQuoteByToken,
+  referQuote,
   quoteByToken,
   quoteState,
   requestQuote,
@@ -206,5 +209,29 @@ describe.skipIf(!hasDb)("quotes", () => {
     await closeQuote({ db, staff: admin }, spam.reference, "Duplicate of an earlier request.");
     expect((await db.quote.findUniqueOrThrow({ where: { id: spam.id } })).status).toBe("CLOSED");
     expect(await db.staffAuditEvent.findFirst({ where: { action: "quote.closed", data: { path: ["quote"], equals: spam.reference } } })).toBeTruthy();
+  });
+
+  it("passes on-site compliance projects to NSMC, and tells the customer who will call", async () => {
+    const q = await requestQuote(db, { ...request({ need: "An audit of our records and controls at our head office." }), referral: "compliance-project" }, { market: "bw" });
+    expect(q.referTo).toBe("NSMC");
+    // Anything else in the field is ignored, so a request can't name its own partner.
+    expect((await requestQuote(db, { ...request(), referral: "someone-else" }, { market: "bw" })).referTo).toBeNull();
+
+    const asked = new MemoryEmailAdapter();
+    await deliverDue(db, asked, new Date(), 10, { kind: { in: ["quote.requested", "quote.new_request"] }, payload: { path: ["quoteId"], equals: q.id } });
+    expect(asked.sent.find((m) => m.to === q.email)?.text).toContain("NSMC, our partner");
+    expect(asked.sent.find((m) => m.to !== q.email)?.subject).toContain(q.reference);
+    expect(asked.sent.find((m) => m.to !== q.email)?.text).toContain("Pass it to NSMC");
+
+    const plain = await requestQuote(db, request(), { market: "bw" });
+    await expect(referQuote({ db, staff: admin }, plain.reference)).rejects.toThrow(/isn't for a partner/);
+    await referQuote({ db, staff: admin }, q.reference);
+    expect(await db.quote.findUniqueOrThrow({ where: { id: q.id } })).toMatchObject({ status: "CLOSED", declineReason: "Introduced to NSMC.", referredAt: expect.any(Date) });
+    await expect(referQuote({ db, staff: admin }, q.reference)).rejects.toThrow(/already finished/);
+    expect(await db.staffAuditEvent.findFirst({ where: { action: "quote.referred", data: { path: ["quote"], equals: q.reference } } })).toBeTruthy();
+    const told = new MemoryEmailAdapter();
+    await deliverDue(db, told, new Date(), 10, { kind: "quote.referred", payload: { path: ["quoteId"], equals: q.id } });
+    expect(told.sent).toHaveLength(1);
+    expect(told.sent[0].subject).toBe(`We've passed your request to NSMC (${q.reference})`);
   });
 });

@@ -11,9 +11,9 @@ import { applyBps, money, type Money } from "@/lib/domain/money";
 import { monthOf } from "@/lib/domain/pricing";
 import { marketplace, tldOffers } from "@/server/catalogue/price-book";
 import { prisma } from "@/server/db";
-import { env } from "@/server/env";
 import { faqOf } from "@/server/launch/kits";
 import { CATCH_ALL, cachedMarkets } from "@/server/markets/markets";
+import { siteUrl } from "@/server/site/urls";
 
 /** What the public site needs, read once per request. */
 
@@ -145,7 +145,7 @@ export async function siteMetadata(code: string, path: string, meta: { title: st
   const languages: Record<string, string> = Object.fromEntries(markets.map((m) => [hreflang(m), `/${m.code}${path}`]));
   languages["x-default"] = path === "" ? "/" : `/${markets.find((m) => m.isDefault)?.code ?? code}${path}`;
   return {
-    metadataBase: new URL(env().APP_URL),
+    metadataBase: new URL(siteUrl()),
     title: { absolute: meta.title },
     description: meta.description,
     alternates: { canonical: `/${code}${path}`, languages },

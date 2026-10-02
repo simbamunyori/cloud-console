@@ -10,7 +10,19 @@
  * default: a mid-range phone on a slow 4G connection).
  */
 const BASE = process.env.BASE_URL ?? "http://localhost:3000";
-const PAGES = ["/bw", "/bw/pricing", "/bw/security", "/bw/legal/privacy", "/bw/products/microsoft-365-business-standard", "/bw/insights"];
+const PAGES = [
+  "/bw",
+  "/bw/pricing",
+  "/bw/security",
+  "/bw/legal/privacy",
+  "/bw/products/microsoft-365-business-standard",
+  "/bw/insights",
+  "/bw/tools",
+  "/bw/tools/email-security",
+  "/bw/tools/cost-calculator",
+  "/bw/tools/data-protection",
+  "/bw/book",
+];
 
 module.exports = {
   ci: {

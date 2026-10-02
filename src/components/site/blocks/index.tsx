@@ -22,6 +22,7 @@ import { permittedClientLogos, permittedTestimonials } from "@/server/site/proof
 import { lowestPrice, selected, siteMarket, sitePrices, taxNote } from "@/server/site/site";
 import { CATCH_ALL } from "@/lib/domain/markets";
 import { env } from "@/server/env";
+import { THEBE_SITE } from "@/server/site/partner-links";
 import { DomainSearch, type HomeMarket } from "../home";
 import { SiteHero } from "../hero";
 import { InsightsStripSection } from "../insights";
@@ -536,8 +537,8 @@ function DocumentBlock({ block, ctx }: { block: AnyBlock; ctx: BlockContext }) {
 }
 
 export function RenderBlocks({ blocks, market: m, style, domain }: { blocks: Page["layout"]; market: SiteMarket; style?: Page["style"]; domain?: string }) {
-  // Links to Thebe go to THEBE_URL, and hide while it is unset.
-  const market = { ...m, thebeUrl: env().THEBE_URL ?? null };
+  // Links to Thebe go to THEBE_URL, or Thebe's website.
+  const market = { ...m, thebeUrl: env().THEBE_URL ?? THEBE_SITE };
   const filled = fillDeep(blocks ?? [], market);
   if (style === "document") {
     return (

@@ -4,7 +4,7 @@ import { ImageResponse } from "next/og";
 import tokens from "@/config/theme/tokens.json";
 import { company } from "@/config/app";
 import { prisma } from "@/server/db";
-import { env } from "@/server/env";
+import { siteUrl } from "@/server/site/urls";
 
 /**
  * The branded share image for a product (Milestone 7), 1200 by 627 as
@@ -23,7 +23,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ slug: s
   if (!kit) return new Response("Not found", { status: 404 });
   const p = kit.product;
   const [bold, light, logo] = await Promise.all([asset("fonts", "Poppins-Bold.ttf"), asset("fonts", "Poppins-Light.ttf"), asset("logo", "fgt-logo-reverse.svg")]);
-  const host = new URL(env().APP_URL).host;
+  const host = new URL(siteUrl()).host;
   const b = tokens.brand;
   return new ImageResponse(
     (

@@ -63,6 +63,8 @@ export interface FakeWhmcsOptions {
   moduleFailure?: string;
 }
 
+const CYCLE_WORD: Record<string, string> = { monthly: "Monthly", quarterly: "Quarterly", semiannually: "Semi-Annually", annually: "Annually" };
+
 export function fakeWhmcs(options: FakeWhmcsOptions = {}) {
   let nextId = 1000;
   const TLDS: Record<string, Record<string, string>> = structuredClone(START_TLDS);
@@ -250,7 +252,7 @@ export function fakeWhmcs(options: FakeWhmcsOptions = {}) {
         const price = p[`priceoverride[${key}]`] ?? fmt(cents(product.monthly[clientCode(p.clientid)]) * qty);
         for (let n = 0; n < qty; n++) {
           const sid = id();
-          services.set(sid, { id: sid, clientid: p.clientid, orderid, pid, qty: "1", regdate: today(), nextduedate: addMonths(today(), 1), billingcycle: "Monthly", recurringamount: price, firstpaymentamount: price, status: "Pending", suspensionreason: "", domain: p[`domain[${key}]`] ?? "", options: { ...options } });
+          services.set(sid, { id: sid, clientid: p.clientid, orderid, pid, qty: "1", regdate: today(), nextduedate: addMonths(today(), 1), billingcycle: CYCLE_WORD[p[`billingcycle[${key}]`] ?? "monthly"] ?? "Monthly", recurringamount: price, firstpaymentamount: price, status: "Pending", suspensionreason: "", domain: p[`domain[${key}]`] ?? "", options: { ...options } });
           serviceIds.push(sid);
           items.push({ type: "product", relid: sid });
           lines.push({ type: "Hosting", relid: sid, description: product.name, amount: price });
@@ -263,7 +265,7 @@ export function fakeWhmcs(options: FakeWhmcsOptions = {}) {
         const tld = name.slice(name.indexOf(".") + 1);
         const price = p[`domainpriceoverride[${key}]`] ?? fmt(cents(TLDS[tld][clientCode(p.clientid)]) * years);
         const did = id();
-        domains.set(did, { id: did, userid: p.clientid, orderid, regtype: type === "transfer" ? "Transfer" : "Register", domainname: name, registrar: "", regperiod: String(years), firstpaymentamount: price, recurringamount: fmt(cents(TLDS[tld][clientCode(p.clientid)])), regdate: today(), expirydate: "0000-00-00", nextduedate: today(), status: type === "transfer" ? "Pending Transfer" : "Pending", donotrenew: "0" });
+        domains.set(did, { id: did, userid: p.clientid, orderid, regtype: type === "transfer" ? "Transfer" : "Register", domainname: name, registrar: "", regperiod: String(years), firstpaymentamount: price, recurringamount: p[`domainrenewoverride[${key}]`] ?? fmt(cents(TLDS[tld][clientCode(p.clientid)])), regdate: today(), expirydate: "0000-00-00", nextduedate: today(), status: type === "transfer" ? "Pending Transfer" : "Pending", donotrenew: "0" });
         domainIds.push(did);
         items.push({ type: "domain", relid: did });
         lines.push({ type: type === "transfer" ? "DomainTransfer" : "DomainRegister", relid: did, description: `Domain ${type} - ${name}`, amount: price });
@@ -373,6 +375,7 @@ export function fakeWhmcs(options: FakeWhmcsOptions = {}) {
       for (let n = 1; p[`itemdescription${n}`] !== undefined; n++) items.push({ type: "", relid: "0", description: p[`itemdescription${n}`], amount: p[`itemamount${n}`] ?? "0.00", taxed: on(p[`itemtaxed${n}`]) ? 1 : 0 });
       const invoiceid = newInvoice(p.userid, items, p.paymentmethod ?? "");
       if (p.duedate) invoices.get(invoiceid)!.duedate = p.duedate;
+      if (p.date) invoices.get(invoiceid)!.date = p.date;
       return { invoiceid: Number(invoiceid), status: p.status ?? "Unpaid" };
     },
 
@@ -384,11 +387,23 @@ export function fakeWhmcs(options: FakeWhmcsOptions = {}) {
       if (p.status) s.status = p.status;
       if (p.suspendreason !== undefined) s.suspensionreason = p.suspendreason;
       if (p.recurringamount) s.recurringamount = p.recurringamount;
+      if (p.regdate) s.regdate = p.regdate;
+      // Assumed from the API docs: the next due date moves the next invoice date with it.
+      if (p.nextduedate) s.nextduedate = p.nextduedate;
+      if (p.domain) s.domain = p.domain;
+      if (p.notes !== undefined) s.notes = p.notes;
       if (p.configoptions) {
         const parsed = unserialize(Buffer.from(p.configoptions, "base64").toString()) as Record<string, Record<string, string> | string>;
         for (const [option, value] of Object.entries(parsed)) s.options[option] = typeof value === "object" ? value.qty : value;
       }
       return { serviceid: p.serviceid };
+    },
+
+    UpdateClientDomain: (p) => {
+      const d = domains.get(p.domainid);
+      if (!d) return fail("Domain ID Not Found");
+      for (const key of ["status", "registrar", "regperiod", "notes", "regdate", "expirydate", "nextduedate", "recurringamount", "donotrenew"]) if (p[key] !== undefined) d[key] = p[key];
+      return { domainid: p.domainid };
     },
 
     GetInvoices: (p) => {

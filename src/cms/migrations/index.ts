@@ -5,6 +5,7 @@ import * as migration_20260930_124108_site_editor_complete from './20260930_1241
 import * as migration_20260930_134737_home_page_as_designed from './20260930_134737_home_page_as_designed';
 import * as migration_20260930_153411_proof_content from './20260930_153411_proof_content';
 import * as migration_20260930_170517_sales_assistant from './20260930_170517_sales_assistant';
+import * as migration_20261001_084742_partner_links from './20261001_084742_partner_links';
 
 export const migrations = [
   {
@@ -40,6 +41,11 @@ export const migrations = [
   {
     up: migration_20260930_170517_sales_assistant.up,
     down: migration_20260930_170517_sales_assistant.down,
-    name: '20260930_170517_sales_assistant'
+    name: '20260930_170517_sales_assistant',
+  },
+  {
+    up: migration_20261001_084742_partner_links.up,
+    down: migration_20261001_084742_partner_links.down,
+    name: '20261001_084742_partner_links'
   },
 ];

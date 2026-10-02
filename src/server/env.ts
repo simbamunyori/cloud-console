@@ -14,6 +14,12 @@ const schema = z.object({
   DATABASE_URL: z.string().url(),
   /** Public address of the console, used in email links. The domain is not decided yet. */
   APP_URL: z.string().url().default("http://localhost:3000"),
+  /**
+   * The public website's address, e.g. https://fourthgeneration.technology,
+   * when it has its own host apart from the console (APP_URL). Empty: one
+   * host serves both, as in development and CI.
+   */
+  SITE_URL: optionalUrl(),
   /** What customers see the console called. Not decided yet, so it lives here. */
   CONSOLE_NAME: z.string().min(1).default("Cloud Console"),
   /** Outgoing mail server, e.g. smtps://user:pass@smtp.example.com:465, or smtp://localhost:1025 for Mailpit. */
@@ -27,6 +33,8 @@ const schema = z.object({
   WHMCS_API_URL: optionalUrl(),
   /** The price sync addon's endpoint. Defaults to modules/addons/fourthgen_console/sync.php beside WHMCS_API_URL. */
   WHMCS_SYNC_URL: optionalUrl(),
+  /** Off-site backup storage (scripts/backup.sh). Read here only to warn staff while it is missing. */
+  OFFSITE_S3_BUCKET: optionalText(),
   /** Which WHMCS this is. "production" makes the write tests refuse to run against it. */
   WHMCS_ENVIRONMENT: z.enum(["test", "production"]).optional(),
   /**
@@ -60,13 +68,13 @@ const schema = z.object({
   STAFF_PASSWORD_SIGN_IN: z.enum(["yes", "no"]).optional(),
   /** An outside service status page. While unset, the site's status links go to its own /status page. */
   STATUS_PAGE_URL: optionalUrl(),
-  /** Thebe's sign-up or trial page ("Try Thebe"). The button is hidden while this is unset. */
+  /** Thebe's sign-up or trial page ("Try Thebe"). The site editor's Thebe links come first; unset means Thebe's website. */
   THEBE_TRY_URL: optionalUrl(),
-  /** Thebe's own website ("Learn more about Thebe"). Hidden while unset. */
+  /** Thebe's own website ("Learn more about Thebe"). Unset means https://www.thebe.africa. */
   THEBE_URL: optionalUrl(),
-  /** Where to book a Thebe demo, for the Expense management menu. Hidden while unset. */
+  /** Where to book a Thebe demo. Unset means our pre-sales booking page, hidden while nobody takes bookings. */
   THEBE_DEMO_URL: optionalUrl(),
-  /** NSMC's website, for the on-site IT line. The line is hidden while this is unset. */
+  /** NSMC's website, for the on-site IT line. Unset means https://www.nsmc.africa. */
   NSMC_URL: optionalUrl(),
   /** Set to "off" to stop background jobs on this server. */
   CONSOLE_JOBS: z.enum(["on", "off"]).default("on"),

@@ -12,6 +12,7 @@ import { authDeps } from "@/server/auth/next";
 import { selection } from "@/server/cms/catalogue-options";
 import { websiteStaffFromCookies } from "@/server/cms/staff-session";
 import { env } from "@/server/env";
+import { bookingIsOpen } from "@/server/site/partner-links";
 import { selected, sitePrices } from "@/server/site/site";
 
 export const cms = () => getPayload({ config });
@@ -71,9 +72,22 @@ export const siteFrameContent = cache(async (market: FrameMarketContact): Promis
   const draft = await showingDrafts();
   const payload = await cms();
   const read = <S extends "header" | "footer">(slug: S) => payload.findGlobal({ slug, locale: marketLocale(market.code), fallbackLocale: DEFAULT_LOCALE, draft, depth: 0, overrideAccess: true });
-  const [header, footer, prices, helpOpen, insights] = await Promise.all([read("header"), read("footer"), sitePrices(market.code), helpCentreOpen(market.code), latestInsights(market.code, null, 1)]);
-  const gates = { helpOpen, insightsOpen: insights.length > 0, onSale: (products: unknown) => selected(prices, selection(products)).length > 0 };
-  return frameContent(header?.menus?.length ? header : DEFAULT_HEADER, footer?.columns?.length ? footer : DEFAULT_FOOTER, { ...market, thebeUrl: env().THEBE_URL }, gates, footer ?? {});
+  const [header, footer, prices, helpOpen, insights, bookingOpen] = await Promise.all([
+    read("header"),
+    read("footer"),
+    sitePrices(market.code),
+    helpCentreOpen(market.code),
+    latestInsights(market.code, null, 1),
+    bookingIsOpen(),
+  ]);
+  const gates = { helpOpen, insightsOpen: insights.length > 0, bookingOpen, onSale: (products: unknown) => selected(prices, selection(products)).length > 0 };
+  return frameContent(
+    header?.menus?.length ? header : DEFAULT_HEADER,
+    footer?.columns?.length ? footer : DEFAULT_FOOTER,
+    { ...market, thebeUrl: env().THEBE_URL ?? "https://www.thebe.africa" },
+    gates,
+    footer ?? {},
+  );
 });
 
 /** The newest published insights for a market (drafts too in preview), optionally on one topic. */

@@ -22,6 +22,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     { href: "/admin/tickets", label: "Tickets", icon: "support", needs: "viewCustomers", badge: counts.tickets || undefined },
     { href: "/admin/orders", label: "Orders", icon: "orders", needs: "viewCustomers" },
     { href: "/admin/leads", label: "Leads", icon: "leads", needs: "viewCustomers", badge: counts.leads || undefined },
+    { href: "/admin/bookings", label: "Pre-sales calls", icon: "bookings", needs: "viewCustomers", badge: counts.bookings || undefined },
     { href: "/admin/quotes", label: "Quotes", icon: "quotes", needs: "manageQuotes", badge: counts.quotes || undefined },
     { href: "/admin/payments", label: "EFT payments", icon: "payments", needs: "confirmPayments", badge: counts.eft || undefined },
     { href: "/admin/catalogue", label: "Catalogue", icon: "catalogue", needs: "manageCatalogue" },
@@ -31,6 +32,8 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     { href: "/admin/status", label: "Service status", icon: "status", needs: "manageStatus" },
     { href: "/admin/waitlist", label: "Waiting list", icon: "waitlist", needs: "viewCustomers", badge: counts.waitlist || undefined },
     { href: "/admin/staff", label: "Staff", icon: "staff", needs: "manageStaff" },
+    { href: "/admin/migration", label: "Client migration", icon: "migration", needs: "migrateClients" },
+    { href: "/admin/launch", label: "Launch checks", icon: "checks", needs: "manageMarkets" },
   ];
   const nav: NavItem[] = all.filter((i) => staffCan(staff, i.needs)).map(({ needs: _needs, ...i }) => i);
   // The website editor has its own page frame, so this link loads a new page.
@@ -38,6 +41,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     nav.push({ href: "/admin/content", label: "Website", icon: "website" });
     nav.push({ href: "/admin/launch-kits", label: "Launch kits", icon: "launch", badge: counts.launchKits || undefined });
     nav.push({ href: "/admin/newsletter", label: "Newsletter", icon: "newsletter", badge: counts.newsletter || undefined });
+    nav.push({ href: "/admin/redirects", label: "Old site addresses", icon: "redirects" });
   }
   nav.push({ href: "/admin/account", label: "Your sign-in", icon: "security" });
   const user = <UserCard name={staff.name} role={`${STAFF_ROLE_LABEL[staff.staffRole]} staff`} signOut={staffSignOutAction} />;

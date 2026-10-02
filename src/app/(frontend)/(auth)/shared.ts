@@ -1,4 +1,5 @@
 import "server-only";
+import { cookies } from "next/headers";
 import type { UserKind } from "@prisma/client";
 import { clearPending, readPending } from "@/server/auth/flow-cookies";
 import { linkIdentity } from "@/server/auth/identities";
@@ -19,6 +20,8 @@ export function safeNext(next: string, audience: UserKind): string {
   if (audience === "STAFF") return /^\/admin(\/[\w\-/]*)?$/.test(next) ? next : "/admin";
   // The domain search may carry its query, as the site's "Find your domain" sends it.
   if (/^\/app\/marketplace\/domains\?q=[\w.%-]{1,300}$/.test(next)) return next;
+  // A free tool's result goes straight to the order with its numbers (Milestone 8).
+  if (/^\/app\/marketplace\/[\w-]{1,80}\?quantity=\d{1,5}$/.test(next)) return next;
   return /^\/(app(\/[\w\-/]*)?|(invite|quote)\/[\w\-%]+)$/.test(next) ? next : "/app";
 }
 
@@ -51,4 +54,21 @@ export async function afterSignIn(token: string, next: string): Promise<string> 
     throw e;
   }
   return `/app/security?linked=${providerSlug(pending.provider)}`;
+}
+
+/**
+ * Where a new account goes once its authenticator is set up, e.g. the
+ * order a free tool worked out. Kept for half an hour in a cookie, as
+ * the setup page sits between sign-up and the order.
+ */
+export const NEXT_COOKIE = "console_after_setup";
+
+export async function rememberNext(next: string) {
+  const jar = await cookies();
+  if (next === "/app") jar.delete(NEXT_COOKIE);
+  else jar.set(NEXT_COOKIE, next, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", path: "/", maxAge: 30 * 60 });
+}
+
+export async function rememberedNext(): Promise<string> {
+  return safeNext((await cookies()).get(NEXT_COOKIE)?.value ?? "", "CUSTOMER");
 }

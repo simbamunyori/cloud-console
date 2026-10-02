@@ -1,8 +1,13 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { hostPlan, hostRedirect, roleOfPath } from "@/lib/net/hosts";
 import { ipAllowed, parseAllowlist } from "@/lib/net/ip-allowlist";
+import { findRedirect } from "@/server/site/redirects";
 
 /**
  * Runs before every page:
+ * - each address on its own host once the site has one (SITE_URL): www and
+ *   site pages on the site, sign-in and the consoles on the console;
+ * - old website addresses sent to their new pages (staff keep the list);
  * - a fresh nonce per request for the content security policy, so only
  *   scripts the server rendered can run;
  * - /admin refused outside ADMIN_IP_ALLOWLIST, when one is set;
@@ -34,8 +39,19 @@ export function contentSecurityPolicy(nonce: string, dev: boolean, framedBySite 
   ].join("; ");
 }
 
-export function proxy(req: NextRequest) {
+export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
+  const reading = req.method === "GET" || req.method === "HEAD";
+  if (reading) {
+    const plan = hostPlan(process.env.SITE_URL, process.env.APP_URL);
+    const moved = hostRedirect(req.nextUrl, req.headers.get("host"), plan, req.cookies.has("__prerender_bypass"));
+    if (moved) return NextResponse.redirect(moved, 308);
+    if (roleOfPath(pathname) === "site") {
+      const to = await findRedirect(pathname);
+      if (to) return NextResponse.redirect(new URL(to, plan?.site ?? req.nextUrl), 308);
+    }
+  }
+
   if (pathname === "/admin" || pathname.startsWith("/admin/")) {
     const allowlist = parseAllowlist(process.env.ADMIN_IP_ALLOWLIST ?? "");
     if (!ipAllowed(clientIp(req), allowlist)) {

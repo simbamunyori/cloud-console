@@ -9,6 +9,8 @@ import type {
   BillingProduct,
   Domain,
   DomainStatus,
+  ImportedDomain,
+  ImportedService,
   Invoice,
   InvoiceLineKind,
   InvoiceStatus,
@@ -143,7 +145,9 @@ export function fromProduct(p: Json): BillingProduct {
 
 // ─── Orders ───────────────────────────────────────────────────────────
 
-const CYCLE: Record<BillingCycle, string> = { monthly: "monthly", annually: "annually" };
+const CYCLE: Record<BillingCycle, string> = { monthly: "monthly", quarterly: "quarterly", semiannually: "semiannually", annually: "annually" };
+/** How GetClientsProducts writes the cycle. */
+const CYCLE_OF: Record<string, BillingCycle> = { monthly: "monthly", quarterly: "quarterly", "semi-annually": "semiannually", annually: "annually" };
 
 /**
  * AddOrder. Arrays are sent as name[0], name[1] and so on. A product sold
@@ -231,7 +235,7 @@ export function fromService(p: Json, currency: string): Service {
     status: SERVICE_STATUS[str(p.status)] ?? "pending",
     quantity: serviceQuantity(p),
     recurring: amount(p.recurringamount, currency),
-    billingCycle: str(p.billingcycle).toLowerCase() === "annually" ? "annually" : "monthly",
+    billingCycle: CYCLE_OF[str(p.billingcycle).toLowerCase()] ?? "monthly",
     registeredOn: requiredDate(p.regdate, "registration date"),
     nextDueOn: date(p.nextduedate) ?? requiredDate(p.regdate, "registration date"),
     suspendReason: str(p.suspensionreason) || undefined,
@@ -517,8 +521,8 @@ export function toOneOffInvoice(clientId: string, lines: { description: string; 
 }
 
 /** CreateInvoice for charges outside any order, due on the date given. */
-export function toInvoice(clientId: string, invoice: { lines: { description: string; amount: Money; taxed: boolean }[]; paymentMethod: string; dueOn: Date }, today: Date): Params {
-  const params: Params = { userid: clientId, status: "Unpaid", sendinvoice: "0", paymentmethod: invoice.paymentMethod, date: dateOnly(today), duedate: dateOnly(invoice.dueOn), autoapplycredit: "0" };
+export function toInvoice(clientId: string, invoice: { lines: { description: string; amount: Money; taxed: boolean }[]; paymentMethod: string; dueOn: Date; issuedOn?: Date }, today: Date): Params {
+  const params: Params = { userid: clientId, status: "Unpaid", sendinvoice: "0", paymentmethod: invoice.paymentMethod, date: dateOnly(invoice.issuedOn ?? today), duedate: dateOnly(invoice.dueOn), autoapplycredit: "0" };
   invoice.lines.forEach((l, i) => {
     params[`itemdescription${i + 1}`] = l.description;
     params[`itemamount${i + 1}`] = toAmount(l.amount);
@@ -676,6 +680,60 @@ export function toUpdateClient(clientId: string, patch: BillingClientPatch, curr
 /** AcceptOrder: set up at once and send no email. Domains go to the registrar only when asked. */
 export function toAcceptOrder(orderId: string, sendToRegistrar: boolean): Params {
   return { orderid: orderId, autosetup: "true", sendemail: "0", sendregistrar: sendToRegistrar ? "true" : "0" };
+}
+
+/** AcceptOrder for a migrated service or domain: nothing is set up or sent to the registrar, and nobody is emailed. */
+export function toAcceptImported(orderId: string): Params {
+  return { orderid: orderId, autosetup: "0", sendemail: "0", sendregistrar: "0" };
+}
+
+/** UpdateClientProduct: a migrated service's own dates and price, active. */
+export function toImportedService(serviceId: string, s: ImportedService): Params {
+  return {
+    serviceid: serviceId,
+    status: "Active",
+    regdate: dateOnly(s.registeredOn),
+    nextduedate: dateOnly(s.nextDueOn),
+    recurringamount: toAmount(s.recurringPrice),
+    billingcycle: CYCLE[s.billingCycle],
+    ...(s.domain ? { domain: s.domain } : {}),
+    ...(s.note ? { notes: s.note } : {}),
+  };
+}
+
+/** AddOrder for a domain we already manage: no invoice, at its renewal price. */
+export function toImportedDomainOrder(clientId: string, d: ImportedDomain): Params {
+  return {
+    clientid: clientId,
+    paymentmethod: "banktransfer",
+    noemail: "true",
+    noinvoice: "true",
+    noinvoiceemail: "true",
+    "domain[0]": d.name,
+    "domaintype[0]": "register",
+    "regperiod[0]": String(d.registrationYears),
+    "domainpriceoverride[0]": toAmount(d.renewal),
+    "domainrenewoverride[0]": toAmount(d.renewal),
+  };
+}
+
+/**
+ * UpdateClientDomain: the domain's own dates and renewal price, active. The
+ * old registrar goes in the notes: WHMCS refuses a registrar that isn't an
+ * active module there (the live install refused "cocca").
+ */
+export function toImportedDomain(domainId: string, d: ImportedDomain): Params {
+  return {
+    domainid: domainId,
+    status: "Active",
+    regperiod: String(d.registrationYears),
+    regdate: dateOnly(d.registeredOn),
+    expirydate: dateOnly(d.expiresOn),
+    nextduedate: dateOnly(d.nextDueOn),
+    recurringamount: toAmount(d.renewal),
+    donotrenew: d.autoRenew ? "0" : "1",
+    ...(d.registrar ? { notes: `Registered with ${d.registrar} before the move from Odoo.` } : {}),
+  };
 }
 
 /**

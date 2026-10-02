@@ -71,4 +71,13 @@ test.describe("search engines", () => {
   test("an old /privacy link lands on the visitor's market's privacy notice", async ({ request }) => {
     expect(landsOn(await request.get("/privacy", { maxRedirects: 0, headers: { "user-agent": PERSON } }))).toBe("/bw/legal/privacy");
   });
+
+  test("old website addresses open the new site, permanently", async ({ request }) => {
+    for (const old of ["/new", "/new/about", "/new/an-old-post"]) {
+      const res = await request.get(old, { maxRedirects: 0, headers: { "user-agent": PERSON } });
+      expect(res.status(), old).toBe(308);
+      expect(landsOn(res), old).toBe("/");
+    }
+    expect((await request.get("/newsletter-that-never-was", { maxRedirects: 0 })).status()).toBe(404);
+  });
 });

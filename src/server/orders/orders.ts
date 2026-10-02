@@ -1,7 +1,7 @@
 import { randomInt } from "node:crypto";
 import type { PrismaClient } from "@prisma/client";
 import { todayIn } from "@/lib/dates";
-import { money, times, type Money } from "@/lib/domain/money";
+import { divRound, money, times, type Money } from "@/lib/domain/money";
 import { monthOf } from "@/lib/domain/pricing";
 import { BillingError, PAYMENT_METHODS, type DomainAvailability, type UpgradePreview } from "@/server/billing/adapter";
 import type { ScopedBilling } from "@/server/billing/scoped";
@@ -16,6 +16,7 @@ import { assertSeatFloor, licenceForService } from "@/server/licences/licences";
 import { assertCan, DomainError, type Actor } from "@/server/org/access";
 import { audit, customerAudit } from "@/server/org/audit";
 import { hasLegalText } from "@/server/cms/legal";
+import { legacyPrice } from "@/server/migration/services";
 
 /**
  * Ordering: new products, seat changes on an existing service, and domain
@@ -194,6 +195,14 @@ async function quantityChange(deps: OrderDeps, serviceId: string, rawQuantity: s
   if (to === service.quantity) throw new DomainError("invalid", `It already has ${to}.`, "quantity");
   // Seats never drop below the licences people hold in the tenant.
   if (to < service.quantity) assertSeatFloor(await licenceForService(deps.db, service.name), to);
+  const legacy = await legacyPrice(deps.db, serviceId, service.recurring.currency);
+  if (legacy) {
+    // A customer brought over from Odoo keeps their own price per user; price book changes never touch it.
+    const recurringPrice = money(divRound(legacy.recurringMinor * BigInt(to), BigInt(legacy.quantity)), legacy.currency);
+    const unitPrice = money(divRound(legacy.recurringMinor, BigInt(legacy.quantity)), legacy.currency);
+    const preview = await deps.billing.previewUpgrade(serviceId, { quantity: to, recurringPrice }).catch(billingFailure);
+    return { serviceId, serviceName: service.name, from: service.quantity, to, unitPrice, preview, product };
+  }
   const month = monthOf(todayIn(deps.organisation.timeZone, deps.now));
   // Existing customers keep adding users at the book price, even if the product is no longer offered to new ones.
   const unitPrice = await approvedPrice(catalogueDb(deps.db), marketOf(deps), productItem(product.slug), month);

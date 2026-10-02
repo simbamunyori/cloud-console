@@ -33,6 +33,7 @@ export function SiteFrame({
   theme,
   status,
   content,
+  legal,
   features,
   proof,
   children,
@@ -45,6 +46,8 @@ export function SiteFrame({
   status: FrameStatus;
   /** The header's menus and the footer's links, from the website editor. */
   content: FrameContent;
+  /** Which legal pages have approved text to link to; the privacy notice always shows. */
+  legal: { terms: boolean; refunds: boolean };
   features: FeatureContext;
   /** Approved partner badges for the footer, and the announcement while it is up (Proof). */
   proof: { badges: { id: number; badge: string; link: string | null }[]; announcement: { text: string; link: FrameLink | null } | null };
@@ -240,12 +243,16 @@ export function SiteFrame({
               <Link href={`${base}/legal/privacy`} className="hover:text-on-navy">
                 Privacy
               </Link>
-              <Link href={`${base}/legal/terms`} className="hover:text-on-navy">
-                Terms
-              </Link>
-              <Link href={`${base}/legal/refunds`} className="hover:text-on-navy">
-                Refunds
-              </Link>
+              {legal.terms ? (
+                <Link href={`${base}/legal/terms`} className="hover:text-on-navy">
+                  Terms
+                </Link>
+              ) : null}
+              {legal.refunds ? (
+                <Link href={`${base}/legal/refunds`} className="hover:text-on-navy">
+                  Refunds
+                </Link>
+              ) : null}
               <a href={status.href} className="inline-flex items-center gap-1.5 hover:text-on-navy">
                 <StatusDot state={status.state} className={status.state === "normal" ? "bg-footer-ok" : undefined} />
                 {status.label}

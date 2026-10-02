@@ -146,5 +146,75 @@ export async function seedWebsite(payload: Payload): Promise<string | null> {
     return changed;
   });
 
+  // Milestone 8: the free tools in the Security and Email menus and the footer, added to what is there.
+  await once("frame-tools", "the free tools in the header and footer", async () => {
+    const isTool = (row: { link?: { to?: string | null; path?: string | null } | null }) => row.link?.to === "market" && Boolean(row.link.path?.startsWith("/tools"));
+    const security = DEFAULT_HEADER.menus.find((m) => m.label === "Security")!;
+    const checks = security.columns.find((c) => c.heading === "Free checks")!;
+    const calculator = DEFAULT_HEADER.menus.find((m) => m.label === "Email")!.columns[1].links.find(isTool)!;
+    const [footerItem] = DEFAULT_FOOTER.columns.find((c) => c.heading === "Company")!.links.filter(isTool);
+    let changed = false;
+    for (const l of MARKET_LOCALES) {
+      const header = await payload.findGlobal({ slug: "header", locale: l.code, depth: 0, overrideAccess: true });
+      if (header.menus?.length && !header.menus.some((m) => m.columns?.some((c) => c.links?.some(isTool)))) {
+        const sec = header.menus.find((m) => m.label === "Security");
+        if (sec?.columns) {
+          sec.columns = [...sec.columns, checks].slice(0, 3);
+          // The designed feature for this menu is the free check; an edited note stays.
+          if (sec.feature?.kind === "note" && sec.feature.heading === "Protected, without the jargon") sec.feature = security.feature;
+        }
+        const email = header.menus.find((m) => m.label === "Email");
+        const column = email?.columns?.[1] ?? email?.columns?.[0];
+        if (column) column.links = [...(column.links ?? []), calculator];
+        await payload.updateGlobal({ slug: "header", locale: l.code, data: { menus: header.menus, _status: "published" }, overrideAccess: true });
+        changed = true;
+      }
+      const footer = await payload.findGlobal({ slug: "footer", locale: l.code, depth: 0, overrideAccess: true });
+      const company = footer.columns?.find((c) => c.heading === "Company");
+      if (company && !footer.columns!.some((c) => c.links?.some(isTool))) {
+        const links = company.links ?? [];
+        const at = Math.max(0, links.length - 1);
+        company.links = [...links.slice(0, at), footerItem, ...links.slice(at)];
+        await payload.updateGlobal({ slug: "footer", locale: l.code, data: { columns: footer.columns, _status: "published" }, overrideAccess: true });
+        changed = true;
+      }
+    }
+    return changed;
+  });
+
+  // Milestone 9: the new products and on-site compliance projects in the menus, added to what is there.
+  // Each link hides itself until its product is live and priced; the projects link goes to the quote form.
+  await once("frame-catalogue-additions", "the new products in the header", async () => {
+    const additions: { menu: string; heading: string; key: string; at: "start" | "end" }[] = [
+      { menu: "Email", heading: "Email and documents", key: "fourth-generation-signatures", at: "end" },
+      { menu: "Websites", heading: "Your website", key: "website-builder", at: "start" },
+      { menu: "Security", heading: "Protection", key: "compliance-archiving", at: "end" },
+      { menu: "Security", heading: "Protection", key: "/quote?for=compliance-project", at: "end" },
+    ];
+    type Row = { link?: { path?: string | null } | null; products?: { products?: (string | { slug?: string })[] | null } | null };
+    const keyOf = (row: Row) => [...(row.products?.products ?? []).map((p) => (typeof p === "string" ? p : p.slug)), row.link?.path];
+    let changed = false;
+    for (const l of MARKET_LOCALES) {
+      const header = await payload.findGlobal({ slug: "header", locale: l.code, depth: 0, overrideAccess: true });
+      if (!header.menus?.length) continue;
+      let touched = false;
+      for (const a of additions) {
+        const designed = DEFAULT_HEADER.menus.find((m) => m.label === a.menu)!.columns.find((c) => c.heading === a.heading)!.links.find((row) => keyOf(row as Row).includes(a.key))!;
+        const menu = header.menus.find((m) => m.label === a.menu);
+        const column = menu?.columns?.find((c) => c.heading === a.heading) ?? menu?.columns?.[0];
+        if (!column || menu!.columns!.some((c) => c.links?.some((row) => keyOf(row as Row).includes(a.key)))) continue;
+        const links = column.links ?? [];
+        if (links.length >= 8) continue;
+        column.links = a.at === "start" ? [designed, ...links] : [...links, designed];
+        touched = true;
+      }
+      if (touched) {
+        await payload.updateGlobal({ slug: "header", locale: l.code, data: { menus: header.menus, _status: "published" }, overrideAccess: true });
+        changed = true;
+      }
+    }
+    return changed;
+  });
+
   return done.length ? `Added to the website editor: ${done.join(", ")}.` : null;
 }

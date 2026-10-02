@@ -115,12 +115,14 @@ export interface Config {
     footer: Footer;
     announcement: Announcement;
     'sales-assistant': SalesAssistant;
+    'partner-links': PartnerLink;
   };
   globalsSelect: {
     header: HeaderSelect<false> | HeaderSelect<true>;
     footer: FooterSelect<false> | FooterSelect<true>;
     announcement: AnnouncementSelect<false> | AnnouncementSelect<true>;
     'sales-assistant': SalesAssistantSelect<false> | SalesAssistantSelect<true>;
+    'partner-links': PartnerLinksSelect<false> | PartnerLinksSelect<true>;
   };
   locale: 'bw' | 'za' | 'zw' | 'global';
   widgets: {
@@ -601,7 +603,7 @@ export interface TeamSectionBlock {
     subject?: string | null;
   };
   /**
-   * Shows while NSMC's address is set on the server (NSMC_URL).
+   * Links to NSMC's website, https://www.nsmc.africa.
    */
   nsmc?: {
     lead?: string | null;
@@ -2924,6 +2926,21 @@ export interface SalesAssistant {
   createdAt?: string | null;
 }
 /**
+ * Where the Try Thebe buttons go. Changes go live on saving.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "partner-links".
+ */
+export interface PartnerLink {
+  id: number;
+  /**
+   * Thebe's sign-up page, once it exists, e.g. https://www.thebe.africa/sign-up. Leave empty for Thebe's website, https://www.thebe.africa.
+   */
+  thebeTryUrl?: string | null;
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "header_select".
  */
@@ -3077,6 +3094,16 @@ export interface SalesAssistantSelect<T extends boolean = true> {
         id?: T;
       };
   knowledge?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "partner-links_select".
+ */
+export interface PartnerLinksSelect<T extends boolean = true> {
+  thebeTryUrl?: T;
   updatedAt?: T;
   createdAt?: T;
   globalType?: T;

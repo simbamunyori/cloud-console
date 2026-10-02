@@ -56,7 +56,14 @@ async function readAll(): Promise<string> {
 async function main() {
   const [command, ...args] = process.argv.slice(2);
   if (command === "prestart") {
-    if (await loadLaunchCatalogue(db)) console.log("Loaded the launch catalogue. Enter this month's exchange rates and approve the prices at /admin/pricing.");
+    const fresh = (await db.product.count()) === 0;
+    if (await loadLaunchCatalogue(db)) {
+      console.log(
+        fresh
+          ? "Loaded the launch catalogue. Enter this month's exchange rates and approve the prices at /admin/pricing."
+          : "Added new catalogue products, off sale. Set each one up and put it live at /admin/catalogue when it is ready.",
+      );
+    }
     const changed = await fillSupportEmail(db, process.env.SUPPORT_EMAIL);
     if (changed.length) console.log(`Support email set for ${changed.join(", ")}.`);
     const e = process.env;

@@ -55,7 +55,22 @@ function ChatIcon({ className }: { className?: string }) {
   );
 }
 
-export function Thapelo({ market, greeting, quickReplies, consentText, privacyHref }: { market: string; greeting: string; quickReplies: string[]; consentText: string; privacyHref: string }) {
+export function Thapelo({
+  market,
+  greeting,
+  quickReplies,
+  consentText,
+  privacyHref,
+  bookingHref,
+}: {
+  market: string;
+  greeting: string;
+  quickReplies: string[];
+  consentText: string;
+  privacyHref: string;
+  /** The pre-sales booking page, while it takes bookings. */
+  bookingHref: string | null;
+}) {
   const stored = useSyncExternalStore(subscribeStored, readStored, () => "server");
   const wide = useSyncExternalStore(
     subscribeWide,
@@ -77,7 +92,18 @@ export function Thapelo({ market, greeting, quickReplies, consentText, privacyHr
 
   return (
     <div className="pointer-events-none fixed inset-x-4 bottom-4 z-40 flex flex-col items-end gap-3.5 lg:inset-x-auto lg:right-8 lg:bottom-6">
-      {open ? <ThapeloPanel id={id} market={market} greeting={greeting} quickReplies={quickReplies} consentText={consentText} privacyHref={privacyHref} onClose={() => store("closed")} /> : null}
+      {open ? (
+        <ThapeloPanel
+          id={id}
+          market={market}
+          greeting={greeting}
+          quickReplies={quickReplies}
+          consentText={consentText}
+          privacyHref={privacyHref}
+          bookingHref={bookingHref}
+          onClose={() => store("closed")}
+        />
+      ) : null}
       <div className="flex items-center gap-2.5">
         {open ? null : <span className="pointer-events-auto rounded-lg bg-navy px-3 py-2 text-caption text-on-navy lg:hidden">Questions? Ask Thapelo</span>}
         <button

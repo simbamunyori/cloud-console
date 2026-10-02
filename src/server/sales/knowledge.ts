@@ -4,6 +4,7 @@ import { DEFAULT_LOCALE } from "@/cms/locales";
 import { formatMoney } from "@/lib/domain/money";
 import { richTextPlain } from "@/lib/rich-text-plain";
 import { cms, marketLocale } from "@/server/site/cms";
+import { bookingIsOpen } from "@/server/site/partner-links";
 import { storeSearch } from "@/server/site/domain-store";
 import { productPage, productPageSlugs, productPath, sitePrices, taxNote } from "@/server/site/site";
 import type { KnowledgeSource, SalesSettings } from "./assistant";
@@ -83,5 +84,6 @@ export function siteKnowledge(m: Market): KnowledgeSource {
       return rank(await docs, query).map((d) => ({ kind: d.kind, title: d.title, url: d.url, text: d.text.slice(0, 1500) }));
     },
     domains: (query) => storeSearch(m, query),
+    bookingOpen: () => bookingIsOpen(),
   };
 }

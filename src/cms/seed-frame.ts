@@ -52,12 +52,14 @@ export const DEFAULT_HEADER = {
             item(market("Microsoft 365", "/pricing#cat-productivity"), "Email, Teams and Office, set up by us.", M365),
             item(market("Google Workspace", "/pricing#cat-productivity"), "Gmail, Meet and Docs on your own name.", GWS),
             item(market("Business email", "/pricing#cat-web"), "A simple mailbox on your own domain.", ["business-email"]),
+            item(market("Signatures", "/pricing#cat-our-software"), "The same branded signature for everyone, on every device.", ["fourth-generation-signatures"]),
           ],
         },
         {
           heading: "Looked after",
           links: [
             item(market("Move your existing email", "/quote"), "We move your mail across with nothing lost."),
+            item(market("Cost calculator", "/tools/cost-calculator"), "Your team's plan and monthly total in a minute.", [...M365, ...GWS]),
             item(market("Email backup", "/pricing#cat-protection"), "Daily copies of every mailbox.", ["backup-microsoft-365", "backup-google-workspace"]),
           ],
         },
@@ -71,6 +73,7 @@ export const DEFAULT_HEADER = {
         {
           heading: "Your website",
           links: [
+            item(market("Website builder", "/pricing#cat-web"), "Build your own site and online store from templates.", ["website-builder"]),
             item(market("We build it for you", "/quote"), "Our designers build it and you approve every step."),
             item(market("WordPress hosting", "/pricing#cat-web"), "Fast, secured and backed up by us.", ["wordpress-hosting"]),
             item(market("Web hosting", "/pricing#cat-web"), "Hosting for the site you already have.", ["web-hosting"]),
@@ -89,10 +92,24 @@ export const DEFAULT_HEADER = {
             item(market("Security score", "/security"), "One score shows where you stand, and what to fix."),
             item(market("Device protection and EDR", "/pricing#cat-protection"), "Threats watched on every device, around the clock.", ["managed-detection-response"]),
             item(market("Data protection support", "/security"), "How we keep your data, and help you meet the Act."),
+            item(market("Compliance archiving", "/pricing#cat-protection"), "Every email kept unchanged and searchable.", ["compliance-archiving"]),
+            item(market("Compliance projects on site", "/quote?for=compliance-project"), "Enterprise audits and controls, with our partner NSMC."),
+          ],
+        },
+        {
+          heading: "Free checks",
+          links: [
+            item(market("Email security check", "/tools/email-security"), "See whether someone could send email as you."),
+            item(market("Data protection checklist", "/tools/data-protection"), "Your readiness score and next steps."),
           ],
         },
       ],
-      feature: { kind: "note", heading: "Protected, without the jargon", text: "Two-step login on every account and backups we test every month.", link: { label: "How we keep your data safe", to: "market", path: "/security" } },
+      feature: {
+        kind: "note",
+        heading: "Free security check",
+        text: "Enter your domain and see in a minute whether your email can be faked, and how to fix it.",
+        link: { label: "Check your domain", to: "market", path: "/tools/email-security" },
+      },
     },
     {
       label: "Hosting and backup",
@@ -168,7 +185,7 @@ export const DEFAULT_FOOTER = {
         market("Expense management", "/#thebe"),
       ],
     },
-    { heading: "Company", links: [market("Pricing", "/pricing"), market("Insights", "/insights"), market("Ask for a quote", "/quote")] },
+    { heading: "Company", links: [market("Pricing", "/pricing"), market("Insights", "/insights"), market("Free tools", "/tools"), market("Ask for a quote", "/quote")] },
     { heading: "Trust", links: [market("Service status", "/status"), market("Security", "/security"), market("Service providers", "/legal/service-providers"), market("Legal", "/legal/terms")] },
     {
       heading: "Support",

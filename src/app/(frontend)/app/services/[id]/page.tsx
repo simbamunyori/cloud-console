@@ -9,7 +9,7 @@ import { Card, CardBody, CardHeader, DetailList } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
 import { formatDay } from "@/lib/dates";
 import { requireBilling } from "@/server/billing/context";
-import { monthlyPrice } from "@/server/billing/views";
+import { monthlyPrice, PRICE_PER } from "@/server/billing/views";
 import { can } from "@/server/org/access";
 import { quantityLimits } from "@/server/orders/orders";
 import { QuantityForm } from "./quantity-form";
@@ -50,8 +50,8 @@ export default async function ServicePage({ params }: { params: Promise<{ id: st
                   ["Plan", service.name],
                   ...(service.quantity > 1 ? ([["Users", String(service.quantity)]] as [string, string][]) : []),
                   ...(service.domain ? ([["Domain", service.domain]] as [string, string][]) : []),
-                  [service.billingCycle === "annually" ? "Price a year" : "Price a month", <Amount locale={locale} key="p" value={service.recurring} />],
-                  ...(service.billingCycle === "annually" ? ([["Works out at", <span key="m"><Amount locale={locale} value={perMonth} /> a month</span>]] as [string, React.ReactNode][]) : []),
+                  [PRICE_PER[service.billingCycle], <Amount locale={locale} key="p" value={service.recurring} />],
+                  ...(service.billingCycle !== "monthly" ? ([["Works out at", <span key="m"><Amount locale={locale} value={perMonth} /> a month</span>]] as [string, React.ReactNode][]) : []),
                   ...(service.quantity > 1
                     ? ([["Per user", <span key="u"><Amount locale={locale} value={{ amountMinor: service.recurring.amountMinor / BigInt(service.quantity), currency: service.recurring.currency }} /></span>]] as [string, React.ReactNode][])
                     : []),

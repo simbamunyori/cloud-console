@@ -134,6 +134,7 @@ the UI and never sent to the assistant.
 | `BACKUP_PASSPHRASE` | Production | Encrypts the nightly backups; keep a copy off the server |
 | `BACKUP_AT`, `BACKUP_KEEP_DAYS` | No | When the nightly backup runs (UTC, default 23:00) and how many days are kept (default 30) |
 | `APP_URL` | Yes in production | Public address, used in email links |
+| `SITE_URL` | At launch | The public website's address (`https://fourthgeneration.technology`). Website pages then open there, sign-in and the console on `APP_URL`, and www goes to the site. Empty: one host serves both. `deploy/site-setup.sh` sets it (docs/launch.md) |
 | `CONSOLE_NAME` | No | What customers see the console called (default "Cloud Console") |
 | `TOTP_ENCRYPTION_KEY` | Yes, secret | 32 random bytes, base64. Encrypts authenticator secrets. Losing it means everyone sets up their authenticator again |
 | `SMTP_URL` | Yes in production | Outgoing mail, e.g. `smtps://user:pass@smtp.example.com:465`. Mailpit in development |
@@ -149,6 +150,7 @@ the UI and never sent to the assistant.
 | `ANTHROPIC_API_KEY` | Optional, secret | Switches the support assistant and Thapelo, the website assistant, on, and writes launch kit drafts. Without it, the assistant page offers a ticket instead, Thapelo stays hidden and launch kits get plain drafts from the catalogue |
 | `ANTHROPIC_MODEL` | No | Model the assistant uses (default `claude-sonnet-5`) |
 | `SALES_ASSISTANT_DEMO` | Demo and CI only | `yes` gives Thapelo, the website assistant, scripted answers. Refused in production |
+| `TOOLS_DEMO` | Demo and CI only | `yes` makes the free email security check answer from fixed records (`secure.example` passes) instead of public DNS. Refused in production |
 | `GEO_COUNTRY_HEADER` | No | Header the CDN puts the visitor's country in (default `cf-ipcountry`, Cloudflare's) |
 | `GEOLITE2_DB_PATH` | No | Path to a MaxMind GeoLite2 Country `.mmdb` file, for country detection without a CDN header |
 | `ADMIN_IP_ALLOWLIST` | Recommended in production | Comma-separated addresses or IPv4 ranges (CIDR) allowed to open `/admin`. Empty allows any address |
@@ -160,10 +162,10 @@ the UI and never sent to the assistant.
 | `POSTGRES_PASSWORD`, `DOMAIN` | Production compose | Database password, and the domain Caddy gets a certificate for |
 | `SEED_DEMO` | No | `yes` lets the seed run in production. Don't |
 | `STATUS_PAGE_URL` | No | An outside service status page. While unset, the site's status links go to its own `/status` page, which staff run at `/admin/status` |
-| `THEBE_TRY_URL`, `THEBE_URL`, `THEBE_DEMO_URL` | Recommended | Thebe's trial page, website and demo booking page, for the home page's Thebe section and the Expense management menu. Each button hides while its address is unset, and the menu's links need `THEBE_URL` |
-| `NSMC_URL` | Recommended | NSMC's website, for the on-site IT line in the home page's team section. The line hides while unset |
+| `THEBE_TRY_URL`, `THEBE_URL`, `THEBE_DEMO_URL` | Optional | Override Thebe's addresses. Unset, Learn more and Try Thebe go to https://www.thebe.africa (Try Thebe can be changed in the site editor under Website, Thebe links), and Book a demo goes to our pre-sales booking page while anyone takes bookings |
+| `NSMC_URL` | Optional | Overrides NSMC's website for the on-site IT line on the home page. Unset means https://www.nsmc.africa |
 | `SUPPORT_EMAIL` | Production set-up | Filled into every market still on the development support address when a release starts |
-| `OFFSITE_S3_ENDPOINT`, `OFFSITE_S3_BUCKET`, `OFFSITE_S3_ACCESS_KEY_ID`, `OFFSITE_S3_SECRET_ACCESS_KEY`, `OFFSITE_S3_PROVIDER` | Production | Where the nightly backups are copied off the server (Cloudflare R2 or any S3-compatible storage) |
+| `OFFSITE_S3_ENDPOINT`, `OFFSITE_S3_BUCKET`, `OFFSITE_S3_ACCESS_KEY_ID`, `OFFSITE_S3_SECRET_ACCESS_KEY`, `OFFSITE_S3_PROVIDER` | Before real customer data | Where the nightly backups are copied off the server (Cloudflare R2, Contabo Object Storage or any S3-compatible storage). The console starts and deploys without them; the client migration page warns until `OFFSITE_S3_BUCKET` is set |
 | `ALLOW_PLACEHOLDERS` | Demo servers only | In production the server refuses to start while a development placeholder is set: no real `SMTP_URL`, a `support@localhost` market email, the demo bank details, seeded exchange rates, the demo accounts, or a localhost `APP_URL` or `MAIL_FROM`. It lists each one and where to fix it. `yes` starts anyway with a warning, for demo and CI servers. CI proves the refusal on every run with `scripts/check-placeholder-refusal.sh` |
 
 The company name and legal name live in `src/config/app.ts`. Support
@@ -227,7 +229,16 @@ neither, everyone lands on the default market and can switch.
   or decline it; accepting needs an account and places an ordinary order
   at the quoted price, with the one-off lines on its first invoice. The
   form has a hidden field for bots and a limit of 5 requests an hour per
-  address.
+  address. Enterprise, on-site compliance projects use the same form at
+  `/<market>/quote?for=compliance-project`; staff pass those to NSMC and
+  press **Mark introduced to NSMC**.
+- **A new partner product:** once the partner is signed, add the product
+  at `/admin/catalogue` (or open the draft that is already there), set its
+  fulfilment type, cost and words, approve its prices at `/admin/pricing`,
+  and set it live. Its launch kit starts on its own, and any menu link
+  that names it appears. Compliance archiving, Fourth Generation
+  Signatures and the website builder are waiting as drafts, and disaster
+  recovery as internal.
 - **Waiting list:** people from countries with no market that is on can
   leave their details at sign-up; staff see them at `/admin/waitlist`.
 
@@ -344,6 +355,23 @@ Uploaded images go to `MEDIA_DIR` (a volume in `docker-compose.prod.yml`)
 and are served at /media. Storage sits behind `src/cms/storage`, so object
 storage can be added later without changing pages or the editor.
 
+### Free tools, follow-ups and pre-sales calls
+
+The free tools are at /<market>/tools: the email security check, the
+Microsoft 365 and Google Workspace cost calculator and the data protection
+readiness checklist. Each answers on the page; "Email me this" creates or
+updates a lead (with its source, tool and campaign) and starts a short
+follow-up sequence, sent by the `lead-follow-ups` job every 15 minutes.
+Quote requests, newsletter confirmations, Thapelo and bookings create
+leads too. Staff see them at /admin/leads, filtered by source, and can stop
+a sequence; every email has a one-click unsubscribe.
+
+Pre-sales calls are booked at /<market>/book. Each engineer sets weekly
+hours, a time zone and a meeting link at /admin/bookings; the booking
+links on the site show only while someone has hours set. Both sides get a
+calendar invite, a reminder the day before (`booking-reminders`), and a
+cancel link.
+
 ### Backups
 
 In production the `backup` service writes the database and the uploaded
@@ -369,9 +397,13 @@ docs/deploy.md.
 | `src/lib/domain/money.ts` | Money and the one formatter |
 | `src/components/ui`, `src/config/theme/tokens.json` | Components and design tokens |
 | `src/server/support` | Tickets and the assistant (tools, confirmation, handover) |
+| `src/server/migration`, `docs/odoo-migration.md` | Bringing clients over from Odoo: import, dry run, kept prices, services hosted elsewhere, welcome emails |
 | `src/server/db.ts` | `tenantDb(organisationId)`: every customer query is scoped to one organisation |
 | `tests/` | Integration tests: tenant isolation, roles, billing contract, markets, orders, payments, staff, support |
 | `e2e/`, `lighthouserc.cjs` | Browser checks: axe, site routing, Lighthouse |
+| `src/lib/net/hosts.ts`, `src/server/site/redirects.ts` | Which host serves which page, and old site addresses (Staff console > Old site addresses) |
+| `src/server/launch`, `docs/launch.md` | Launch checks (Staff console > Launch checks), the DNS changes and the website's server setup |
+| `docs/handover.md` | One page: who does what day to day, and where in the staff console |
 | `docs/decisions.md` | What the console assumes and decided, for review |
 | `docs/design-audit.md` | The design audit against Change Request 01 |
 | `docs/screenshots/` | Every page at 390 and 1440 px, light and dark |

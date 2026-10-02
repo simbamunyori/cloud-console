@@ -11,6 +11,8 @@ import type {
   DomainAvailability,
   DomainRequest,
   DomainTransferRequest,
+  ImportedDomain,
+  ImportedService,
   Invoice,
   InvoiceFilter,
   InvoiceSummary,
@@ -28,7 +30,7 @@ import type {
   Transaction,
   UpgradePreview,
 } from "../adapter";
-import { BillingError, checkInvoiceLines, PAYMENT_METHODS } from "../adapter";
+import { BillingError, checkImported, checkInvoiceLines, CYCLE_MONTHS, PAYMENT_METHODS } from "../adapter";
 import { DOMAIN_PATTERN, withPoNote } from "../stub/stub-adapter";
 import { WhmcsRefusal, type WhmcsClient } from "./client";
 import * as map from "./map";
@@ -555,6 +557,40 @@ export class WhmcsBillingAdapter implements BillingAdapter {
     return { orderId: placed.orderId, invoiceId: placed.invoiceId };
   }
 
+  // ─── Migration ──────────────────────────────────────────────────────
+
+  /**
+   * An order with no invoice, accepted without set-up or email, then the
+   * service's dates, price and status set as they were before. Setting the
+   * next due date this way also moves WHMCS's next invoice date.
+   */
+  async importService(clientId: string, input: ImportedService) {
+    const currency = await this.currencyOf(clientId);
+    checkImported(input, currency);
+    const option = await this.quantityOptionFor(input.productId);
+    const item = { productId: input.productId, quantity: input.quantity, billingCycle: input.billingCycle, recurringPrice: input.recurringPrice, domain: input.domain };
+    const placed = map.fromAddOrder(await this.write("AddOrder", map.toAddOrder(clientId, { items: [item], paymentMethod: PAYMENT_METHODS.eft, createInvoice: false }, option ? { [input.productId]: option.optionId } : {})));
+    const serviceId = placed.serviceIds[0];
+    if (!serviceId) throw new BillingError("invalid", `WHMCS made no service for order ${placed.orderId}.`);
+    await this.write("AcceptOrder", map.toAcceptImported(placed.orderId));
+    await this.write("UpdateClientProduct", map.toImportedService(serviceId, input));
+    return { serviceId };
+  }
+
+  async importDomain(clientId: string, input: ImportedDomain) {
+    const name = input.name.trim().toLowerCase();
+    if (!DOMAIN_PATTERN.test(name)) throw new BillingError("invalid", `${input.name} isn't a domain name.`);
+    if (!Number.isInteger(input.registrationYears) || input.registrationYears < 1 || input.registrationYears > 10) throw new BillingError("invalid", "Choose between 1 and 10 years.");
+    checkImported(input, await this.currencyOf(clientId));
+    if (await this.heldInWhmcs(name)) throw new BillingError("conflict", `${name} is already with us.`);
+    const placed = map.fromAddOrder(await this.write("AddOrder", map.toImportedDomainOrder(clientId, { ...input, name })));
+    const domainId = placed.domainIds[0];
+    if (!domainId) throw new BillingError("invalid", `WHMCS made no domain for order ${placed.orderId}.`);
+    await this.write("AcceptOrder", map.toAcceptImported(placed.orderId));
+    await this.write("UpdateClientDomain", map.toImportedDomain(domainId, input));
+    return { domainId };
+  }
+
   async getTldPricing(currency: string): Promise<TldPrice[]> {
     const id = await this.currencyId(currency);
     return map.fromTldPricing(await this.read("GetTLDPricing", map.by.currency(id)), currency.toUpperCase());
@@ -566,8 +602,7 @@ function periodOf(service: Service, now: Date) {
   const day = 86_400_000;
   const next = service.nextDueOn.getTime();
   const start = new Date(service.nextDueOn);
-  if (service.billingCycle === "annually") start.setUTCFullYear(start.getUTCFullYear() - 1);
-  else start.setUTCMonth(start.getUTCMonth() - 1);
+  start.setUTCMonth(start.getUTCMonth() - CYCLE_MONTHS[service.billingCycle]);
   const today = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
   const daysInPeriod = Math.round((next - start.getTime()) / day);
   return { daysInPeriod, daysLeft: Math.min(daysInPeriod, Math.max(0, Math.round((next - today) / day))) };

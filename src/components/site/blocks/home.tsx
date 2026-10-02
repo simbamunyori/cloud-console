@@ -19,7 +19,7 @@ import { cn } from "@/lib/cn";
 import { todayIn } from "@/lib/dates";
 import { formatMoney } from "@/lib/domain/money";
 import { selection } from "@/server/cms/catalogue-options";
-import { env } from "@/server/env";
+import { partnerLinks } from "@/server/site/partner-links";
 import { readCart } from "@/server/site/cart";
 import { selected, siteMarket, sitePrices, taxNote, type SitePrice } from "@/server/site/site";
 import { ConsoleHomeDemo, ConsoleSecurityDemo } from "../console-demo";
@@ -328,16 +328,15 @@ export async function SecurityPanel({ block: b, ctx }: { block: SecurityPanelBlo
 }
 
 export async function ThebeSection({ block: b, ctx }: { block: ThebeSectionBlock; ctx: BlockContext }) {
-  const e = env();
-  const m = await siteMarket(ctx.market.code);
+  const [m, links] = await Promise.all([siteMarket(ctx.market.code), partnerLinks(ctx.market.code)]);
   const features = (b.features ?? []).filter((f) => !f.accounting || b.showAccounting);
-  const tryButton = e.THEBE_TRY_URL ? (
-    <a href={e.THEBE_TRY_URL} className="inline-flex h-12.5 items-center justify-center rounded-sm bg-thebe-teal px-6 font-semibold text-thebe-white hover:opacity-90">
+  const tryButton = links.thebeTryUrl ? (
+    <a href={links.thebeTryUrl} className="inline-flex h-12.5 items-center justify-center rounded-sm bg-thebe-teal px-6 font-semibold text-thebe-white hover:opacity-90">
       Try Thebe
     </a>
   ) : null;
-  const more = e.THEBE_URL ? (
-    <a href={e.THEBE_URL} className="inline-flex items-center justify-center gap-1 font-semibold text-thebe-white hover:underline">
+  const more = links.thebeUrl ? (
+    <a href={links.thebeUrl} className="inline-flex items-center justify-center gap-1 font-semibold text-thebe-white hover:underline">
       Learn more about Thebe <ArrowRight aria-hidden className="size-4" />
     </a>
   ) : null;
@@ -607,7 +606,7 @@ export function CompareTable({ block: b, ctx }: { block: CompareTableBlock; ctx:
 }
 
 export async function TeamSection({ block: b, ctx }: { block: TeamSectionBlock; ctx: BlockContext }) {
-  const nsmcUrl = env().NSMC_URL;
+  const { nsmcUrl } = await partnerLinks(ctx.market.code);
   const n = b.nsmc;
   const [team, reply] = await Promise.all([visibleTeam(ctx.market.code), b.replyLine?.includes("{time}") ? firstReplyMinutes() : null]);
   const replyLine = reply !== null && b.replyLine ? b.replyLine.replace("{time}", formatReplyTime(reply, "long")) : null;

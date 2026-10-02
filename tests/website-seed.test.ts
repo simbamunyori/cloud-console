@@ -82,7 +82,7 @@ describe("the header's menus", () => {
     expect(support.columns[0].links.map((l) => l.label)).toEqual(["Contact us", "Service status"]);
     expect(c.columns.find((col) => col.heading === "Support")!.links.map((l) => l.label)).not.toContain("Help centre");
     // Nothing published on the Insights page yet, so nothing links to it.
-    expect(c.columns.find((col) => col.heading === "Company")!.links.map((l) => l.label)).toEqual(["Pricing", "Ask for a quote"]);
+    expect(c.columns.find((col) => col.heading === "Company")!.links.map((l) => l.label)).toEqual(["Pricing", "Free tools", "Ask for a quote"]);
     // The plans aren't on sale, so the header doesn't link to them.
     expect(c.links).toEqual([]);
   });

@@ -42,6 +42,12 @@ export const LIMITS = {
   salesPerDay: { max: 3000, windowMs: 24 * 60 * 60_000 },
   /** "Talk to a person" and follow-up requests from one address. */
   leadPerIp: { max: 5, windowMs: 60 * 60_000 },
+  /** Free email security checks: each one reads public DNS and opens one connection. */
+  emailCheckPerIp: { max: 20, windowMs: 10 * 60_000 },
+  /** Results emailed from the free tools, and checklists saved. */
+  toolPerIp: { max: 10, windowMs: 60 * 60_000 },
+  /** Pre-sales calls booked. */
+  bookingPerIp: { max: 5, windowMs: 60 * 60_000 },
   /** Tracked-link visits recorded from one address. */
   campaignVisitPerIp: { max: 30, windowMs: 10 * 60_000 },
 } satisfies Record<string, Limit>;

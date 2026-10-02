@@ -2,7 +2,7 @@ import { ArrowLeft } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { InvoiceStatusBadge, OrderStatusBadge } from "@/components/app/status";
+import { InvoiceStatusBadge, OrderStatusBadge, ServiceStatusBadge } from "@/components/app/status";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardBody, CardHeader, DetailList } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
@@ -12,7 +12,8 @@ import { requireStaffCan } from "@/server/admin/context";
 import { customerDetail } from "@/server/admin/customers";
 import { billingAdapter } from "@/server/billing";
 import { scopedBilling } from "@/server/billing/scoped";
-import { amountOwed, isOverdue, monthlyTotal } from "@/server/billing/views";
+import { amountOwed, isOverdue, monthlyTotal, PRICE_PER } from "@/server/billing/views";
+import { HOST_LABEL } from "@/server/migration/services";
 import { prisma } from "@/server/db";
 import { tenantOverview } from "@/server/licences/licences";
 import { ROLE_LABEL } from "@/server/org/access";
@@ -21,6 +22,7 @@ import { listMarkets } from "@/server/markets/markets";
 import { staffCan } from "@/server/staff/access";
 import { InternalOrganisationSwitch } from "../../catalogue/forms";
 import { ChangeMarketForm } from "../../markets/forms";
+import { HostingForm, MoveForm, ReviewForm } from "./service-forms";
 
 export const metadata: Metadata = { title: "Customer" };
 
@@ -38,6 +40,7 @@ export default async function CustomerPage({ params }: { params: Promise<{ id: s
   const markets = staffCan(staff, "manageMarkets") ? await listMarkets(prisma) : null;
   const market = await prisma.market.findUniqueOrThrow({ where: { code: org.billingMarket } });
   const tenants = await tenantOverview(prisma, org.id);
+  const profiles = await prisma.serviceProfile.findMany({ where: { organisationId: org.id } });
   const [cloudSubs, openTips] = await Promise.all([prisma.cloudSubscription.findMany({ where: { organisationId: org.id }, select: { name: true }, orderBy: { name: "asc" } }), prisma.savingTip.count({ where: { organisationId: org.id, status: "OPEN" } })]);
 
   return (
@@ -163,6 +166,60 @@ export default async function CustomerPage({ params }: { params: Promise<{ id: s
               {openTips ? `${openTips} ${openTips === 1 ? "way" : "ways"} to save showing.` : ""}
             </p>
           </CardBody>
+        </Card>
+
+        <Card aria-labelledby="services-title">
+          <CardHeader id="services-title" title="Services" description="As billing holds them. Kept prices and services that run with another provider came over from Odoo." />
+          {services.length === 0 ? (
+            <CardBody>
+              <p className="text-ink-muted">No services yet.</p>
+            </CardBody>
+          ) : (
+            <ul className="divide-y divide-border">
+              {services.map((s) => {
+                const profile = profiles.find((p) => p.billingServiceId === s.serviceId);
+                const elsewhere = profile && profile.hostedAt !== "OURS";
+                const kept = profile?.legacyRecurringMinor != null;
+                const canHost = staffCan(staff, "manageHosting") && s.status !== "cancelled" && s.status !== "terminated";
+                const canReview = kept && staffCan(staff, "managePricing");
+                return (
+                  <li key={s.serviceId} className="flex flex-col gap-2 px-5 py-4 sm:px-6">
+                    <div className="flex flex-wrap items-center gap-3">
+                      <span className="flex min-w-0 flex-1 flex-col">
+                        <span className="break-words text-ink">
+                          {s.name}
+                          {s.quantity > 1 ? ` x ${s.quantity}` : ""}
+                          {s.domain ? <span className="text-ink-muted">, {s.domain}</span> : null}
+                        </span>
+                        <span className="text-callout text-ink-muted tabular-nums">
+                          {formatMoney(s.recurring, org.locale)} {PRICE_PER[s.billingCycle].replace("Price ", "").toLowerCase()}, next due {formatDay(s.nextDueOn, true)}
+                        </span>
+                      </span>
+                      {kept ? <Badge tone="info">{profile?.legacyReviewOn ? `Kept price, review ${formatDay(profile.legacyReviewOn, true)}` : "Kept price"}</Badge> : null}
+                      {elsewhere ? <Badge tone="warning">At {HOST_LABEL[profile.hostedAt]}</Badge> : null}
+                      <ServiceStatusBadge status={s.status} />
+                    </div>
+                    {elsewhere ? (
+                      <p className="text-callout text-ink-muted">
+                        {profile.hostServer ?? "Server or account not recorded"}
+                        {profile.hostNotes ? `. ${profile.hostNotes}` : ""}
+                      </p>
+                    ) : null}
+                    {canHost || canReview ? (
+                      <details>
+                        <summary className="cursor-pointer text-callout text-link">{elsewhere ? "Hosting and price" : kept ? "Price review and hosting" : "It runs with another provider"}</summary>
+                        <div className="mt-4 flex flex-col gap-6">
+                          {canReview ? <ReviewForm organisationId={org.id} serviceId={s.serviceId} current={profile?.legacyReviewOn ? profile.legacyReviewOn.toISOString().slice(0, 10) : ""} /> : null}
+                          {canHost ? <HostingForm organisationId={org.id} serviceId={s.serviceId} current={{ hostedAt: profile?.hostedAt ?? "OURS", hostServer: profile?.hostServer ?? "", hostNotes: profile?.hostNotes ?? "" }} /> : null}
+                          {canHost && elsewhere ? <MoveForm organisationId={org.id} serviceId={s.serviceId} /> : null}
+                        </div>
+                      </details>
+                    ) : null}
+                  </li>
+                );
+              })}
+            </ul>
+          )}
         </Card>
 
         <Card aria-labelledby="orders-title">

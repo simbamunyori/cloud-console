@@ -43,6 +43,7 @@ export const TENANT_MODELS = new Set<string>([
   "SavingTip",
   "CloudUsageBill",
   "BudgetAlert",
+  "ServiceProfile",
 ]);
 
 const WHERE_OPS = new Set([

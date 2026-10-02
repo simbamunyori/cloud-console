@@ -36,7 +36,11 @@ export type StaffPermission =
   /** Put a month's Azure usage on customers' invoices. */
   | "billCloudUsage"
   /** Post and resolve incidents on the service status page. */
-  | "manageStatus";
+  | "manageStatus"
+  /** Bring clients over from Odoo: upload, approve the import and choose the cutover date. */
+  | "migrateClients"
+  /** Record where a service hosted elsewhere lives, and move it to our servers. */
+  | "manageHosting";
 
 const ALLOWED: Record<StaffPermission, StaffRole[]> = {
   viewCustomers: ["SUPPORT", "PROVISIONING", "FINANCE", "ADMIN"],
@@ -51,6 +55,8 @@ const ALLOWED: Record<StaffPermission, StaffRole[]> = {
   manageCloudSpend: ["PROVISIONING", "FINANCE", "ADMIN"],
   billCloudUsage: ["FINANCE", "ADMIN"],
   manageStatus: ["SUPPORT", "PROVISIONING", "ADMIN"],
+  migrateClients: ["ADMIN"],
+  manageHosting: ["PROVISIONING", "ADMIN"],
 };
 
 export function staffCan(actor: Pick<StaffActor, "staffRole">, permission: StaffPermission): boolean {

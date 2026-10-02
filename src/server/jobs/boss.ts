@@ -42,6 +42,52 @@ const JOBS: Job[] = [
   { name: "status-check-billing", cron: "*/5 * * * *", run: () => checkBilling(prisma, () => billingAdapter().getTldPricing("BWP")) },
   // Thapelo's chats and leads past their keep-until date (Privacy Notice).
   { name: "sales-purge", cron: "45 3 * * *", run: () => purgeSales(prisma) },
+  // Follow-up emails to leads (Milestone 8); each stops when they buy or unsubscribe.
+  {
+    name: "lead-follow-ups",
+    cron: "*/15 * * * *",
+    run: async () => {
+      const { sendFollowUps } = await import("@/server/leads/capture");
+      if (await sendFollowUps(prisma)) await deliverDue(prisma, emailAdapter());
+    },
+  },
+  // A reminder to the visitor a day before a pre-sales call.
+  {
+    name: "booking-reminders",
+    cron: "5 * * * *",
+    run: async () => {
+      const { sendReminders } = await import("@/server/presales/booking");
+      return sendReminders(prisma);
+    },
+  },
+  // The Odoo import, once an admin approves its dry run (Milestone 9b); approving also asks for it at once.
+  {
+    name: "odoo-import",
+    cron: "*/5 * * * *",
+    run: async () => {
+      const [{ runApprovedImports }, { linkProductsToBilling }] = await Promise.all([import("@/server/migration/run"), import("@/server/billing")]);
+      return runApprovedImports({ db: prisma, adapter: billingAdapter(), linkProducts: linkProductsToBilling });
+    },
+  },
+  // Welcome emails for migrated customers, from 08:00 on the cutover date an admin chose.
+  {
+    name: "migration-welcome",
+    cron: "*/15 * * * *",
+    run: async () => {
+      const { sendWelcomes } = await import("@/server/migration/welcome");
+      if (await sendWelcomes({ db: prisma })) await deliverDue(prisma, emailAdapter());
+    },
+  },
+  // Services hosted elsewhere: a suspension, unsuspension or cancellation in billing becomes a staff task; late ones get reminders.
+  {
+    name: "hosted-elsewhere",
+    cron: "*/15 * * * *",
+    run: async () => {
+      const { remindLateTasks, watchHostedElsewhere } = await import("@/server/migration/services");
+      await watchHostedElsewhere({ db: prisma, adapter: billingAdapter() });
+      return remindLateTasks({ db: prisma });
+    },
+  },
   // First drafts for launch kits; saving a product as live also asks for it at once.
   {
     name: "launch-kit-drafts",

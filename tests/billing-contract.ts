@@ -297,6 +297,51 @@ export function billingContract(name: string, adapter: () => BillingAdapter, fix
       await expect(a.transferDomain(clientId, { name: f.freshDomain(), years: 1, price, paymentMethod: PAYMENT_METHODS.eft, authCode: "abc123" })).rejects.toBeInstanceOf(BillingError);
     });
 
+    it("imports a running service at its own price and due date, with no invoice", async () => {
+      const { a, f, clientId, P } = await setUp();
+      const day = (offset: number) => {
+        const d = new Date();
+        return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + offset));
+      };
+      const { serviceId } = await a.importService(clientId, {
+        productId: f.productId,
+        quantity: 4,
+        billingCycle: "quarterly",
+        recurringPrice: P(123456n),
+        registeredOn: day(-400),
+        nextDueOn: day(40),
+        note: "Brought over from Odoo, SUB/0042",
+      });
+      const service = await a.getService(clientId, serviceId);
+      expect(service).toMatchObject({ status: "active", quantity: 4, billingCycle: "quarterly", recurring: P(123456n), registeredOn: day(-400), nextDueOn: day(40) });
+      expect(await a.listInvoices(clientId)).toEqual([]);
+      expect((await a.listOrders(clientId)).every((o) => o.status === "active")).toBe(true);
+      await expect(a.importService(clientId, { productId: f.productId, quantity: 1, billingCycle: "monthly", recurringPrice: money(100n, f.currency === "USD" ? "BWP" : "USD"), registeredOn: day(-10), nextDueOn: day(10) })).rejects.toBeInstanceOf(BillingError);
+    });
+
+    it("imports a domain with its own dates, sending nothing to the registrar", async () => {
+      const { a, f, clientId, P } = await setUp();
+      const name = f.freshDomain();
+      const day = (offset: number) => {
+        const d = new Date();
+        return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + offset));
+      };
+      const { domainId } = await a.importDomain(clientId, { name, registrar: "cocca", registeredOn: day(-300), expiresOn: day(65), nextDueOn: day(65), renewal: P(31000n), registrationYears: 1, autoRenew: true });
+      const domain = (await a.listDomains(clientId)).find((d) => d.domainId === domainId);
+      expect(domain).toMatchObject({ name, status: "active", expiresOn: day(65), nextDueOn: day(65), renewal: P(31000n), autoRenew: true });
+      expect(await a.listInvoices(clientId)).toEqual([]);
+      await expect(a.importDomain(clientId, { name, registrar: "cocca", registeredOn: day(-300), expiresOn: day(65), nextDueOn: day(65), renewal: P(31000n), registrationYears: 1, autoRenew: true })).rejects.toBeInstanceOf(BillingError);
+    });
+
+    it("keeps an opening balance's original invoice date", async () => {
+      const { a, clientId, P } = await setUp();
+      const issuedOn = new Date(Date.UTC(2026, 7, 12));
+      const dueOn = new Date(Date.UTC(2026, 8, 11));
+      const { invoiceId } = await a.createInvoice(clientId, { lines: [{ description: "Balance brought forward: INV/2026/00042", amount: P(250000n), taxed: false }], paymentMethod: PAYMENT_METHODS.eft, dueOn, issuedOn });
+      const invoice = (await a.getInvoice(clientId, invoiceId))!;
+      expect(invoice).toMatchObject({ issuedOn, dueOn, status: "unpaid", total: P(250000n) });
+    });
+
     it("saves a card from the gateway without the card number", async () => {
       const { a, f, clientId } = await setUp();
       if (f.savesCards === false) {

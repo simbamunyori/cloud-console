@@ -62,7 +62,7 @@ export function SignInForm({
       {signUp ? (
         <p className="border-t border-border pt-4 text-callout text-ink-muted">
           New here?{" "}
-          <Link href="/sign-up" className="font-medium text-link hover:underline">
+          <Link href={next && next !== "/app" ? `/sign-up?next=${encodeURIComponent(next)}` : "/sign-up"} className="font-medium text-link hover:underline">
             Open an account
           </Link>
         </p>

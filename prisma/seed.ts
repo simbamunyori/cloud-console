@@ -28,6 +28,7 @@ import { importUsage, linkSubscription } from "../src/server/spend/usage";
 import { requestQuote, saveQuote, sendQuote } from "../src/server/quotes/quotes";
 import { createLead } from "../src/server/sales/leads";
 import { syncStubTaxRules } from "../src/server/markets/tax-sync";
+import { uploadExports } from "../src/server/migration/run";
 
 const db = new PrismaClient();
 const DEMO_PASSWORD = "demo-password-2026";
@@ -82,6 +83,42 @@ async function main() {
     await db.user.upsert({ where: { email: s.email }, update: {}, create: { ...s, kind: "STAFF", passwordHash } });
   }
 
+  // An Odoo upload waiting for approval (Milestone 9b), so /admin/migration has a dry run to show.
+  const migrationAdmin = await db.user.findUniqueOrThrow({ where: { email: "staff@example.co.bw" } });
+  if (!(await db.migrationBatch.count({ where: { uploadedById: migrationAdmin.id } }))) {
+    const admin = migrationAdmin;
+    const on = (days: number) => addDays(todayIn(DEFAULT_TIME_ZONE), days).toISOString().slice(0, 10);
+    await uploadExports({ db, staff: { userId: admin.id, name: admin.name, staffRole: "ADMIN" } }, [
+      {
+        file: "customers",
+        name: "customers.csv",
+        text: [
+          "ID,Name,Email,Phone,Street,City,Country,Tax ID",
+          "__export__.res_partner_101_demo,Tlokweng Dental Practice,reception@tlokwengdental.example,+267 390 1111,Plot 2210,Tlokweng,Botswana,P01987654321",
+          "__export__.res_partner_102_demo,Maun Safari Lodges,office@maunsafari.example,+267 686 2222,Airport Road,Maun,Botswana,",
+        ].join("\n"),
+      },
+      {
+        file: "contacts",
+        name: "contacts.csv",
+        text: ["ID,Related Company/ID,Name,Email,Address Type", "__export__.res_partner_103_demo,__export__.res_partner_101_demo,Dr Lorato Sebina,lorato@tlokwengdental.example,Contact", "__export__.res_partner_104_demo,__export__.res_partner_102_demo,Maun Accounts,accounts@maunsafari.example,Invoice Address"].join("\n"),
+      },
+      {
+        file: "services",
+        name: "subscriptions.csv",
+        text: [
+          "Order Reference,Customer/ID,Recurring Plan,Next Invoice,Start Date,Currency,Order Lines/Product,Order Lines/Quantity,Order Lines/Unit Price,Order Lines/Discount (%),Hosted at,Server or account,Price review date",
+          `SUB/2024/0007,__export__.res_partner_101_demo,Monthly,${on(18)},2024-02-01,BWP,Microsoft 365 Business Standard,6,175.00,0,,,${on(150)}`,
+          `,,,,,,[BAK-365] Backup for Microsoft 365,6,30.00,0,,,`,
+          `SUB/2023/0031,__export__.res_partner_102_demo,Quarterly,${on(40)},2023-06-01,BWP,[WEB-A] Lodge website hosting plan A,1,1350.00,10,Contabo,vps-17 (161.97.0.17),`,
+        ].join("\n"),
+      },
+      { file: "domains", name: "domains.csv", text: ["Domain,Customer ID,Expires on,Renewal price,Registrar", `maunsafari.co.bw,__export__.res_partner_102_demo,${on(95)},310.00,cocca`].join("\n") },
+      { file: "invoices", name: "invoices.csv", text: ["Number,Customer/ID,Invoice/Bill Date,Due Date,Amount Due,Total,Currency", `INV/2026/00881,__export__.res_partner_102_demo,${on(-20)},${on(10)},1215.00,1215.00,BWP`].join("\n") },
+    ]);
+    console.log("Demo Odoo upload: two customers waiting for approval at /admin/migration.");
+  }
+
   // A launch kit (Milestone 7) a Publisher has approved, so the demo has a product page to show.
   const kitProduct = await db.product.findUnique({ where: { slug: "microsoft-365-business-standard" } });
   if (kitProduct?.status === "LIVE" && !(await db.launchKit.findUnique({ where: { productId: kitProduct.id } }))) {
@@ -105,6 +142,15 @@ async function main() {
       },
     });
     console.log("Demo launch kit: Microsoft 365 Business Standard, approved.");
+  }
+
+  // A pre-sales engineer with weekday hours (Milestone 8), so the booking page has times to offer.
+  const presales = await db.user.findUniqueOrThrow({ where: { email: "support@example.co.bw" } });
+  if (!(await db.presalesEngineer.findUnique({ where: { userId: presales.id } }))) {
+    await db.presalesEngineer.create({
+      data: { userId: presales.id, hours: [1, 2, 3, 4, 5].map((day) => ({ day, from: "09:00", to: "16:00" })), timeZone: DEFAULT_TIME_ZONE },
+    });
+    console.log("Demo pre-sales hours: Boitumelo Support, weekdays 09:00 to 16:00.");
   }
 
   if (await db.membership.findFirst({ where: { user: { email: "demo@kgalehill.co.bw" } } })) {

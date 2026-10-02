@@ -9,6 +9,7 @@ import { providerName } from "@/server/auth/oauth";
 import { enabledProviders } from "@/server/auth/sign-in-options";
 import { env } from "@/server/env";
 import { requestCountry } from "@/server/markets/geo";
+import { safeNext } from "../shared";
 import { SignUpForm } from "./sign-up-form";
 
 export const metadata: Metadata = { title: "Open an account" };
@@ -16,7 +17,7 @@ export const metadata: Metadata = { title: "Open an account" };
 export default async function SignUpPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const params = await searchParams;
   const session = await currentSession();
-  if (session?.stage === "ACTIVE") redirect("/app");
+  if (session?.stage === "ACTIVE") redirect(safeNext(typeof params.next === "string" ? params.next : "", "CUSTOMER"));
   const pending = params.with ? await readPending() : null;
   const identity = pending?.intent === "sign-up" ? { provider: providerName(pending.provider), email: pending.email, name: pending.name ?? "" } : undefined;
   return (
@@ -27,6 +28,7 @@ export default async function SignUpPage({ searchParams }: { searchParams: Promi
         detectedCountry={await requestCountry()}
         identity={identity}
         expired={Boolean(params.with) && !identity}
+        next={safeNext(typeof params.next === "string" ? params.next : "", "CUSTOMER")}
         others={
           identity ? null : (
             <>

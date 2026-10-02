@@ -7,6 +7,7 @@ import { beginAuthenticatorSetup } from "@/server/auth/service";
 import { groupSecret } from "@/server/auth/totp";
 import { env } from "@/server/env";
 import tokens from "@/config/theme/tokens.json";
+import { rememberedNext } from "../shared";
 import { SetupForm } from "./setup-form";
 
 export const metadata: Metadata = { title: "Protect your account" };
@@ -33,6 +34,7 @@ export default async function SetupAuthenticatorPage() {
     <AuthShell>
       <SetupForm
         consoleName={env().CONSOLE_NAME}
+        home={await rememberedNext()}
         eyebrow={isNewOrganisation ? "Step 2 of 2" : undefined}
         completed={completed}
         qrSvg={qrSvg}

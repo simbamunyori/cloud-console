@@ -6,6 +6,7 @@ import { DOMAIN_PRODUCT_SLUG } from "@/server/catalogue/seed-data";
 import { effectiveStatus, STATUS_LABEL } from "@/server/catalogue/visibility";
 import { connectorFor } from "@/server/connectors/registry";
 import { DomainError } from "@/server/org/access";
+import { isLegacyCategory, LEGACY_FAMILY } from "@/server/catalogue/legacy";
 import { assertStaffCan, staffLabel, type StaffActor } from "@/server/staff/access";
 import { prepareLaunchKit } from "@/server/launch/kits";
 
@@ -151,6 +152,7 @@ export async function saveFamily(deps: CatalogueDeps, input: FamilyInput, existi
     errors.fulfilment = `The ${CONNECTOR_LABEL[data.connector]} connector can't set products up by itself yet.`;
   }
   if (!STATUSES.includes(data.status)) errors.status = "Choose a status.";
+  else if (key === LEGACY_FAMILY && data.status !== "DRAFT") errors.status = "Legacy services are never offered, so they stay a draft.";
   check(errors);
 
   return deps.db.$transaction(async (tx) => {
@@ -333,6 +335,7 @@ export async function saveProduct(deps: CatalogueDeps, input: ProductInput, exis
   if (!category) errors.categoryKey = "Choose a category.";
   if (!FULFILMENTS.includes(fields.fulfilment)) errors.fulfilment = "Choose how it is fulfilled.";
   if (!STATUSES.includes(fields.status)) errors.status = "Choose a status.";
+  else if (category && isLegacyCategory(category.key) && fields.status !== "DRAFT") errors.status = "Legacy services are never offered, so they stay a draft.";
   if (!fields.quantityAllowed) fields.minQuantity = 1;
   if (category?.family.fulfilment && fields.fulfilment !== category.family.fulfilment) {
     errors.fulfilment = `Everything in ${category.family.name} is sold ${FULFILMENT_WORDS[category.family.fulfilment]}.`;

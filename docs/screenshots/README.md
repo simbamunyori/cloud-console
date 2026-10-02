@@ -22,10 +22,17 @@ Refresh with `npm run screenshots -- --commit` against a running console with th
 | reset-link-expired | [view](site/reset-link-expired-390-light.webp) | [view](site/reset-link-expired-390-dark.webp) | [view](site/reset-link-expired-1440-light.webp) | [view](site/reset-link-expired-1440-dark.webp) |
 | staff-sign-in | [view](site/staff-sign-in-390-light.webp) | [view](site/staff-sign-in-390-dark.webp) | [view](site/staff-sign-in-1440-light.webp) | [view](site/staff-sign-in-1440-dark.webp) |
 | site-quote | [view](site/site-quote-390-light.webp) | [view](site/site-quote-390-dark.webp) | [view](site/site-quote-1440-light.webp) | [view](site/site-quote-1440-dark.webp) |
+| site-quote-nsmc | [view](site/site-quote-nsmc-390-light.webp) | [view](site/site-quote-nsmc-390-dark.webp) | [view](site/site-quote-nsmc-1440-light.webp) | [view](site/site-quote-nsmc-1440-dark.webp) |
 | site-product | [view](site/site-product-390-light.webp) | [view](site/site-product-390-dark.webp) | [view](site/site-product-1440-light.webp) | [view](site/site-product-1440-dark.webp) |
 | site-insights | [view](site/site-insights-390-light.webp) | [view](site/site-insights-390-dark.webp) | [view](site/site-insights-1440-light.webp) | [view](site/site-insights-1440-dark.webp) |
 | site-insight | [view](site/site-insight-390-light.webp) | [view](site/site-insight-390-dark.webp) | [view](site/site-insight-1440-light.webp) | [view](site/site-insight-1440-dark.webp) |
 | quote-link | [view](site/quote-link-390-light.webp) | [view](site/quote-link-390-dark.webp) | [view](site/quote-link-1440-light.webp) | [view](site/quote-link-1440-dark.webp) |
+| site-tools | [view](site/site-tools-390-light.webp) | [view](site/site-tools-390-dark.webp) | [view](site/site-tools-1440-light.webp) | [view](site/site-tools-1440-dark.webp) |
+| site-email-check | [view](site/site-email-check-390-light.webp) | [view](site/site-email-check-390-dark.webp) | [view](site/site-email-check-1440-light.webp) | [view](site/site-email-check-1440-dark.webp) |
+| site-cost-calculator | [view](site/site-cost-calculator-390-light.webp) | [view](site/site-cost-calculator-390-dark.webp) | [view](site/site-cost-calculator-1440-light.webp) | [view](site/site-cost-calculator-1440-dark.webp) |
+| site-readiness | [view](site/site-readiness-390-light.webp) | [view](site/site-readiness-390-dark.webp) | [view](site/site-readiness-1440-light.webp) | [view](site/site-readiness-1440-dark.webp) |
+| site-readiness-result | [view](site/site-readiness-result-390-light.webp) | [view](site/site-readiness-result-390-dark.webp) | [view](site/site-readiness-result-1440-light.webp) | [view](site/site-readiness-result-1440-dark.webp) |
+| site-book | [view](site/site-book-390-light.webp) | [view](site/site-book-390-dark.webp) | [view](site/site-book-1440-light.webp) | [view](site/site-book-1440-dark.webp) |
 
 ## Customer console
 
@@ -70,12 +77,14 @@ Refresh with `npm run screenshots -- --commit` against a running console with th
 | admin-quotes | [view](staff/admin-quotes-390-light.webp) | [view](staff/admin-quotes-390-dark.webp) | [view](staff/admin-quotes-1440-light.webp) | [view](staff/admin-quotes-1440-dark.webp) |
 | admin-quote | [view](staff/admin-quote-390-light.webp) | [view](staff/admin-quote-390-dark.webp) | [view](staff/admin-quote-1440-light.webp) | [view](staff/admin-quote-1440-dark.webp) |
 | admin-leads | [view](staff/admin-leads-390-light.webp) | [view](staff/admin-leads-390-dark.webp) | [view](staff/admin-leads-1440-light.webp) | [view](staff/admin-leads-1440-dark.webp) |
+| admin-bookings | [view](staff/admin-bookings-390-light.webp) | [view](staff/admin-bookings-390-dark.webp) | [view](staff/admin-bookings-1440-light.webp) | [view](staff/admin-bookings-1440-dark.webp) |
 | admin-lead | [view](staff/admin-lead-390-light.webp) | [view](staff/admin-lead-390-dark.webp) | [view](staff/admin-lead-1440-light.webp) | [view](staff/admin-lead-1440-dark.webp) |
 | admin-launch-kits | [view](staff/admin-launch-kits-390-light.webp) | [view](staff/admin-launch-kits-390-dark.webp) | [view](staff/admin-launch-kits-1440-light.webp) | [view](staff/admin-launch-kits-1440-dark.webp) |
 | admin-launch-kit | [view](staff/admin-launch-kit-390-light.webp) | [view](staff/admin-launch-kit-390-dark.webp) | [view](staff/admin-launch-kit-1440-light.webp) | [view](staff/admin-launch-kit-1440-dark.webp) |
 | admin-newsletter | [view](staff/admin-newsletter-390-light.webp) | [view](staff/admin-newsletter-390-dark.webp) | [view](staff/admin-newsletter-1440-light.webp) | [view](staff/admin-newsletter-1440-dark.webp) |
 | admin-newsletter-issue | [view](staff/admin-newsletter-issue-390-light.webp) | [view](staff/admin-newsletter-issue-390-dark.webp) | [view](staff/admin-newsletter-issue-1440-light.webp) | [view](staff/admin-newsletter-issue-1440-dark.webp) |
 | admin-payments | [view](staff/admin-payments-390-light.webp) | [view](staff/admin-payments-390-dark.webp) | [view](staff/admin-payments-1440-light.webp) | [view](staff/admin-payments-1440-dark.webp) |
+| admin-migration | [view](staff/admin-migration-390-light.webp) | [view](staff/admin-migration-390-dark.webp) | [view](staff/admin-migration-1440-light.webp) | [view](staff/admin-migration-1440-dark.webp) |
 | admin-catalogue | [view](staff/admin-catalogue-390-light.webp) | [view](staff/admin-catalogue-390-dark.webp) | [view](staff/admin-catalogue-1440-light.webp) | [view](staff/admin-catalogue-1440-dark.webp) |
 | admin-catalogue-product | [view](staff/admin-catalogue-product-390-light.webp) | [view](staff/admin-catalogue-product-390-dark.webp) | [view](staff/admin-catalogue-product-1440-light.webp) | [view](staff/admin-catalogue-product-1440-dark.webp) |
 | admin-catalogue-new-product | [view](staff/admin-catalogue-new-product-390-light.webp) | [view](staff/admin-catalogue-new-product-390-dark.webp) | [view](staff/admin-catalogue-new-product-1440-light.webp) | [view](staff/admin-catalogue-new-product-1440-dark.webp) |

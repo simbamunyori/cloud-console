@@ -92,3 +92,33 @@ test("the hidden field turns bots away without saving anything", async ({ page }
     await db.$disconnect();
   }
 });
+
+/** Enterprise, on-site compliance projects go to NSMC (final build, Milestone 9): the same form, then staff introduce them. */
+test("an on-site compliance project is passed to NSMC", async ({ page, baseURL, browser }) => {
+  const company = `Serowe Mining ${Date.now().toString(36)}`;
+  await page.goto("/bw");
+  await page.getByRole("button", { name: "Security" }).first().click();
+  await page.getByRole("link", { name: /Compliance projects on site/ }).first().click();
+  await expect(page).toHaveURL(/\/bw\/quote\?for=compliance-project/);
+  await expect(page.getByRole("heading", { level: 1, name: "Enterprise compliance projects, on site" })).toBeVisible();
+  await expect(page.getByText("We'll pass your request and contact details to NSMC")).toBeVisible();
+  await page.getByLabel("Your name", { exact: true }).fill("Lesego Kgosi");
+  await page.getByLabel("Company (optional)").fill(company);
+  await page.getByLabel("Work email").fill(`e2e-${Date.now().toString(36)}@example.co.bw`);
+  await page.getByLabel("Phone").fill("+267 72 000 001");
+  await page.getByLabel("Country", { exact: true }).selectOption("BW");
+  await page.getByLabel("What do you need?").fill("An audit of our records and access controls at the mine office.");
+  await page.getByRole("button", { name: "Send my request" }).click();
+  await expect(page.getByRole("status")).toContainText("NSMC will contact you about it.");
+
+  const staff = await browser.newContext();
+  await signIn(staff, "staff", baseURL!);
+  const desk = await staff.newPage();
+  await desk.goto("/admin/quotes");
+  await expect(desk.getByRole("link", { name: new RegExp(company) })).toContainText("For NSMC");
+  await desk.getByRole("link", { name: new RegExp(company) }).click();
+  await desk.getByRole("button", { name: "Mark introduced to NSMC" }).click();
+  await expect(desk.getByRole("region", { name: "For NSMC" }).getByText(/^Introduced /)).toBeVisible();
+  await expect(desk.getByText("Introduced to NSMC.")).toBeVisible();
+  await staff.close();
+});

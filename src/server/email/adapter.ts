@@ -9,6 +9,8 @@ export interface EmailMessage {
   html: string;
   /** Extra headers, e.g. List-Unsubscribe on the newsletter. */
   headers?: Record<string, string>;
+  /** A calendar invite (text/calendar), e.g. for a booked call. */
+  calendar?: { method: "REQUEST" | "CANCEL"; content: string };
 }
 
 /** Anything that can deliver an email: SMTP now, an email API later. */
@@ -23,7 +25,8 @@ export class SmtpEmailAdapter implements EmailAdapter {
     this.transporter = nodemailer.createTransport(url);
   }
   async send(message: EmailMessage) {
-    await this.transporter.sendMail({ from: this.from, ...message });
+    const { calendar, ...rest } = message;
+    await this.transporter.sendMail({ from: this.from, ...rest, ...(calendar ? { icalEvent: { method: calendar.method, filename: "invite.ics", content: calendar.content } } : {}) });
   }
 }
 

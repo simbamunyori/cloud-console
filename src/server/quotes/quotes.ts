@@ -93,7 +93,25 @@ const requestSchema = z.object({
   need: z.string().trim().min(10, "Tell us a little more about what you need.").max(2000, "Keep it under 2,000 characters."),
 });
 
-export type QuoteRequestInput = z.input<typeof requestSchema> & { product?: string };
+export type QuoteRequestInput = z.input<typeof requestSchema> & { product?: string; referral?: string };
+
+/**
+ * Work we pass to a partner instead of doing ourselves, asked for through
+ * the same quote form (final build, Milestone 9). The key is what the
+ * form sends; the visitor is told before sending that the partner will
+ * get their request and contact them.
+ */
+export const REFERRALS = {
+  "compliance-project": {
+    partner: "NSMC",
+    topic: "On-site compliance project",
+    heading: "Enterprise compliance projects, on site",
+    intro: "Audits, policies and controls carried out at your premises are done by NSMC, our partner for enterprise IT. Tell us what you need and we'll introduce you.",
+    notice: "We'll pass your request and contact details to NSMC, who will contact you about it.",
+  },
+} as const;
+export type ReferralKey = keyof typeof REFERRALS;
+export const referralOf = (key?: string | null) => (key && key in REFERRALS ? REFERRALS[key as ReferralKey] : null);
 
 /**
  * A new request. From the public site there is no account; from the
@@ -124,6 +142,7 @@ export async function requestQuote(
         need: v.need,
         market: market.code,
         productId: product?.id ?? null,
+        referTo: referralOf(input.referral)?.partner ?? null,
         organisationId: where.organisationId ?? null,
         requestedById: where.userId ?? null,
       },
@@ -307,6 +326,27 @@ export async function closeQuote(deps: StaffQuoteDeps, reference: string, reason
   await deps.db.$transaction(async (tx) => {
     await tx.quote.update({ where: { id: quote.id }, data: { status: "CLOSED", tokenHash: null, decidedAt: deps.now ?? new Date(), decidedByName: staffLabel(deps.staff), declineReason: why } });
     await staffAuditQuote(tx, deps.staff, quote, "quote.closed", `Closed quote ${quote.reference}`, { reason: why });
+  });
+}
+
+/**
+ * Records that staff introduced the customer to the partner the request
+ * is for, closes it, and tells the customer who will be in touch.
+ */
+export async function referQuote(deps: StaffQuoteDeps, reference: string) {
+  assertStaffCan(deps.staff, "manageQuotes");
+  const quote = await deps.db.quote.findUnique({ where: { reference } });
+  if (!quote) throw new DomainError("not-found", "No such quote.");
+  if (!quote.referTo) throw new DomainError("conflict", "This request isn't for a partner.");
+  if (quote.status !== "NEW") throw new DomainError("conflict", "This request is already finished.");
+  const now = deps.now ?? new Date();
+  await deps.db.$transaction(async (tx) => {
+    await tx.quote.update({
+      where: { id: quote.id },
+      data: { status: "CLOSED", tokenHash: null, referredAt: now, decidedAt: now, decidedByName: staffLabel(deps.staff), declineReason: `Introduced to ${quote.referTo}.` },
+    });
+    await queueEmail(tx, { organisationId: quote.organisationId, to: quote.email, kind: "quote.referred", payload: { quoteId: quote.id } });
+    await staffAuditQuote(tx, deps.staff, quote, "quote.referred", `Introduced ${quote.company ?? quote.name} to ${quote.referTo} (${quote.reference})`, { partner: quote.referTo });
   });
 }
 

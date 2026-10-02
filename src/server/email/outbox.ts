@@ -73,6 +73,7 @@ export async function deliverDue(
       const rendered = await TEMPLATES[row.kind]?.(row.payload as Record<string, unknown>, {
         db,
         appUrl: e.APP_URL,
+        siteUrl: (e.SITE_URL ?? e.APP_URL).replace(/\/$/, ""),
         consoleName: e.CONSOLE_NAME,
         now,
         ...(await emailRegion(db, row)),
@@ -83,7 +84,14 @@ export async function deliverDue(
         continue;
       }
       const { text, html } = renderEmail(rendered.body, e.APP_URL);
-      await adapter.send({ to: row.toAddress, subject: rendered.subject, text, html, ...(rendered.headers ? { headers: rendered.headers } : {}) });
+      await adapter.send({
+        to: row.toAddress,
+        subject: rendered.subject,
+        text,
+        html,
+        ...(rendered.headers ? { headers: rendered.headers } : {}),
+        ...(rendered.calendar ? { calendar: rendered.calendar } : {}),
+      });
       await db.outboundEmail.update({ where: { id: row.id }, data: { status: "SENT", sentAt: now, subject: rendered.subject, lastError: null } });
       sent++;
     } catch (err) {

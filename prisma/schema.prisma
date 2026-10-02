@@ -187,6 +187,7 @@ model Organisation {
   savingTips         SavingTip[]
   cloudUsageBills    CloudUsageBill[]
   budgetAlerts       BudgetAlert[]
+  serviceProfiles    ServiceProfile[]
 }
 
 enum UserKind {
@@ -237,6 +238,7 @@ model User {
   settingsChanged PricingChange[]
   marketChanges   MarketChange[]
   pricesApproved  PriceBookEntry[]
+  presales        PresalesEngineer?
 }
 
 enum WebsiteRole {
@@ -832,6 +834,11 @@ model Quote {
   market         String
   /// The product asked about, and the one the order is placed for.
   productId      String?
+  /// A partner who carries out this kind of work instead of us, e.g.
+  /// "NSMC" for enterprise, on-site compliance projects. Staff introduce
+  /// the customer and close the request.
+  referTo        String?
+  referredAt     DateTime?
   /// Plain words to the customer, shown above the lines.
   message        String?
   /// The last day it can be accepted, in the market's time zone.
@@ -889,6 +896,10 @@ model ProvisioningTask {
   instructions   String
   status         TaskStatus      @default(OPEN)
   expectedBy     DateTime
+  /// The service in the billing engine, for work on one already running (hosted elsewhere).
+  billingServiceId String?
+  /// The last reminder sent about it being late.
+  remindedAt     DateTime?
   assigneeId     String?
   notes          String?
   completedById  String?
@@ -1736,6 +1747,18 @@ enum LeadSource {
   ASSISTANT
   /// The visitor pressed "Talk to a person".
   PERSON
+  /// A quote request from the public site.
+  QUOTE
+  /// A confirmed newsletter sign-up.
+  NEWSLETTER
+  /// The free email security check.
+  EMAIL_CHECK
+  /// The Microsoft 365 and Google Workspace cost calculator.
+  COST_CALCULATOR
+  /// The Data Protection Act readiness checklist.
+  DPA_CHECKLIST
+  /// A call booked with a pre-sales engineer.
+  BOOKING
 }
 
 /// Someone on the public site who asked to be contacted, with their consent.
@@ -1761,9 +1784,121 @@ model Lead {
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
 
-  chat SalesChat? @relation(fields: [chatId], references: [id], onDelete: SetNull)
+  /// The free tool that last brought them, e.g. "email-check" (Milestone 8).
+  tool              String?
+  /// The tracked link they came through, if any.
+  campaign          String?
+  campaignSource    String?
+  campaignMedium    String?
+  /// What the tool found or worked out, for staff and the follow-up emails.
+  toolResult        Json?
+  /// The follow-up email sequence (src/server/leads/follow-ups.ts), the
+  /// next step to send and when. Stops when they buy or unsubscribe.
+  followUp          String?
+  followUpStep      Int       @default(0)
+  followUpAt        DateTime?
+  followUpStoppedAt DateTime?
+  followUpStopped   String?
+  /// For the unsubscribe link in follow-up emails.
+  unsubscribeToken  String?   @unique
+
+  chat     SalesChat?        @relation(fields: [chatId], references: [id], onDelete: SetNull)
+  touches  LeadTouch[]
+  bookings PresalesBooking[]
 
   @@index([status, createdAt])
+  @@index([purgeAfter])
+  @@index([email])
+  @@index([followUpAt])
+}
+
+/// Each time a lead came back: which source and tool, and which campaign.
+model LeadTouch {
+  id             String     @id @default(cuid())
+  leadId         String
+  source         LeadSource
+  tool           String?
+  campaign       String?
+  campaignSource String?
+  campaignMedium String?
+  summary        String
+  createdAt      DateTime   @default(now())
+
+  lead Lead @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  @@index([leadId, createdAt])
+}
+
+// ─── Pre-sales bookings (final build, Milestone 8) ───────────────────
+
+/// A staff member who takes pre-sales calls, with their weekly hours.
+model PresalesEngineer {
+  id         String   @id @default(cuid())
+  userId     String   @unique
+  active     Boolean  @default(true)
+  /// Their Teams or Meet link, put in the calendar invite. Optional.
+  meetingUrl String?
+  /// Weekly hours in timeZone: [{ day: 1 (Monday) to 7, from: "09:00", to: "12:00" }].
+  hours      Json
+  timeZone   String   @default("Africa/Gaborone")
+  updatedAt  DateTime @updatedAt
+
+  user     User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bookings PresalesBooking[]
+}
+
+enum BookingStatus {
+  BOOKED
+  CANCELLED
+}
+
+/// A call a visitor booked with a pre-sales engineer.
+model PresalesBooking {
+  id              String        @id @default(cuid())
+  reference       String        @unique
+  engineerId      String
+  market          String
+  startsAt        DateTime
+  endsAt          DateTime
+  /// What the call is about, e.g. "thebe" or "email-check"; "general" otherwise.
+  topic           String
+  name            String
+  email           String
+  phone           String?
+  company         String?
+  notes           String
+  leadId          String?
+  status          BookingStatus @default(BOOKED)
+  /// Hash of the visitor's cancel link.
+  cancelTokenHash String        @unique
+  cancelledAt     DateTime?
+  cancelledBy     String?
+  /// Raised each time the invite changes, as calendars expect.
+  sequence        Int           @default(0)
+  reminderSentAt  DateTime?
+  createdAt       DateTime      @default(now())
+
+  engineer PresalesEngineer @relation(fields: [engineerId], references: [id], onDelete: Restrict)
+  lead     Lead?            @relation(fields: [leadId], references: [id], onDelete: SetNull)
+
+  @@index([engineerId, startsAt])
+  @@index([status, startsAt])
+}
+
+/// A Data Protection Act readiness checklist someone filled in. The
+/// summary downloads once they have an account; the link is the token.
+model ReadinessCheck {
+  id             String   @id @default(cuid())
+  /// Random, in the visitor's link to their summary.
+  token          String   @unique
+  market         String
+  answers        Json
+  score          Int
+  organisationId String?
+  leadId         String?
+  createdAt      DateTime @default(now())
+  purgeAfter     DateTime
+
   @@index([purgeAfter])
 }
 
@@ -1845,4 +1980,131 @@ model NewsletterIssue {
   updatedAt  DateTime              @updatedAt
 
   @@unique([market, month])
+}
+
+// ─── Bringing clients over from Odoo (Milestone 9b) ─────────────────
+
+/// Where a service runs. Anything but OURS is looked after by hand: a
+/// suspension, unsuspension or cancellation in billing becomes a staff task.
+enum HostLocation {
+  OURS
+  CONTABO
+  SITEGROUND
+  OTHER
+}
+
+/// What the console knows about a running service that the billing engine
+/// has no field for. Made for every service brought over from Odoo.
+model ServiceProfile {
+  billingServiceId     String       @id
+  organisationId       String
+  /// The customer's own price from before, kept instead of the price book:
+  /// the whole service per billing period, for legacyQuantity units. A
+  /// change of users is priced pro rata from it. Null: price book.
+  legacyRecurringMinor BigInt?
+  legacyQuantity       Int?
+  legacyCurrency       String?
+  /// When staff mean to look at the price again. Nothing changes by itself.
+  legacyReviewOn       DateTime?    @db.Date
+  hostedAt             HostLocation @default(OURS)
+  /// The server, account or panel it lives in.
+  hostServer           String?
+  hostNotes            String?
+  /// The status last seen in billing, so each change makes one task.
+  lastStatus           String?
+  movedAt              DateTime?
+  movedByName          String?
+  /// Where it came from, e.g. "Odoo SUB/2026/0042".
+  source               String?
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @updatedAt
+
+  organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+
+  @@index([organisationId])
+  @@index([hostedAt])
+}
+
+enum MigrationStatus {
+  /// Uploaded; the dry-run report waits for an admin.
+  REVIEW
+  /// Approved; the import job picks it up.
+  APPROVED
+  IMPORTING
+  IMPORTED
+  /// Stopped part way; the error says why. Approving again carries on.
+  FAILED
+  /// Replaced by a newer upload before it was approved.
+  DISCARDED
+}
+
+/// One upload of the Odoo exports. Nothing reaches customers or billing
+/// until an admin approves the dry-run report, and welcome emails wait
+/// for the cutover date an admin chooses.
+model MigrationBatch {
+  id               String          @id @default(cuid())
+  status           MigrationStatus @default(REVIEW)
+  /// The rows read from each file, as uploaded.
+  source           Json
+  /// Staff choices: Odoo product name to a product slug, or "legacy".
+  mapping          Json            @default("{}")
+  /// The dry-run report for source and mapping.
+  report           Json
+  reportHash       String
+  uploadedById     String
+  uploadedByName   String
+  approvedHash     String?
+  approvedById     String?
+  approvedByName   String?
+  approvedAt       DateTime?
+  startedAt        DateTime?
+  finishedAt       DateTime?
+  error            String?
+  /// The day welcome emails go out, from 08:00 Gaborone time. None until chosen.
+  cutoverOn        DateTime?       @db.Date
+  cutoverSetByName String?
+  welcomeSentAt    DateTime?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  records MigrationRecord[]
+
+  @@index([status])
+}
+
+/// What the import made from each Odoo row. One per row ever, so a second
+/// upload or a re-run never makes anything twice. A row with no targetId
+/// was being written to billing when a run stopped.
+model MigrationRecord {
+  id             String    @id @default(cuid())
+  batchId        String
+  /// "customer", "person", "client", "service", "domain" or "invoice".
+  kind           String
+  /// The Odoo reference: external id, subscription line, domain or invoice number.
+  sourceRef      String
+  organisationId String?
+  targetId       String?
+  /// People only: when their welcome email was queued.
+  welcomedAt     DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  batch MigrationBatch @relation(fields: [batchId], references: [id], onDelete: Restrict)
+
+  @@unique([kind, sourceRef])
+  @@index([batchId, kind])
+}
+
+/// An address from the old website and where it goes now (Milestone 10).
+/// Matched on the exact path, without a trailing slash or query.
+model SiteRedirect {
+  id          String    @id @default(cuid())
+  fromPath    String    @unique
+  toPath      String
+  /// How often it was followed, so staff can see which old links still matter.
+  hits        Int       @default(0)
+  lastHitAt   DateTime?
+  createdAt   DateTime  @default(now())
+  createdById String?
+  createdBy   String?
 }

@@ -8,6 +8,8 @@ import { PageHeader } from "@/components/ui/page-header";
 import { formatDay } from "@/lib/dates";
 import { requireStaffCan } from "@/server/admin/context";
 import { prisma } from "@/server/db";
+import type { LeadSource } from "@prisma/client";
+import { SHORT_SOURCE, SOURCE_LABEL } from "@/server/leads/sequences";
 import { LEAD_KEEP_MONTHS, listLeads } from "@/server/sales/leads";
 import { LeadStatusBadge } from "./status";
 
@@ -19,20 +21,36 @@ const GROUPS = [
   { status: "CLOSED", title: "Closed", description: "Finished." },
 ] as const;
 
-export default async function LeadsPage() {
+const SOURCES = Object.keys(SOURCE_LABEL) as LeadSource[];
+
+export default async function LeadsPage({ searchParams }: { searchParams: Promise<{ source?: string }> }) {
   const { staff } = await requireStaffCan("viewCustomers");
-  const leads = await listLeads(prisma, staff, "ALL");
+  const asked = (await searchParams).source;
+  const source = SOURCES.find((s) => s === asked);
+  const leads = await listLeads(prisma, staff, "ALL", source);
 
   return (
     <>
       <PageHeader
         title="Leads"
-        description={`Visitors who asked Thapelo, the website's assistant, for a person, or left their details for us to get back to them. Each one comes with the conversation. Leads are deleted ${LEAD_KEEP_MONTHS} months after they last changed.`}
+        description={`Everyone who left their details on the website: Thapelo, the free tools, quote requests, newsletter sign-ups and booked calls, with where they came from and any campaign. Someone who comes back updates their lead. Leads are deleted ${LEAD_KEEP_MONTHS} months after they last changed.`}
       />
+      <nav aria-label="Filter by source" className="mb-6 flex flex-wrap gap-2">
+        {[undefined, ...SOURCES].map((s) => (
+          <Link
+            key={s ?? "all"}
+            href={s ? `/admin/leads?source=${s}` : "/admin/leads"}
+            aria-current={s === source ? "page" : undefined}
+            className="rounded-sm border border-border-strong bg-surface-1 px-3 py-1.5 text-callout text-ink hover:bg-surface-2 aria-[current=page]:border-brand aria-[current=page]:bg-brand-soft aria-[current=page]:text-link"
+          >
+            {s ? SHORT_SOURCE[s] : "All"}
+          </Link>
+        ))}
+      </nav>
       {leads.length === 0 ? (
         <Card>
-          <EmptyState icon={MessagesSquare} title="No leads yet">
-            When a visitor asks Thapelo for a person, their details and the conversation appear here, and the market&apos;s support address gets an email.
+          <EmptyState icon={MessagesSquare} title={source ? "No leads from here yet" : "No leads yet"}>
+            When a visitor asks Thapelo for a person, uses a free tool with their email, asks for a quote or books a call, they appear here.
           </EmptyState>
         </Card>
       ) : (
@@ -55,11 +73,12 @@ export default async function LeadsPage() {
                           </span>
                           <span className="truncate text-callout text-ink-muted">{l.need}</span>
                           <span className="text-caption text-ink-muted">
-                            {l.reference} · {l.market.toUpperCase()} · {formatDay(l.createdAt, true)}
+                            {l.reference} · {l.market.toUpperCase()} · {formatDay(l.updatedAt, true)}
+                            {l.campaign ? ` · Campaign ${l.campaign}` : ""}
                           </span>
                         </span>
                         <span className="flex items-center gap-2 self-start sm:self-center">
-                          {l.source === "PERSON" ? <Badge tone="info">Asked for a person</Badge> : null}
+                          <Badge tone={l.source === "PERSON" || l.source === "BOOKING" ? "info" : "neutral"}>{SHORT_SOURCE[l.source]}</Badge>
                           <LeadStatusBadge status={l.status} />
                         </span>
                       </Link>

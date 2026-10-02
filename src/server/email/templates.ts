@@ -5,6 +5,8 @@ import { company } from "@/config/app";
 import { newToken, hashToken } from "@/server/auth/tokens";
 import { issueEmail } from "@/server/newsletter/issues";
 import { newConfirmLink } from "@/server/newsletter/newsletter";
+import { FUNNEL_TEMPLATES } from "./funnel-templates";
+import { MIGRATION_TEMPLATES } from "./migration-templates";
 import type { EmailBody } from "./layout";
 
 /**
@@ -15,6 +17,8 @@ import type { EmailBody } from "./layout";
 export interface TemplateContext {
   db: PrismaClient;
   appUrl: string;
+  /** The public website's address, when it has its own host; links to site pages use it. */
+  siteUrl?: string;
   consoleName: string;
   now: Date;
   /** The recipient's market's way of writing amounts, e.g. "en-ZA". */
@@ -23,9 +27,15 @@ export interface TemplateContext {
   timeZone: string;
 }
 
-export type Rendered = { subject: string; body: EmailBody; headers?: Record<string, string> } | null;
+export type Rendered = {
+  subject: string;
+  body: EmailBody;
+  headers?: Record<string, string>;
+  /** A calendar invite sent with the email, which calendars offer to add. */
+  calendar?: { method: "REQUEST" | "CANCEL"; content: string };
+} | null;
 
-type Template = (payload: Record<string, unknown>, ctx: TemplateContext) => Promise<Rendered>;
+export type Template = (payload: Record<string, unknown>, ctx: TemplateContext) => Promise<Rendered>;
 
 const str = (v: unknown) => (typeof v === "string" ? v : "");
 
@@ -247,10 +257,12 @@ export const TEMPLATES: Record<string, Template> = {
       subject: `We've got your request for a quote (${quote.reference})`,
       body: {
         heading: `Thanks, ${quote.name.split(" ")[0]}`,
-        paragraphs: [
-          `We'll look at what you need and email you a quote. If anything is unclear we'll call you on ${quote.phone ?? "the number you gave"}.`,
-          `You don't need an account to ask. You'll only need one to accept the quote.`,
-        ],
+        paragraphs: quote.referTo
+          ? [`This is work ${quote.referTo}, our partner, carries out. We'll pass your request to them and they will contact you on ${quote.phone ?? "the number you gave"}.`]
+          : [
+              `We'll look at what you need and email you a quote. If anything is unclear we'll call you on ${quote.phone ?? "the number you gave"}.`,
+              `You don't need an account to ask. You'll only need one to accept the quote.`,
+            ],
         facts: [
           ["Reference", quote.reference],
           ...(quote.product ? ([["About", quote.product.name]] as [string, string][]) : []),
@@ -263,7 +275,7 @@ export const TEMPLATES: Record<string, Template> = {
 
   /** Double opt-in: nothing else is ever sent until this link is used. The link is made now; only its hash is kept. */
   async "newsletter.confirm"(p, ctx) {
-    const link = await newConfirmLink(ctx.db, str(p.subscriberId), ctx.appUrl);
+    const link = await newConfirmLink(ctx.db, str(p.subscriberId), ctx.siteUrl ?? ctx.appUrl);
     if (!link) return null;
     return {
       subject: `Confirm your monthly insights email from ${company.name}`,
@@ -281,7 +293,7 @@ export const TEMPLATES: Record<string, Template> = {
 
   /** The monthly newsletter, one copy per subscriber, with one-click unsubscribe (RFC 8058). */
   async "newsletter.issue"(p, ctx) {
-    const e = await issueEmail(ctx.db, ctx.appUrl, str(p.issueId), str(p.subscriberId));
+    const e = await issueEmail(ctx.db, ctx.siteUrl ?? ctx.appUrl, str(p.issueId), str(p.subscriberId));
     if (!e) return null;
     return {
       subject: e.subject,
@@ -303,8 +315,12 @@ export const TEMPLATES: Record<string, Template> = {
     return {
       subject: `New quote request from ${quote.company ?? quote.name} (${quote.reference})`,
       body: {
-        heading: "A new quote request",
-        paragraphs: [`${quote.name}${quote.company ? ` of ${quote.company}` : ""} asked for a quote. Price it in the Quotes queue.`],
+        heading: quote.referTo ? `A request for ${quote.referTo}` : "A new quote request",
+        paragraphs: [
+          quote.referTo
+            ? `${quote.name}${quote.company ? ` of ${quote.company}` : ""} asked about work ${quote.referTo} carries out. Pass it to ${quote.referTo}, then mark it introduced in the Quotes queue.`
+            : `${quote.name}${quote.company ? ` of ${quote.company}` : ""} asked for a quote. Price it in the Quotes queue.`,
+        ],
         facts: [
           ["Reference", quote.reference],
           ["Email", quote.email],
@@ -315,6 +331,23 @@ export const TEMPLATES: Record<string, Template> = {
           ["What they need", quote.need],
         ],
         button: { label: "Open the quote", url: `${ctx.appUrl}/admin/quotes/${encodeURIComponent(quote.reference)}` },
+      },
+    };
+  },
+
+  /** Staff introduced the customer to the partner the request was for (final build, Milestone 9). */
+  async "quote.referred"(p, ctx) {
+    const quote = await ctx.db.quote.findUnique({ where: { id: str(p.quoteId) } });
+    if (!quote?.referTo) return null;
+    return {
+      subject: `We've passed your request to ${quote.referTo} (${quote.reference})`,
+      body: {
+        heading: `${quote.referTo} will be in touch`,
+        paragraphs: [`We've passed your request to ${quote.referTo}, who carry out this work. They will contact you about it.`, `For anything else we look after, reply to this email.`],
+        facts: [
+          ["Reference", quote.reference],
+          ["What you need", quote.need],
+        ],
       },
     };
   },
@@ -487,6 +520,8 @@ export const TEMPLATES: Record<string, Template> = {
       },
     };
   },
+  ...FUNNEL_TEMPLATES,
+  ...MIGRATION_TEMPLATES,
 };
 
 export function registerTemplate(kind: string, template: Template) {

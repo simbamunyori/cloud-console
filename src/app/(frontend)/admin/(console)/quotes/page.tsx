@@ -58,7 +58,10 @@ export default async function QuotesQueuePage() {
                             {q.company ?? q.name}
                             {q.organisation ? <span className="font-normal text-ink-muted"> (customer)</span> : null}
                           </span>
-                          <span className="truncate text-callout text-ink-muted">{q.product?.name ?? q.need}</span>
+                          <span className="truncate text-callout text-ink-muted">
+                            {q.referTo ? `For ${q.referTo}: ` : ""}
+                            {q.product?.name ?? q.need}
+                          </span>
                           <span className="text-caption text-ink-muted">
                             {q.reference} · {countryName(q.country)} · {q.market.toUpperCase()} · {formatDay(q.createdAt, true)}
                           </span>
