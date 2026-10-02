@@ -18,6 +18,8 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   output: "standalone",
   poweredByHeader: false,
+  // Next.js otherwise writes AGENTS.md and CLAUDE.md into the repo on `next dev`.
+  agentRules: false,
   // The site and the website editor have separate root layouts, so an unknown address gets its own page.
   // Azure usage files are uploaded through a staff form (see MAX_FILE_BYTES).
   experimental: { globalNotFound: true, serverActions: { bodySizeLimit: "9mb" } },
