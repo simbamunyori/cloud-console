@@ -219,8 +219,9 @@ async function tldDifferences(whmcs: WhmcsClient, plans: TldPlan[]) {
  * staff member allowed to manage pricing, it makes the changes, records
  * the WHMCS ids, and writes the staff audit entry.
  */
-export async function runSync(deps: SyncDeps, options: { apply: false } | { apply: true; staff: StaffActor }): Promise<SyncReport> {
-  if (options.apply) assertStaffCan(options.staff, "managePricing");
+export async function runSync(deps: SyncDeps, options: { apply: false } | { apply: true; staff: StaffActor } | { apply: true; system: string }): Promise<SyncReport> {
+  // The monthly price book (src/server/pricing/monthly.ts) syncs as the system when it approves itself.
+  if (options.apply && "staff" in options) assertStaffCan(options.staff, "managePricing");
   const plan = await planSync(deps.db, deps.now?.());
   if (plan.problems.length) return { plan, applied: false, results: [], tldChanges: [] };
 
@@ -242,8 +243,8 @@ export async function runSync(deps: SyncDeps, options: { apply: false } | { appl
     if (changed.length || tldChanges.length) {
       await tx.staffAuditEvent.create({
         data: {
-          actorUserId: options.staff.userId,
-          actorLabel: staffLabel(options.staff),
+          actorUserId: "staff" in options ? options.staff.userId : "system",
+          actorLabel: "staff" in options ? staffLabel(options.staff) : options.system,
           action: "whmcs.price-sync",
           summary: `Synced prices to WHMCS: ${changed.length} catalogue ${changed.length === 1 ? "item" : "items"} and ${tldChanges.length} domain ${tldChanges.length === 1 ? "ending" : "endings"} changed`,
           data: {

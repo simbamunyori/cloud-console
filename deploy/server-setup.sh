@@ -95,6 +95,10 @@ OFFSITE_S3_BUCKET=fgt-console-backups
 OFFSITE_S3_ACCESS_KEY_ID=
 OFFSITE_S3_SECRET_ACCESS_KEY=
 
+# Optional: Bank of Botswana's daily rates and the monthly price book
+# (docs/exchange-rates.md). A free key from https://allratestoday.com.
+ALLRATESTODAY_API_KEY=
+
 # Optional: switches the support assistant on.
 ANTHROPIC_API_KEY=
 # Optional: office addresses allowed to open /admin (empty allows any).

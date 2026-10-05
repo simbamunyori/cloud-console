@@ -5,14 +5,16 @@ import { DEFAULT_TIME_ZONE } from "@/config/app";
 import { formatMonth, todayIn } from "@/lib/dates";
 import { monthOf } from "@/lib/domain/pricing";
 import { requireStaff } from "@/server/admin/context";
-import { setCategoryMargin, setCurrencyBuffer, setNextMonthRate } from "@/server/admin/pricing";
+import { setAutoApprove, setCategoryMargin, setCurrencyBuffer, setNextMonthRate } from "@/server/admin/pricing";
 import { completeTask, startTask } from "@/server/admin/tasks";
 import { field, run, type ActionState } from "@/server/action-state";
-import { billingAdapter } from "@/server/billing";
+import { billingAdapter, priceSyncer } from "@/server/billing";
 import { approveAllSuggestions, approvePrice, setOffered } from "@/server/catalogue/price-book";
 import { prisma } from "@/server/db";
 import { runSoon } from "@/server/jobs/boss";
 import { confirmEftPayment, rejectEftPayment } from "@/server/payments/eft";
+import { approveRun } from "@/server/pricing/monthly";
+import { acceptTable } from "@/server/pricing/official-rates";
 import { staffReply } from "@/server/support/tickets";
 
 async function deps() {
@@ -103,6 +105,40 @@ export async function setRateAction(_prev: ActionState, form: FormData): Promise
     return "Saved for next month. The suggestions are updated.";
   }, values);
   revalidatePath("/admin/pricing");
+  return result;
+}
+
+export async function setAutoApproveAction(_prev: ActionState, form: FormData): Promise<ActionState> {
+  const values = { threshold: field(form, "threshold") };
+  const result = await run(async () => {
+    await setAutoApprove(await pricingDeps(), values.threshold);
+    return "Saved. It applies from the next monthly price book.";
+  }, values);
+  revalidatePath("/admin/pricing");
+  return result;
+}
+
+export async function acceptRatesAction(_prev: ActionState, form: FormData): Promise<ActionState> {
+  const result = await run(async () => {
+    const { staff } = await requireStaff();
+    await acceptTable({ db: prisma, staff }, field(form, "tableId"));
+    // Accepting can raise a buffer alert.
+    await sendEmails();
+    return "Accepted. These rates are now in use.";
+  }, {});
+  revalidatePath("/admin/pricing");
+  return result;
+}
+
+export async function approveMonthAction(_prev: ActionState, form: FormData): Promise<ActionState> {
+  const month = field(form, "month");
+  const result = await run(async () => {
+    const { staff } = await requireStaff();
+    const done = await approveRun({ db: prisma, staff, sync: priceSyncer() }, month);
+    return done.syncError ? `Approved. The prices are in effect here, but WHMCS didn't take them: ${done.syncError}` : "Approved. The prices are in effect and sent to billing.";
+  }, {});
+  revalidatePath("/admin/pricing");
+  revalidatePath(`/admin/pricing/months/${month}`);
   return result;
 }
 

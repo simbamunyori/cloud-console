@@ -52,6 +52,22 @@ export async function linkProductsToBilling(slugs: string[], staff: StaffActor) 
   if (report.plan.problems.length) throw new Error(`The price sync can't run: ${report.plan.problems.join(" ")}`);
 }
 
+/**
+ * Sends the price books in effect to WHMCS, for the monthly price book
+ * (src/server/pricing/monthly.ts). Undefined with the stub, which reads
+ * the price books directly.
+ */
+export function priceSyncer(): ((actor: { staff: StaffActor } | { system: string }) => Promise<void>) | undefined {
+  if (billingAdapter() instanceof StubBillingAdapter) return undefined;
+  return async (actor) => {
+    const e = env();
+    if (!e.WHMCS_API_URL) throw new Error("WHMCS_API_URL is not set.");
+    const whmcs = new WhmcsClient({ url: e.WHMCS_API_URL, identifier: requireSecret("WHMCS_API_IDENTIFIER"), secret: requireSecret("WHMCS_API_SECRET"), accessKey: secret("WHMCS_ACCESS_KEY") });
+    const report = await runSync({ db: prisma, whmcs, syncUrl: e.WHMCS_SYNC_URL ?? syncUrlFor(e.WHMCS_API_URL), syncSecret: requireSecret("WHMCS_SYNC_SECRET") }, { apply: true, ...actor });
+    if (report.plan.problems.length) throw new Error(`The price sync can't run: ${report.plan.problems.join(" ")}`);
+  };
+}
+
 /** For tests. */
 export function useBillingAdapter(next: BillingAdapter | undefined) {
   adapter = next;

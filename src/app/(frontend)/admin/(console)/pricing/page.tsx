@@ -1,21 +1,25 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
 import { company, DEFAULT_TIME_ZONE } from "@/config/app";
 import { cn } from "@/lib/cn";
-import { formatMoment, formatMonth, todayIn } from "@/lib/dates";
+import { formatLongDate, formatMoment, formatMonth, todayIn } from "@/lib/dates";
 import { currencySymbol, formatMoney, toPlainAmount, type Money } from "@/lib/domain/money";
 import { monthOf } from "@/lib/domain/pricing";
 import { STATUS_LABEL } from "@/server/catalogue/visibility";
 import { requireStaffCan } from "@/server/admin/context";
-import { bpsToPercent, microsToRate, pricingOverview } from "@/server/admin/pricing";
+import { bpsToPercent, microsToRate, pricingOverview, rateHistory } from "@/server/admin/pricing";
 import { awaitingApproval, bookRows, type BookRow } from "@/server/catalogue/price-book";
 import { prisma } from "@/server/db";
 import { listMarkets } from "@/server/markets/markets";
-import { setBufferAction, setMarginAction, setRateAction } from "../actions";
+import { ratesAutomatic } from "@/server/pricing/jobs";
+import { recentRuns } from "@/server/pricing/monthly";
+import { CHECK_TIMES } from "@/server/pricing/official-rates";
+import { setAutoApproveAction, setBufferAction, setMarginAction, setRateAction } from "../actions";
 import { SettingForm } from "../forms";
-import { ApproveAllForm, ApproveForm, OfferedSwitch } from "./forms";
+import { AcceptRatesForm, ApproveAllForm, ApproveForm, OfferedSwitch } from "./forms";
 
 export const metadata: Metadata = { title: "Pricing" };
 
@@ -30,6 +34,7 @@ function describeChange(field: string, from: string | null, to: string, currenci
     return v === null ? "none" : currency ? formatMoney({ amountMinor: BigInt(v), currency }, L) : v;
   };
   if (kind === "margin") return `Margin on ${key}: ${from === null ? "none" : `${bpsToPercent(Number(from))}%`} to ${bpsToPercent(Number(to))}%`;
+  if (kind === "auto-approve") return `Automatic approval up to: ${from === null ? "none" : `${bpsToPercent(Number(from))}%`} to ${bpsToPercent(Number(to))}%`;
   if (kind === "buffer") return `Currency buffer: ${from === null ? "none" : `${bpsToPercent(Number(from))}%`} to ${bpsToPercent(Number(to))}%`;
   if (kind === "rate") return `${key} rate for ${rest[0]}: ${from === null ? "none" : microsToRate(BigInt(from))} to ${microsToRate(BigInt(to))}`;
   const itemName = (parts: string[]) => names.get(parts.join(":")) ?? parts.at(-1);
@@ -95,7 +100,9 @@ export default async function PricingPage({ searchParams }: { searchParams: Prom
   const selected = markets.find((m) => m.code === requested) ?? markets.find((m) => m.isDefault) ?? markets[0];
   const today = todayIn(DEFAULT_TIME_ZONE);
   const month = monthOf(today);
-  const [o, book] = await Promise.all([pricingOverview(prisma, month, selected.currency), bookRows(prisma, selected.code, month)]);
+  const [o, book, runs] = await Promise.all([pricingOverview(prisma, month, selected.currency), bookRows(prisma, selected.code, month), recentRuns(prisma)]);
+  const automatic = ratesAutomatic();
+  const history = await rateHistory(prisma, o.rates.map((r) => r.base), selected.currency);
   const nextLabel = monthLabel(o.next);
   const waiting = book.rows.filter(awaitingApproval).length;
   const symbol = currencySymbol(selected.currency, L);
@@ -106,7 +113,7 @@ export default async function PricingPage({ searchParams }: { searchParams: Prom
     <>
       <PageHeader
         title="Pricing"
-        description={`Each market has its own price book in its own currency. We suggest prices from our cost, the month's exchange rate, the currency buffer and the category margin, rounded up to a whole unit of the currency. Customers only see prices you approve. ${formatMonth(today)} prices are fixed, so changes apply from ${nextLabel}.`}
+        description={`Each market has its own price book in its own currency. We suggest prices from our cost, the month's exchange rate, the currency buffer and the category margin, rounded up to a whole unit of the currency. Customers only see prices you approve. ${formatMonth(today)} prices are fixed, so changes apply from ${nextLabel}.${automatic ? ` On the 1st, each month's prices are worked out from Bank of Botswana's rates and approved automatically when none moves by more than ${bpsToPercent(o.autoApproveBps)}%.` : ""}`}
       />
       <nav aria-label="Markets" className="mb-6 flex flex-wrap gap-2">
         {markets.map((m) => (
@@ -153,19 +160,36 @@ export default async function PricingPage({ searchParams }: { searchParams: Prom
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 [&>*]:min-w-0">
           <Card aria-labelledby="fx-title">
-            <CardHeader id="fx-title" title={`Exchange rates into ${selected.currency}`} description={`The rates for ${nextLabel}. Set them near the end of the month, then approve the new suggestions.`} />
+            <CardHeader
+              id="fx-title"
+              title={`Exchange rates into ${selected.currency}`}
+              description={automatic ? "Bank of Botswana's reference rates. Each month uses the newest table published before the 1st." : `The rates for ${nextLabel}. Set them near the end of the month, then approve the new suggestions.`}
+            />
             <CardBody className="flex flex-col gap-6">
               {o.rates.length === 0 ? <p className="text-ink-muted">Everything in this market is priced from costs in {selected.currency}, so no rate is needed.</p> : null}
-              {o.rates.map((r) => (
-                <div key={r.base} className="flex flex-col gap-2">
-                  <span className="text-callout text-ink-muted">
-                    This month 1 {r.base} = {r.thisMonth ? microsToRate(r.thisMonth.rateMicros) : "not set"} {r.quote}
-                  </span>
-                  <SettingForm action={setRateAction} name="rate" label={`1 ${r.base} in ${r.quote}`} defaultValue={r.nextMonth ? microsToRate(r.nextMonth.rateMicros) : ""} hidden={{ base: r.base, quote: r.quote }} />
-                </div>
-              ))}
+              {o.rates.map((r) =>
+                automatic ? (
+                  <p key={r.base} className="text-callout text-ink">
+                    {formatMonth(today)}: 1 {r.base} = {r.thisMonth ? microsToRate(r.thisMonth.rateMicros) : "not set"} {r.quote}
+                    <span className="block text-ink-muted">{r.thisMonth?.sourceDate ? `Bank of Botswana, published ${formatLongDate(r.thisMonth.sourceDate)}` : r.thisMonth?.setById ? "Typed by staff" : "Not from Bank of Botswana yet"}</span>
+                  </p>
+                ) : (
+                  <div key={r.base} className="flex flex-col gap-2">
+                    <span className="text-callout text-ink-muted">
+                      This month 1 {r.base} = {r.thisMonth ? microsToRate(r.thisMonth.rateMicros) : "not set"} {r.quote}
+                    </span>
+                    <SettingForm action={setRateAction} name="rate" label={`1 ${r.base} in ${r.quote}`} defaultValue={r.nextMonth ? microsToRate(r.nextMonth.rateMicros) : ""} hidden={{ base: r.base, quote: r.quote }} />
+                  </div>
+                ),
+              )}
               <SettingForm action={setBufferAction} name="buffer" label="Currency buffer, every market" suffix="%" defaultValue={bpsToPercent(o.bufferBps)} />
-              <p className="text-callout text-ink-muted">The buffer is added to anything we pay for in another currency, to cover the rate moving during the month.</p>
+              <p className="text-callout text-ink-muted">The buffer is added to anything we pay for in another currency, to cover the rate moving during the month.{automatic ? " You get an email if the rate moves past it mid-month." : ""}</p>
+              {automatic ? (
+                <>
+                  <SettingForm action={setAutoApproveAction} name="threshold" label="Approve automatically up to" suffix="%" defaultValue={bpsToPercent(o.autoApproveBps)} />
+                  <p className="text-callout text-ink-muted">When any price would move by more, Admins get an email to approve the month instead, and last month&apos;s prices stay until then.</p>
+                </>
+              ) : null}
             </CardBody>
           </Card>
           <Card aria-labelledby="margin-title">
@@ -177,6 +201,104 @@ export default async function PricingPage({ searchParams }: { searchParams: Prom
             </CardBody>
           </Card>
         </div>
+
+        <Card aria-labelledby="months-title">
+          <CardHeader id="months-title" title="Monthly price books" description="Built on the 1st at 06:00 from Bank of Botswana's rates and the buffer, every market at once." />
+          {runs.length === 0 ? (
+            <CardBody>
+              <p className="text-ink-muted">{automatic ? "None yet. The first one is built on the 1st." : "Rates are typed by hand until ALLRATESTODAY_API_KEY is set on the server (docs/exchange-rates.md)."}</p>
+            </CardBody>
+          ) : (
+            <ul className="divide-y divide-border">
+              {runs.map((r) => (
+                <li key={r.id} className="flex flex-wrap items-center justify-between gap-3 px-5 py-3 sm:px-6">
+                  <span className="flex flex-col gap-0.5">
+                    <Link href={`/admin/pricing/months/${r.month}`} className="text-link underline-offset-2 hover:underline">
+                      {monthLabel(r.month)}
+                    </Link>
+                    <span className="text-callout text-ink-muted">
+                      Rates published {formatLongDate(r.table.publishedOn)}. {r.maxChangeBps ? `Largest change ${bpsToPercent(r.maxChangeBps)}%.` : "No price changes."}
+                      {r.status === "APPLIED" ? (r.approvedByName ? ` Approved by ${r.approvedByName}.` : " Approved automatically.") : ""}
+                    </span>
+                  </span>
+                  {r.status === "AWAITING_APPROVAL" ? (
+                    <Badge tone="warning">Waiting for approval</Badge>
+                  ) : r.status === "NO_CHANGES" ? (
+                    <Badge>No changes</Badge>
+                  ) : r.syncError ? (
+                    <Badge tone="negative">Not in WHMCS yet</Badge>
+                  ) : (
+                    <Badge tone="positive">In effect</Badge>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
+
+        {automatic || history.length ? (
+          <Card aria-labelledby="bob-title">
+            <CardHeader
+              id="bob-title"
+              title="Bank of Botswana rates"
+              description={`Fetched at ${CHECK_TIMES} each day. ${o.ratesCheckedAt ? `Last checked ${formatMoment(o.ratesCheckedAt, DEFAULT_TIME_ZONE)}.` : "Not checked yet."}`}
+            />
+            {o.ratesError ? (
+              <CardBody>
+                <p className="text-callout text-negative">The last check failed: {o.ratesError} The rates below stay in use.</p>
+              </CardBody>
+            ) : null}
+            {history.length === 0 ? (
+              <CardBody>
+                <p className="text-ink-muted">No tables yet.</p>
+              </CardBody>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-160 text-left text-callout">
+                  <thead className="text-ink-muted">
+                    <tr className="border-b border-border">
+                      <th scope="col" className="px-5 py-3 font-semibold sm:px-6">Published</th>
+                      {o.rates.map((r) => (
+                        <th key={r.base} scope="col" className="px-3 py-3 text-right font-semibold">
+                          1 {r.base} in {r.quote}
+                        </th>
+                      ))}
+                      <th scope="col" className="px-5 py-3 text-right font-semibold sm:px-6">
+                        <span className="sr-only">Status</span>
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {history.map((t) => (
+                      <tr key={t.id}>
+                        <td className="px-5 py-3 sm:px-6">
+                          {formatLongDate(t.publishedOn)}
+                          <span className="block text-caption text-ink-muted">Fetched {formatMoment(t.fetchedAt, DEFAULT_TIME_ZONE)}</span>
+                        </td>
+                        {t.rates.map((r) => (
+                          <td key={r.base} className="px-3 py-3 text-right tabular-nums">
+                            {r.rateMicros === null ? "None" : microsToRate(r.rateMicros)}
+                          </td>
+                        ))}
+                        <td className="px-5 py-3 text-right sm:px-6">
+                          {t.heldBack ? (
+                            <span className="flex flex-col items-end gap-1">
+                              <Badge tone="warning">Held back</Badge>
+                              <span className="max-w-80 text-caption text-ink-muted">{t.heldBack}</span>
+                              <AcceptRatesForm tableId={t.id} label={`Accept the table published ${formatLongDate(t.publishedOn)}`} />
+                            </span>
+                          ) : (
+                            <Badge tone="positive">In use</Badge>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </Card>
+        ) : null}
 
         <Card aria-labelledby="log-title">
           <CardHeader id="log-title" title="Changes" description="Every change to margins, the buffer, rates, prices and what's offered, newest first." />
