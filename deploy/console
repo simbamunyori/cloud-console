@@ -13,6 +13,9 @@
 #   console releases                       list the releases kept on the server
 set -euo pipefail
 home=${CONSOLE_HOME:-/opt/console}
+# sudo -u deploy keeps the caller's directory (e.g. /root), which the deploy
+# user can't read and docker compose refuses; work from our own instead.
+cd "$home"
 current=$(cat "$home/current-release" 2>/dev/null || true)
 compose() { RELEASE="$1" docker compose -p console -f "$home/releases/$1/docker-compose.prod.yml" --env-file "$home/.env" "${@:2}"; }
 need_current() { [[ -n "$current" ]] || { echo "Nothing is deployed yet."; exit 1; }; }
