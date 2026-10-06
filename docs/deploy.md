@@ -19,7 +19,7 @@ On the server everything lives in `/opt/console`:
 
 ## Setting up the server (once)
 
-1. **DNS:** an A record `console` pointing to the server's IP address. The website on `fourthgeneration.technology` is added later with `deploy/site-setup.sh` (docs/launch.md).
+1. **DNS:** an A record `console` pointing to the server's IP address. The website on `www.fourthgeneration.technology` is added later with `deploy/site-setup.sh` (docs/launch.md).
 2. **On the server, as root:**
    ```sh
    curl -fsSL https://raw.githubusercontent.com/simbamunyori/cloud-console/main/deploy/server-setup.sh | sudo bash

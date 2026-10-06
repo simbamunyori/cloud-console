@@ -134,7 +134,7 @@ the UI and never sent to the assistant.
 | `BACKUP_PASSPHRASE` | Production | Encrypts the nightly backups; keep a copy off the server |
 | `BACKUP_AT`, `BACKUP_KEEP_DAYS` | No | When the nightly backup runs (UTC, default 23:00) and how many days are kept (default 30) |
 | `APP_URL` | Yes in production | Public address, used in email links |
-| `SITE_URL` | At launch | The public website's address (`https://fourthgeneration.technology`). Website pages then open there, sign-in and the console on `APP_URL`, and www goes to the site. Empty: one host serves both. `deploy/site-setup.sh` sets it (docs/launch.md) |
+| `SITE_URL` | At launch | The public website's address (`https://www.fourthgeneration.technology`). Website pages then open there and sign-in and the console on `APP_URL`. The bare domain stays on the mail and web server, which redirects to www. Empty: one host serves both. `deploy/site-setup.sh` sets it (docs/launch.md) |
 | `CONSOLE_NAME` | No | What customers see the console called (default "Cloud Console") |
 | `TOTP_ENCRYPTION_KEY` | Yes, secret | 32 random bytes, base64. Encrypts authenticator secrets. Losing it means everyone sets up their authenticator again |
 | `SMTP_URL` | Yes in production | Outgoing mail, e.g. `smtps://user:pass@smtp.example.com:465`. Mailpit in development |

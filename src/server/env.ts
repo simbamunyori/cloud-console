@@ -15,7 +15,7 @@ const schema = z.object({
   /** Public address of the console, used in email links. The domain is not decided yet. */
   APP_URL: z.string().url().default("http://localhost:3000"),
   /**
-   * The public website's address, e.g. https://fourthgeneration.technology,
+   * The public website's address, e.g. https://www.fourthgeneration.technology,
    * when it has its own host apart from the console (APP_URL). Empty: one
    * host serves both, as in development and CI.
    */
