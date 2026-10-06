@@ -13,6 +13,7 @@ import { PRICING_TEMPLATES } from "./pricing-templates";
 import { STAFF_TEMPLATES } from "./staff-templates";
 import { DOCUMENT_TEMPLATES } from "./document-templates";
 import { SOC_TEMPLATES } from "./soc-templates";
+import { SUCCESS_TEMPLATES } from "./success-templates";
 import { UNIT_TEMPLATES } from "./unit-templates";
 import type { EmailAttachment } from "./adapter";
 import type { EmailBody } from "./layout";
@@ -541,6 +542,7 @@ export const TEMPLATES: Record<string, Template> = {
   ...DOCUMENT_TEMPLATES,
   ...SOC_TEMPLATES,
   ...UNIT_TEMPLATES,
+  ...SUCCESS_TEMPLATES,
 };
 
 export function registerTemplate(kind: string, template: Template) {

@@ -48,7 +48,9 @@ export type StaffPermission =
   /** Company details, logos and bank accounts (Admin > Company). */
   | "manageCompany"
   /** Work the SOC incident queue, customers' security tenants, devices and reports. */
-  | "workSoc";
+  | "workSoc"
+  /** The success dashboard, its targets and the directors' monthly email (Admin > Success). */
+  | "viewSuccess";
 
 const ALLOWED: Record<StaffPermission, StaffRole[]> = {
   viewCustomers: ["SUPPORT", "PROVISIONING", "FINANCE", "ADMIN"],
@@ -69,6 +71,7 @@ const ALLOWED: Record<StaffPermission, StaffRole[]> = {
   managePartners: ["ADMIN"],
   manageCompany: ["ADMIN"],
   workSoc: ["SUPPORT", "PROVISIONING", "ADMIN"],
+  viewSuccess: ["ADMIN"],
 };
 
 export function staffCan(actor: Pick<StaffActor, "staffRole">, permission: StaffPermission): boolean {

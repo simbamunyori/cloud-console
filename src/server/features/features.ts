@@ -119,6 +119,13 @@ export const FEATURES = {
       "After each resolved ticket the customer gets one question by email (how did we do, 1 to 5), and can answer in the console too. Each month's measured response times are published on the Support pages once there were at least 20 tickets. Response targets and units are set in Admin > Units either way.",
     milestone: "U7",
   },
+  "directors-report": {
+    label: "Monthly success email to the directors",
+    description:
+      "On the 1st of each month, the directors set in Admin > Success get last month's figures by email: managed customers and net new, recurring revenue by pillar against hosting-only revenue, leads and conversion, response times and satisfaction, and the average security score, each against its target. The dashboard itself is always there for Admins.",
+    milestone: "U8",
+    requires: async (db) => ((await db.successSettings.findUnique({ where: { id: "success" } }))?.directorEmails.length ? null : "Add the directors' email addresses in Admin > Success first."),
+  },
 } satisfies Record<string, FeatureDefinition>;
 
 export type FeatureKey = keyof typeof FEATURES;
