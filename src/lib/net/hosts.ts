@@ -1,7 +1,9 @@
 /**
  * The public website and the console on their own hosts (Milestone 10):
- * fourthgeneration.technology for the site, www sent to it, and
+ * www.fourthgeneration.technology for the site and
  * console.fourthgeneration.technology for signed-in customers and staff.
+ * The bare domain stays on the mail and web server, which redirects to www,
+ * so it never reaches this app.
  * One app serves both; this decides which host a path belongs on. With no
  * SITE_URL (development, CI) everything stays on one host.
  */
@@ -33,9 +35,17 @@ export function roleOfPath(pathname: string): HostRole {
   return "site";
 }
 
+/** The site's host with "www." added or taken away: also sent to the site, should it ever reach this app. */
+function siblingHost(site: URL): string {
+  return site.host.startsWith("www.") ? site.host.slice(4) : `www.${site.host}`;
+}
+
+/** The domain under "www.", e.g. fourthgeneration.technology for www.fourthgeneration.technology. */
+const bareHostname = (hostname: string) => (hostname.startsWith("www.") ? hostname.slice(4) : hostname);
+
 /**
- * Where a request should go instead, or null to serve it here. "www." goes
- * to the site; console pages asked for on the site go to the console, and
+ * Where a request should go instead, or null to serve it here. The site's
+ * host with or without "www." goes to the site; console pages asked for on the site go to the console, and
  * site pages asked for on the console go to the site, keeping the path and
  * query. Draft previews stay where they are: the editor's draft cookie
  * belongs to the console host.
@@ -45,7 +55,7 @@ export function hostRedirect(url: URL, host: string | null, plan: HostPlan | nul
   const h = host.toLowerCase();
   const role = roleOfPath(url.pathname);
   const to = (base: URL) => new URL(`${url.pathname}${url.search}`, base);
-  if (h === `www.${plan.site.host}`) return to(role === "console" ? plan.console : plan.site);
+  if (h === siblingHost(plan.site)) return to(role === "console" ? plan.console : plan.site);
   if (h === plan.site.host && role === "console") return to(plan.console);
   if (h === plan.console.host && role === "site" && !inDraft) return to(plan.site);
   return null;
@@ -58,7 +68,7 @@ export function hostRedirect(url: URL, host: string | null, plan: HostPlan | nul
  */
 export function sharedCookieDomain(plan: HostPlan | null): string | null {
   if (!plan) return null;
-  const site = plan.site.hostname;
+  const site = bareHostname(plan.site.hostname);
   const console = plan.console.hostname;
   return console.endsWith(`.${site}`) ? site : null;
 }

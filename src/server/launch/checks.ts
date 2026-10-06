@@ -39,16 +39,25 @@ export function placeholderEnv() {
 
 const LEGAL_KINDS: LegalKind[] = [...FOOTER_LEGAL, "data-protection"];
 
+/**
+ * The website's address. It is www: the bare domain stays on the mail and
+ * web server, which redirects to www, so a SITE_URL without www would send
+ * visitors to a host this server never answers for.
+ */
+export function siteUrlCheck(siteUrl: string | undefined, appUrl: string): LaunchCheck {
+  const check = { key: "site-url", label: "The website opens on its www address" };
+  if (!siteUrl) return { ...check, done: false, detail: "Point the www record at this server, then run deploy/site-setup.sh, which sets SITE_URL to https://www.fourthgeneration.technology (docs/launch.md)." };
+  if (!new URL(siteUrl).hostname.startsWith("www.")) {
+    return { ...check, done: false, detail: `SITE_URL is ${siteUrl}, but the bare domain stays on the mail and web server. Run deploy/site-setup.sh again to set it to the www address.` };
+  }
+  return { ...check, done: true, detail: `${siteUrl}, with sign-in and the consoles at ${appUrl}.` };
+}
+
 export async function launchChecks(db: PrismaClient): Promise<{ placeholders: string[]; checks: LaunchCheck[] }> {
   const e = env();
   const placeholders = await findPlaceholders(db, placeholderEnv());
   const checks: LaunchCheck[] = [
-    {
-      key: "site-url",
-      label: "The website has its own address",
-      done: Boolean(e.SITE_URL),
-      detail: e.SITE_URL ? `${e.SITE_URL}, with the console at ${e.APP_URL}.` : "Set SITE_URL to https://fourthgeneration.technology once DNS points at this server (docs/launch.md).",
-    },
+    siteUrlCheck(e.SITE_URL, e.APP_URL),
     {
       key: "offsite",
       label: "Nightly backups are copied off the server",
