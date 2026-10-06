@@ -14,7 +14,7 @@
     "test": "vitest run",
     "db:migrate": "prisma migrate deploy && payload migrate",
     "db:dev": "prisma migrate dev",
-    "db:seed": "tsx prisma/seed.ts && npm run cms:seed",
+    "db:seed": "tsx --conditions=react-server prisma/seed.ts && npm run cms:seed",
     "cms:seed": "tsx scripts/seed-website.ts",
     "copy-check": "tsx scripts/check-copy.ts",
     "check": "npm run lint && npm run typecheck && npm run copy-check && npm test",
