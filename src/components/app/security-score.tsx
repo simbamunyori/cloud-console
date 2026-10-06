@@ -9,8 +9,9 @@ import { securityScore, type SecurityCheck } from "@/server/org/security-score";
  * with a link to each fix. `everyCheck` also lists the checks that pass,
  * as the public site's picture of the console does.
  */
-export function SecurityScoreCard({ checks, everyCheck = false, demo = false }: { checks: SecurityCheck[]; everyCheck?: boolean; demo?: boolean }) {
-  const score = securityScore(checks);
+export function SecurityScoreCard({ checks, everyCheck = false, demo = false, score: given, href = "/app/security" }: { checks: SecurityCheck[]; everyCheck?: boolean; demo?: boolean; score?: number; href?: string }) {
+  // The full score (STRATEGY_ROLLOUT U4) comes worked out; otherwise it is the points passed.
+  const score = given ?? securityScore(checks);
   const todo = checks.filter((c) => !c.passed);
   const tone = score >= 80 ? "positive" : score >= 50 ? "warning" : "negative";
   const bar = { positive: "bg-positive", warning: "bg-warning", negative: "bg-negative" }[tone];
@@ -20,8 +21,8 @@ export function SecurityScoreCard({ checks, everyCheck = false, demo = false }: 
         id="security-score-title"
         title="Security score"
         action={
-          <ConsoleLink demo={demo} href="/app/security" className="text-callout text-link hover:underline">
-            Security
+          <ConsoleLink demo={demo} href={href} className="text-callout text-link hover:underline">
+            {href === "/app/security" ? "Security" : "Full score"}
           </ConsoleLink>
         }
       />

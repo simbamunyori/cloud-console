@@ -71,6 +71,11 @@ export default async function SecurityPage({ searchParams }: { searchParams: Pro
               <span className="text-callout text-ink-muted">{c.label}</span>
               <p className={`mt-1 text-title-2 tabular-nums ${c.tone === "warning" ? "text-warning" : c.tone === "negative" ? "text-negative" : "text-ink"}`}>{c.value}</p>
               <p className="text-callout text-ink-muted">{c.detail}</p>
+              {c.href ? (
+                <Link href={c.href} className="mt-2 inline-block text-callout font-semibold text-link hover:underline">
+                  Open {c.label.toLowerCase()}
+                </Link>
+              ) : null}
             </Card>
           ))}
         </div>

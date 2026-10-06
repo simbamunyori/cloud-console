@@ -181,6 +181,8 @@ model Organisation {
   domainOperations   DomainOperation[]
   backups            BackupProtection[]
   restoreRequests    BackupRestoreRequest[]
+  securityProfile    SecurityProfile?
+  securityReports    SecurityReport[]
   licenceAssignments LicenceAssignment[]
   licenceChanges     LicenceChange[]
   tenantOnboardings  TenantOnboarding[]
@@ -2458,4 +2460,45 @@ model BackupRestoreRequest {
   protection   BackupProtection @relation(fields: [protectionId], references: [id], onDelete: Restrict)
 
   @@index([organisationId, status])
+}
+
+// ─── The security score (docs/STRATEGY_ROLLOUT.md, U4) ──────────────
+
+/// An organisation's latest full security score, refreshed every night
+/// while Admin > Features > "Full security score and monthly report" is on.
+model SecurityProfile {
+  organisationId String    @id
+  /// The email domain checked; null means we pick one from the account.
+  emailDomain    String?
+  /// The last email security check (src/server/tools/email-check.ts).
+  emailReport    Json?
+  emailCheckedAt DateTime?
+  score          Int?
+  /// Every check, as shown on the score page.
+  checks         Json?
+  scoredAt       DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+
+  @@index([score])
+}
+
+/// The monthly security report: the score and checks as they stood on the
+/// first of the month, in the console and emailed as a branded PDF.
+model SecurityReport {
+  id             String    @id @default(cuid())
+  organisationId String
+  /// "2026-10": the month the report covers.
+  month          String
+  score          Int
+  checks         Json
+  emailDomain    String?
+  emailedAt      DateTime?
+  createdAt      DateTime  @default(now())
+
+  organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+
+  @@unique([organisationId, month])
 }

@@ -7,6 +7,9 @@ import { requireBilling } from "@/server/billing/context";
 import { tenantOverview, unusedLicences } from "@/server/licences/licences";
 import { securityFacts } from "@/server/org/security-facts";
 import { securityChecks } from "@/server/org/security-score";
+import { prisma } from "@/server/db";
+import { featureOn } from "@/server/features/features";
+import { homeChecks, type ScoreCheck } from "@/server/security/score";
 import { attentionItems } from "@/server/billing/views";
 import { readCart } from "@/server/site/cart";
 
@@ -47,9 +50,17 @@ export default async function HomePage() {
     unusedLicences(tenants),
     savings,
   );
-  const checks = securityChecks(
-    await securityFacts(db, actor.userId, live, today),
-  );
+  // STRATEGY_ROLLOUT U4: the full score once it is on and this account has been scored.
+  const profile = (await featureOn(prisma, "security-score"))
+    ? await db.securityProfile.findFirst({ select: { score: true, checks: true } })
+    : null;
+  const full =
+    profile?.score != null && Array.isArray(profile.checks)
+      ? { score: profile.score, checks: homeChecks(profile.checks as unknown as ScoreCheck[]) }
+      : null;
+  const checks =
+    full?.checks ??
+    securityChecks(await securityFacts(db, actor.userId, live, today));
   const cart = await readCart();
 
   return (
@@ -81,6 +92,7 @@ export default async function HomePage() {
         invoices={invoices}
         attention={attention}
         checks={checks}
+        fullScore={full?.score}
       />
     </>
   );

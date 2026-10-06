@@ -2,6 +2,8 @@ import { formatDay } from "@/lib/dates";
 import { formatMoney } from "@/lib/domain/money";
 import { bankFor, companyDetails } from "@/server/company/company";
 import { invoicePdf } from "@/server/documents/documents";
+import { monthLabel, reportChecks, reportFileName, reportPdf } from "@/server/security/reports";
+import { SCORE_WORD } from "@/server/security/score";
 import { cardPaymentsOn } from "@/server/payments/live";
 import { isPayable } from "@/server/payments/card";
 import type { Template } from "./templates";
@@ -53,6 +55,37 @@ export const DOCUMENT_TEMPLATES: Record<string, Template> = {
         ...(company.paymentTerms && !paid ? { footnote: company.paymentTerms } : {}),
       },
       attachments: [{ filename: `${invoice.number}.pdf`, content: pdf, contentType: "application/pdf" }],
+    };
+  },
+
+  /** The monthly security report (docs/STRATEGY_ROLLOUT.md, U4). */
+  async "security.report"(p, ctx) {
+    const report = await ctx.db.securityReport.findUnique({ where: { id: str(p.reportId) }, include: { organisation: { select: { name: true } } } });
+    if (!report) return null;
+    const company = await companyDetails(ctx.db);
+    const checks = reportChecks(report);
+    const fail = checks.filter((c) => c.status === "fail");
+    const warn = checks.filter((c) => c.status === "warn");
+    const pdf = await reportPdf(ctx.db, report, report.organisation.name, ctx.appUrl);
+    const month = monthLabel(report.month);
+    return {
+      subject: `${report.organisation.name}'s security report for ${month}: ${report.score} out of 100`,
+      body: {
+        heading: `Your security score: ${report.score} out of 100`,
+        paragraphs: [
+          `Here is ${report.organisation.name}'s security report for ${month} from ${company.tradingName}. The PDF is attached.`,
+          fail.length || warn.length
+            ? `${SCORE_WORD(report.score)}. ${fail.length ? `Fix first: ${fail.slice(0, 3).map((c) => c.title.toLowerCase()).join("; ")}.` : "Nothing urgent, but a few things need attention."} Each item has a fix in the console.`
+            : "Everything we checked is in good shape. Thank you for keeping it that way.",
+        ],
+        facts: [
+          ["Score", `${report.score} out of 100`],
+          ["To fix", String(fail.length)],
+          ["Needs attention", String(warn.length)],
+        ],
+        button: { label: "Open your security score", url: `${ctx.appUrl}/app/security/score` },
+      },
+      attachments: [{ filename: reportFileName(report.month), content: pdf, contentType: "application/pdf" }],
     };
   },
 };
