@@ -239,6 +239,33 @@ model User {
   marketChanges   MarketChange[]
   pricesApproved  PriceBookEntry[]
   presales        PresalesEngineer?
+  staffInvitationsSent StaffInvitation[] @relation("staffInvitedBy")
+  staffInvitation      StaffInvitation?  @relation("staffInvitationAccepted")
+}
+
+/// An invitation for a colleague to set up their own staff account.
+model StaffInvitation {
+  id          String       @id @default(cuid())
+  /// Stored lower-cased.
+  email       String
+  staffRole   StaffRole
+  websiteRole WebsiteRole?
+  /// Hash of the newest emailed link; null once used or withdrawn.
+  tokenHash   String?      @unique
+  invitedById String
+  expiresAt   DateTime
+  acceptedAt  DateTime?
+  revokedAt   DateTime?
+  /// The account made when it was accepted.
+  userId      String?      @unique
+  /// When they finished setting up (password and authenticator) and the inviter was told.
+  readyAt     DateTime?
+  createdAt   DateTime     @default(now())
+
+  invitedBy User  @relation("staffInvitedBy", fields: [invitedById], references: [id], onDelete: Restrict)
+  user      User? @relation("staffInvitationAccepted", fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([email])
 }
 
 enum WebsiteRole {

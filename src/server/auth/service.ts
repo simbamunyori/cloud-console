@@ -3,6 +3,7 @@ import type { IdentityProvider, Prisma, PrismaClient, Role, Session, SessionStag
 import { defaultMarket, marketForCountry } from "@/lib/domain/markets";
 import { audit } from "@/server/org/audit";
 import { queueEmail } from "@/server/email/outbox";
+import { markStaffReady } from "@/server/staff/ready";
 import { burnPasswordCheck, hashPassword, passwordStrength, verifyPassword } from "./password";
 import { generateRecoveryCodes, hashRecoveryCode, looksLikeRecoveryCode } from "./recovery-codes";
 import { open, seal } from "./secret-box";
@@ -466,6 +467,7 @@ export async function confirmAuthenticatorSetup(
       });
     }
     await queueEmail(tx, { to: user.email, kind: "security.two_step_on", payload: { at: now.toISOString() } });
+    await markStaffReady(tx, user, now);
     return promote(tx, session, "authenticator", ctx, now);
   });
   return { token: newSessionToken, recoveryCodes };

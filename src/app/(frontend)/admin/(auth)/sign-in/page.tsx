@@ -25,6 +25,7 @@ export default async function StaffSignInPage({ searchParams }: { searchParams: 
   if (typeof params.locked === "string") notice = { tone: "negative", text: lockedMessage(new Date(params.locked)) };
   else if (typeof params.oauth === "string") notice = oauthMessage(params.oauth, "microsoft");
   else if (params.expired) notice = { tone: "info", text: "Your sign-in timed out. Enter your password again." };
+  else if (params.joined) notice = { tone: "positive", text: "Your staff account is ready. Sign in with Microsoft, then set up your authenticator app." };
   else if (params["signed-out"]) notice = { tone: "positive", text: "You've signed out." };
 
   return (

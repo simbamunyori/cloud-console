@@ -25,7 +25,7 @@ export type StaffPermission =
   | "managePricing"
   /** Change market settings, switch markets on and off, and move a customer to another market. */
   | "manageMarkets"
-  /** Give staff a website role. */
+  /** Invite staff, change their role or website role, and deactivate them. */
   | "manageStaff"
   /** Create and change product families, categories and products, and mark our own test organisations. */
   | "manageCatalogue"
@@ -72,6 +72,15 @@ export const STAFF_ROLE_LABEL: Record<StaffRole, string> = {
   PROVISIONING: "Provisioning",
   FINANCE: "Finance",
   ADMIN: "Admin",
+};
+
+export const STAFF_ROLES: StaffRole[] = ["SUPPORT", "PROVISIONING", "FINANCE", "ADMIN"];
+
+export const STAFF_ROLE_DESCRIPTION: Record<StaffRole, string> = {
+  SUPPORT: "Answers tickets, works the Quotes queue and posts status updates. Sees customer accounts.",
+  PROVISIONING: "Works the provisioning tasks, cloud spend and hosting moves. Sees customer accounts.",
+  FINANCE: "Confirms EFT payments and bills cloud usage. Sees customer accounts.",
+  ADMIN: "Everything, including pricing, markets, the catalogue, staff and publishing the website.",
 };
 
 /** How staff appear in a customer's audit log. The page adds that they are our staff, from the actor kind. */
