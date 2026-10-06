@@ -1,6 +1,6 @@
 import { chromium, type Page } from "@playwright/test";
 import sharp from "sharp";
-import { settled } from "../e2e/support/pages";
+import { chooseTheme, settled } from "../e2e/support/pages";
 import { signIn } from "../e2e/support/signed-in";
 
 /**
@@ -33,6 +33,7 @@ async function main() {
     for (const scheme of ["light", "dark"] as const) {
       const context = await browser.newContext({ viewport: { width: 1280, height: 800 }, deviceScaleFactor: 2, colorScheme: scheme, reducedMotion: "reduce" });
       await signIn(context, "customer", BASE);
+      await chooseTheme(context, scheme, BASE);
       const page = await context.newPage();
       await page.goto(`${BASE}/app`);
       await settled(page);

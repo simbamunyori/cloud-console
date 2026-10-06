@@ -1,6 +1,8 @@
 import type { Payload } from "payload";
 import { DEFAULT_LOCALE, MARKET_LOCALES } from "../locales";
-import { homeLayout, PROOF_STRIP } from "../seed-home";
+import { SUPPORTING_LINE } from "@/config/positioning";
+import { inPillarOrder, isPillarOrdered } from "../pillars";
+import { homeLayout, PROOF_STRIP, WHO_WE_HELP } from "../seed-home";
 import { DEFAULT_FOOTER, DEFAULT_HEADER } from "../seed-frame";
 import type { Page } from "../payload-types";
 import { legalFromMarkdown } from "./legal-markdown";
@@ -210,6 +212,58 @@ export async function seedWebsite(payload: Payload): Promise<string | null> {
       }
       if (touched) {
         await payload.updateGlobal({ slug: "header", locale: l.code, data: { menus: header.menus, _status: "published" }, overrideAccess: true });
+        changed = true;
+      }
+    }
+    return changed;
+  });
+
+  // STRATEGY_ROLLOUT U2: the supporting line under the hero and in the search description, Who we help (hidden
+  // until a Publisher approves it), and the pillar order in What we look after, the footer column of the same
+  // name and the header's menus. Added to what is there: an editor's own words and entries are kept.
+  await once("u2-positioning", "the supporting line, Who we help and the pillar order", async () => {
+    let changed = false;
+    const { docs } = await payload.find({ collection: "pages", where: { slug: { equals: "home" } }, limit: 1, overrideAccess: true, depth: 0 });
+    for (const l of docs[0] ? MARKET_LOCALES : []) {
+      const home = await payload.findByID({ collection: "pages", id: docs[0].id, locale: l.code, fallbackLocale: false, depth: 0, overrideAccess: true });
+      let layout = home.layout ?? [];
+      if (!layout.length) continue;
+      let touched = false;
+      const hero = layout.find((b) => b.blockType === "homeHero");
+      if (hero && !hero.supporting) {
+        hero.supporting = SUPPORTING_LINE;
+        touched = true;
+      }
+      if (!layout.some((b) => b.blockType === "whoWeHelp")) {
+        const services = layout.findIndex((b) => b.blockType === "numberedServices");
+        const at = services >= 0 ? services + 1 : Math.max(1, layout.findIndex((b) => b.blockType === "proofStrip") + 1);
+        layout = [...layout.slice(0, at), WHO_WE_HELP(), ...layout.slice(at)] as typeof layout;
+        touched = true;
+      }
+      for (const b of layout) {
+        if (b.blockType !== "numberedServices" || !b.items || isPillarOrdered(b.items, (i) => i.title)) continue;
+        b.items = inPillarOrder(b.items, (i) => i.title);
+        touched = true;
+      }
+      // An editor's own search description gets the supporting line in front, when it still fits.
+      const seo = home.seo ?? {};
+      const description = seo.description && !seo.description.includes(SUPPORTING_LINE) ? `${SUPPORTING_LINE} ${seo.description}` : null;
+      const seoChange = description && description.length <= 170 ? { seo: { ...seo, image: typeof seo.image === "object" ? seo.image?.id : seo.image, description } } : {};
+      if (!touched && !("seo" in seoChange)) continue;
+      await payload.update({ collection: "pages", id: docs[0].id, locale: l.code, data: { layout, ...seoChange, _status: "published" }, overrideAccess: true });
+      changed = true;
+    }
+    for (const l of MARKET_LOCALES) {
+      const header = await payload.findGlobal({ slug: "header", locale: l.code, depth: 0, overrideAccess: true });
+      if (header.menus?.length && !isPillarOrdered(header.menus, (m) => m.label)) {
+        await payload.updateGlobal({ slug: "header", locale: l.code, data: { menus: inPillarOrder(header.menus, (m) => m.label), _status: "published" }, overrideAccess: true });
+        changed = true;
+      }
+      const footer = await payload.findGlobal({ slug: "footer", locale: l.code, depth: 0, overrideAccess: true });
+      const column = footer.columns?.find((c) => c.heading === "What we look after");
+      if (column?.links && !isPillarOrdered(column.links, (r) => r.link?.label)) {
+        column.links = inPillarOrder(column.links, (r) => r.link?.label);
+        await payload.updateGlobal({ slug: "footer", locale: l.code, data: { columns: footer.columns, _status: "published" }, overrideAccess: true });
         changed = true;
       }
     }
