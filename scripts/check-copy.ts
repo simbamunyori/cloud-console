@@ -41,7 +41,7 @@ for (const root of ROOTS) {
     // The brief, change requests and the final build plan are the customer's
     // own documents, kept as delivered. They may quote the old name to ban it.
     const brief = file === join("docs", "CONSOLE_BRIEF.md");
-    const request = /^docs[\\/](CHANGE_REQUEST_\d+|FINAL_BUILD)\.md$/.test(file);
+    const request = /^docs[\\/](CHANGE_REQUEST_\d+|FINAL_BUILD|STRATEGY_ROLLOUT)\.md$/.test(file);
     const ui = UI.test(file) && !/\.test\.tsx?$/.test(file);
     readFileSync(file, "utf8")
       .split("\n")

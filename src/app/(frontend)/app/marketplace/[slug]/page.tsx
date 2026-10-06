@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ProductDetails } from "@/components/app/product-view";
+import { featureOn } from "@/server/features/features";
 import { Alert } from "@/components/ui/alert";
 import { Amount } from "@/components/ui/amount";
 import { Button } from "@/components/ui/button";
@@ -37,6 +38,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
   // Not offered in this account's market.
   if (byQuote ? !offeredIn(product, market.code, audience) : !price) notFound();
 
+  const botswanaData = await featureOn(prisma, "botswana-data-claim");
   return (
     <>
       <Link href="/app/marketplace" className="mb-4 inline-flex items-center gap-1 text-callout text-link hover:underline">
@@ -44,7 +46,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
       </Link>
       <PageHeader eyebrow={product.category.name} title={product.name} description={product.summary} />
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_var(--layout-aside-wide)] [&>*]:min-w-0">
-        <ProductDetails product={product} />
+        <ProductDetails product={product} botswanaData={botswanaData} />
 
         <Card aria-label="Order">
           <CardBody className="flex flex-col gap-5">

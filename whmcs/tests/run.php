@@ -12,8 +12,12 @@ declare(strict_types=1);
 require __DIR__ . '/../modules/addons/fourthgen_console/lib/Guard.php';
 require __DIR__ . '/../modules/addons/fourthgen_console/lib/Catalogue.php';
 require __DIR__ . '/../modules/addons/fourthgen_console/lib/SyncHandler.php';
+require __DIR__ . '/../modules/addons/fourthgen_console/lib/CompanySettings.php';
+require __DIR__ . '/../modules/addons/fourthgen_console/lib/CompanyHandler.php';
 
 use FourthGen\ConsoleSync\Catalogue;
+use FourthGen\ConsoleSync\CompanyHandler;
+use FourthGen\ConsoleSync\CompanySettings;
 use FourthGen\ConsoleSync\Guard;
 use FourthGen\ConsoleSync\Journal;
 use FourthGen\ConsoleSync\SyncHandler;
@@ -90,6 +94,48 @@ final class MemoryCatalogue implements Catalogue, Journal
     }
     public function activity(string $message): void { $this->activity[] = $message; }
     public function recordSync(string $ip, string $requestId, string $summary): void { $this->syncs[] = compact('ip', 'requestId', 'summary'); }
+}
+
+final class MemorySettings implements CompanySettings
+{
+    public array $config = ['CompanyName' => 'WHMCS Ltd', 'Email' => 'admin@example.com', 'MaintenanceMode' => ''];
+    public array $themes = ['twenty-one', 'fourthgen'];
+    public array $templates = ['Invoice Created' => ['subject' => 'Customer Invoice', 'message' => 'Dear {$client_name}']];
+    public array $addon = [];
+    public ?array $registrarFields = ['Username', 'Password', 'test_mode', 'Ote'];
+    public array $registrar = [];
+    public bool $failInside = false;
+
+    public function setting(string $name): ?string { return $this->config[$name] ?? null; }
+    public function setSetting(string $name, string $value): void
+    {
+        if ($this->failInside) {
+            throw new RuntimeException('database went away');
+        }
+        $this->config[$name] = $value;
+    }
+    public function themeExists(string $name): bool { return in_array($name, $this->themes, true); }
+    public function emailTemplate(string $name): ?array { return $this->templates[$name] ?? null; }
+    public function setEmailTemplate(string $name, string $subject, string $message): void { $this->templates[$name] = compact('subject', 'message'); }
+    public function addonValue(string $key): ?string { return $this->addon[$key] ?? null; }
+    public function setAddonValue(string $key, string $value): void { $this->addon[$key] = $value; }
+    public function registrarFields(string $module): ?array { return $this->registrarFields; }
+    public function registrarSettings(string $module): array { return $this->registrar; }
+    public function setRegistrarSettings(string $module, array $settings): void { $this->registrar = $settings; }
+    public function transaction(callable $work, bool $commit)
+    {
+        $before = [$this->config, $this->templates, $this->addon, $this->registrar];
+        try {
+            $result = $work();
+        } catch (Throwable $e) {
+            [$this->config, $this->templates, $this->addon, $this->registrar] = $before;
+            throw $e;
+        }
+        if (!$commit) {
+            [$this->config, $this->templates, $this->addon, $this->registrar] = $before;
+        }
+        return $result;
+    }
 }
 
 const SECRET = 'a3f1c9e07b5d4a2e8f6b1c3d5e7f9a0b2c4d6e8f0a1b3c5d7e9f1a2b4c6d8e0f';
@@ -268,6 +314,94 @@ $productsBefore = $c->products;
 [$status, $answer] = $h->handle('POST', headers($b), $b, IP, NOW + 240);
 check('a failure inside WHMCS changes nothing and says so', $status === 500 && $c->products === $productsBefore && str_contains($answer['error'], 'nothing was changed'));
 check('the failure does not leak details', !str_contains(json_encode($answer), 'database went away'));
+
+echo "Company push\n";
+function company(?MemorySettings $s = null, string $ips = IP): array
+{
+    $s ??= new MemorySettings();
+    $journal = new MemoryCatalogue();
+    return [new CompanyHandler($s, $journal, SECRET, $ips), $s, $journal];
+}
+$push = fn (array $request, bool $dryRun = false) => json_encode(['dryRun' => $dryRun] + $request);
+$png = base64_encode("\x89PNG\r\n\x1a\n" . str_repeat("\0", 32));
+$full = [
+    'settings' => ['CompanyName' => 'Fourth Generation Technologies (Pty) Ltd', 'Email' => 'billing@example.co.bw', 'InvoicePayTo' => "Fourth Generation Technologies (Pty) Ltd\nGaborone", 'MaintenanceMode' => 'on', 'MaintenanceModeURL' => 'https://console.example.co.bw/app', 'Template' => 'fourthgen'],
+    'company' => ['legalName' => 'Fourth Generation Technologies (Pty) Ltd', 'registrationNumber' => 'BW00001816431', 'addressLines' => ['Plot 27860, Block 3', 'Gaborone'], 'consoleUrl' => 'https://console.example.co.bw'],
+    'currencies' => [['code' => 'BWP', 'taxLabel' => 'VAT', 'taxNumber' => 'P123', 'bank' => ['bankName' => 'First National Bank', 'accountName' => 'Fourth Generation', 'accountNumber' => '62000000000', 'branchCode' => '281467', 'swiftCode' => 'FIRNBWGX']]],
+    'logo' => $png,
+    'emailTemplates' => [['name' => 'Invoice Created', 'subject' => 'Invoice {$invoice_num}', 'message' => '<p>Hello {$client_name}</p>']],
+    'registrar' => ['module' => 'openprovider', 'username' => 'fgt-api', 'password' => 's3cret-pass', 'testMode' => false],
+];
+
+[$h, $s, $j] = company();
+$b = $push($full);
+[$status, $answer] = $h->handle('POST', headers($b), $b, IP, NOW);
+check('a signed company push is applied', $status === 200 && $answer['ok'] === true, json_encode($answer));
+check('the company settings replace the WHMCS defaults', $s->config['CompanyName'] === 'Fourth Generation Technologies (Pty) Ltd' && $s->config['MaintenanceMode'] === 'on' && $s->config['MaintenanceModeURL'] === 'https://console.example.co.bw/app');
+check('the theme is set', $s->config['Template'] === 'fourthgen');
+check('bank details are stored for the invoice', json_decode($s->addon['currencies'], true)[0]['bank']['swiftCode'] === 'FIRNBWGX');
+check('the logo is stored', $s->addon['logo'] === $png);
+check('the invoice email is updated', $s->templates['Invoice Created']['subject'] === 'Invoice {$invoice_num}');
+check('the registrar settings go to the module\'s own names', $s->registrar === ['Username' => 'fgt-api', 'Password' => 's3cret-pass', 'test_mode' => ''], json_encode($s->registrar));
+check('the activity log never holds the registrar password', !str_contains(json_encode($j->activity), 's3cret-pass') && !str_contains(json_encode($answer), 's3cret-pass'));
+check('each change is in the activity log', count(array_filter($j->activity, fn ($l) => str_starts_with($l, 'Console company push: '))) === count($answer['changes']) && count($answer['changes']) >= 9, json_encode($answer['changes']));
+
+$b = $push($full);
+[$status, $answer] = $h->handle('POST', headers($b), $b, IP, NOW + 1);
+check('pushing the same details again changes nothing', $status === 200 && $answer['changes'] === [], json_encode($answer['changes'] ?? null));
+
+[$h, $s] = company();
+$b = $push($full, true);
+[$status, $answer] = $h->handle('POST', headers($b), $b, IP, NOW);
+check('a dry run reports the changes and makes none', $status === 200 && $answer['dryRun'] && $answer['changes'] && $s->config['CompanyName'] === 'WHMCS Ltd' && $s->addon === []);
+
+$refusals = [
+    'a setting outside the list' => ['settings' => ['SystemURL' => 'https://evil.example']],
+    'an API key setting' => ['settings' => ['APIAllowedIPs' => '0.0.0.0/0']],
+    'a plain-http URL' => ['settings' => ['MaintenanceModeURL' => 'http://console.example.co.bw']],
+    'a bad email' => ['settings' => ['Email' => 'not an email']],
+    'a Smarty php tag in a template' => ['emailTemplates' => [['name' => 'Invoice Created', 'subject' => 'Invoice', 'message' => '{php}echo 1;{/php}']]],
+    'a Smarty include' => ['settings' => ['EmailGlobalFooter' => '{include file="/etc/passwd"}']],
+    'a script in an email' => ['settings' => ['EmailGlobalHeader' => '<script>alert(1)</script>']],
+    'an email template outside the list' => ['emailTemplates' => [['name' => 'Password Reset Validation', 'subject' => 'x', 'message' => 'y']]],
+    'a theme that is not ours' => ['settings' => ['Template' => 'six']],
+    'a registrar other than Openprovider' => ['registrar' => ['module' => 'enom', 'username' => 'a', 'password' => 'b', 'testMode' => false]],
+    'a logo that is not a PNG' => ['logo' => base64_encode('GIF89a')],
+    'an unknown field' => ['products' => []],
+];
+foreach ($refusals as $name => $request) {
+    [$h, $s] = company();
+    $before = serialize([$s->config, $s->templates]);
+    $b = $push($request);
+    [$status] = $h->handle('POST', headers($b), $b, IP, NOW);
+    check("refuses {$name}", $status === 400 && serialize([$s->config, $s->templates]) === $before, "status {$status}");
+}
+
+[$h, $s] = company();
+$s->themes = ['twenty-one'];
+$b = $push(['settings' => ['Template' => 'fourthgen']]);
+check('refuses a theme that is not installed yet', $h->handle('POST', headers($b), $b, IP, NOW)[0] === 409);
+
+[$h, $s, $j] = company();
+$b = $push($full);
+check('refuses a company push from another address', $h->handle('POST', headers($b), $b, '203.0.113.9', NOW)[0] === 403 && $s->config['CompanyName'] === 'WHMCS Ltd');
+check('refuses a badly signed company push', $h->handle('POST', headers($b, [], str_repeat('1', 64)), $b, IP, NOW)[0] === 401);
+$signed = headers($b);
+check('refuses an old company push', $h->handle('POST', headers($b, ['timestamp' => NOW - 301]), $b, IP, NOW)[0] === 401);
+$h->handle('POST', $signed, $b, IP, NOW);
+check('refuses a replayed company push', $h->handle('POST', $signed, $b, IP, NOW + 2)[0] === 409);
+
+[$h, $s] = company();
+$s->registrarFields = null;
+$b = $push(['registrar' => $full['registrar'], 'settings' => ['CompanyName' => 'Fourth Generation Technologies (Pty) Ltd']]);
+[$status, $answer] = $h->handle('POST', headers($b), $b, IP, NOW);
+check('without the Openprovider module the rest still applies, with a warning', $status === 200 && $s->config['CompanyName'] === 'Fourth Generation Technologies (Pty) Ltd' && str_contains($answer['warnings'][0] ?? '', 'not installed'));
+
+[$h, $s] = company();
+$s->failInside = true;
+$b = $push($full);
+[$status, $answer] = $h->handle('POST', headers($b), $b, IP, NOW);
+check('a failure inside WHMCS changes nothing', $status === 500 && $s->addon === [] && $s->registrar === [] && !str_contains(json_encode($answer), 'database went away'));
 
 echo "Signature vector shared with the console's tests\n";
 check('the console and the addon sign the same way', Guard::sign('test-secret-that-is-at-least-32-chars', '1790000000', '0123456789abcdef0123456789abcdef', '{"operations":[]}') === 'v1=5c4bedec0e12267fa5ba28250c754f2bca6cb87534c1e72fc8a29d893106708d');

@@ -3,12 +3,16 @@ import { formatLongDate, formatMoment, formatMonth } from "@/lib/dates";
 import { formatMoney, fromJson, type MoneyJson } from "@/lib/domain/money";
 import { company } from "@/config/app";
 import { newToken, hashToken } from "@/server/auth/tokens";
+import { quotePdf } from "@/server/documents/documents";
+import { featureOn } from "@/server/features/features";
 import { issueEmail } from "@/server/newsletter/issues";
 import { newConfirmLink } from "@/server/newsletter/newsletter";
 import { FUNNEL_TEMPLATES } from "./funnel-templates";
 import { MIGRATION_TEMPLATES } from "./migration-templates";
 import { PRICING_TEMPLATES } from "./pricing-templates";
 import { STAFF_TEMPLATES } from "./staff-templates";
+import { DOCUMENT_TEMPLATES } from "./document-templates";
+import type { EmailAttachment } from "./adapter";
 import type { EmailBody } from "./layout";
 
 /**
@@ -35,6 +39,8 @@ export type Rendered = {
   headers?: Record<string, string>;
   /** A calendar invite sent with the email, which calendars offer to add. */
   calendar?: { method: "REQUEST" | "CANCEL"; content: string };
+  /** Files made at send time, e.g. the invoice or quote as PDF. */
+  attachments?: EmailAttachment[];
 } | null;
 
 export type Template = (payload: Record<string, unknown>, ctx: TemplateContext) => Promise<Rendered>;
@@ -393,6 +399,10 @@ export const TEMPLATES: Record<string, Template> = {
         button: { label: "Open the quote", url: `${ctx.appUrl}/quote/${encodeURIComponent(token)}` },
         footnote: `Prices are in ${market.currency}${market.taxEnabled ? `, before ${market.taxLabel}` : ""}. The quote can be accepted until the end of ${until}. Reply to this email with any questions.`,
       },
+      // The branded PDF, with this email's own link to accept, once Admin > Features > Invoice and quote PDFs is on.
+      ...((await featureOn(ctx.db, "branded-pdfs"))
+        ? { attachments: [{ filename: `${quote.reference}.pdf`, content: await quotePdf(ctx.db, { quote, market, acceptUrl: `${ctx.appUrl}/quote/${encodeURIComponent(token)}` }), contentType: "application/pdf" }] }
+        : {}),
     };
   },
 
@@ -526,6 +536,7 @@ export const TEMPLATES: Record<string, Template> = {
   ...MIGRATION_TEMPLATES,
   ...PRICING_TEMPLATES,
   ...STAFF_TEMPLATES,
+  ...DOCUMENT_TEMPLATES,
 };
 
 export function registerTemplate(kind: string, template: Template) {

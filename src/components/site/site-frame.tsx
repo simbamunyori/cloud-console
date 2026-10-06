@@ -34,6 +34,7 @@ export function SiteFrame({
   status,
   content,
   legal,
+  company: registered,
   features,
   proof,
   children,
@@ -48,6 +49,8 @@ export function SiteFrame({
   content: FrameContent;
   /** Which legal pages have approved text to link to; the privacy notice always shows. */
   legal: { terms: boolean; refunds: boolean };
+  /** From Admin > Company. */
+  company?: { legalName: string; registrationNumber: string };
   features: FeatureContext;
   /** Approved partner badges for the footer, and the announcement while it is up (Proof). */
   proof: { badges: { id: number; badge: string; link: string | null }[]; announcement: { text: string; link: FrameLink | null } | null };
@@ -237,7 +240,7 @@ export function SiteFrame({
 
           <div className="flex flex-col gap-3 border-t border-footer-line py-5.5 text-caption text-footer-muted lg:flex-row lg:items-center lg:justify-between lg:text-callout">
             <p>
-              © {new Date().getFullYear()} {company.legalName} · Registration {company.registrationNumber}
+              © {new Date().getFullYear()} {registered?.legalName ?? company.legalName} · Registration {registered?.registrationNumber ?? company.registrationNumber}
             </p>
             <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
               <Link href={`${base}/legal/privacy`} className="hover:text-on-navy">

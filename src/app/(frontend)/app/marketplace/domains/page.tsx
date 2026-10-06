@@ -5,15 +5,18 @@ import { Alert } from "@/components/ui/alert";
 import { Amount } from "@/components/ui/amount";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
 import { toJson } from "@/lib/domain/money";
 import { requireBilling } from "@/server/billing/context";
+import { prisma } from "@/server/db";
+import { featureSwitches } from "@/server/features/features";
 import { priceDay } from "@/lib/domain/pricing";
 import { hasLegalText, REFUNDS_CONSENT_SECTION } from "@/server/cms/legal";
 import { can, DomainError } from "@/server/org/access";
 import { searchDomains, type DomainResult } from "@/server/orders/orders";
 import { RegisterDomainForm } from "./register-form";
+import { TransferDomainForm } from "./transfer-form";
 
 export const metadata: Metadata = { title: "Find a domain" };
 
@@ -32,6 +35,8 @@ export default async function DomainsPage({ searchParams }: { searchParams: Prom
   }
   const canOrder = can(actor, "order");
   const refunds = canOrder ? await hasLegalText(market.code, "refunds") : null;
+  const features = await featureSwitches(prisma);
+  const transfers = canOrder && (features["openprovider-domains"] || features["bw-registry-domains"]);
 
   return (
     <>
@@ -87,6 +92,14 @@ export default async function DomainsPage({ searchParams }: { searchParams: Prom
                 </li>
               ))}
             </ul>
+          </Card>
+        ) : null}
+        {transfers ? (
+          <Card aria-labelledby="transfer-title">
+            <CardHeader id="transfer-title" title="Bring a domain you already own" description="Move it to us from another provider and manage it here with everything else." />
+            <CardBody>
+              <TransferDomainForm refundsHref={refunds ? `/${market.code}/legal/refunds#${REFUNDS_CONSENT_SECTION}` : null} />
+            </CardBody>
           </Card>
         ) : null}
       </div>

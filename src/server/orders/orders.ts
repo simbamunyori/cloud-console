@@ -10,6 +10,7 @@ import { productBySlug, productOptions, validateOptions, type ProductWithCategor
 import { DOMAIN_PRODUCT_SLUG } from "@/server/catalogue/seed-data";
 import { audienceFor } from "@/server/catalogue/visibility";
 import { connectorFor } from "@/server/connectors/registry";
+import { AUTOMATIC_DOMAIN_HOURS } from "@/server/domains/registrar";
 import type { TenantDb } from "@/server/db";
 import { queueEmail } from "@/server/email/outbox";
 import { assertSeatFloor, licenceForService } from "@/server/licences/licences";
@@ -307,7 +308,9 @@ export async function searchDomains(
   query: string,
   month: string,
 ): Promise<DomainResult[]> {
-  return findDomains(catalogueDb(db), (name) => billing.checkDomain(name), market, query, month);
+  // Loaded when used: the registrars read sealed credentials, which scripts such as the seed never need.
+  const { domainCheck } = await import("@/server/domains/active");
+  return findDomains(catalogueDb(db), domainCheck(catalogueDb(db), (name) => billing.checkDomain(name)), market, query, month);
 }
 
 /** The search itself, for the console (a customer's billing) and the public site (the shared adapter). */
@@ -352,6 +355,8 @@ export async function registerDomain(deps: OrderDeps, rawName: string, rawYears:
   await assertStartNow(deps, startNow);
   const price = money(result.price.amountMinor * BigInt(years), result.price.currency);
 
+  const { activeRegistrar } = await import("@/server/domains/active");
+  const registrar = await activeRegistrar(catalogueDb(deps.db), result.name);
   const placed = await deps.billing.registerDomain({ name: result.name, years, price, paymentMethod: PAYMENT_METHODS.eft }).catch(billingFailure);
   const now = deps.now ?? new Date();
   const email = await placerEmail(deps.db, deps.actor.userId);
@@ -375,22 +380,39 @@ export async function registerDomain(deps: OrderDeps, rawName: string, rawYears:
         billingInvoiceId: placed.invoiceId ?? null,
       },
     });
-    const connected = await connectorFor("WEB_AND_DOMAINS").request(
-      tx,
-      {
-        organisationId: deps.organisation.id,
-        organisationName: deps.organisation.name,
-        orderId: order.id,
-        orderReference: order.reference,
-        work: "provision",
-        productName: product.name,
-        quantity: 1,
-        options,
-        billingIds: placed.domainIds,
-        setupHours: product.setupHours,
-      },
-      now,
-    );
+    // With a registrar switched on for this ending, it is registered as soon as the invoice is paid (src/server/domains/operations.ts); otherwise staff do it.
+    const connected = registrar
+      ? await tx.domainOperation
+          .create({
+            data: {
+              organisationId: deps.organisation.id,
+              orderId: order.id,
+              kind: "REGISTER",
+              domain: result.name,
+              years,
+              registrar: registrar.key,
+              billingOrderId: placed.orderId,
+              billingInvoiceId: placed.invoiceId ?? null,
+              billingDomainId: placed.domainIds[0] ?? null,
+            },
+          })
+          .then(() => ({ expectedBy: new Date(now.getTime() + AUTOMATIC_DOMAIN_HOURS * 3_600_000) }))
+      : await connectorFor("WEB_AND_DOMAINS").request(
+          tx,
+          {
+            organisationId: deps.organisation.id,
+            organisationName: deps.organisation.name,
+            orderId: order.id,
+            orderReference: order.reference,
+            work: "provision",
+            productName: product.name,
+            quantity: 1,
+            options,
+            billingIds: placed.domainIds,
+            setupHours: product.setupHours,
+          },
+          now,
+        );
     const updated = await tx.order.update({ where: { id: order.id }, data: { expectedBy: connected.expectedBy } });
     await audit(tx, customerAudit(deps.actor, deps.organisation.id, { action: "domain.ordered", summary: `Ordered ${result.name} for ${years} ${years === 1 ? "year" : "years"} (${order.reference})`, targetType: "Order", targetId: order.id, data: { startNow: Boolean(startNow) } }));
     await queueEmail(tx, { organisationId: deps.organisation.id, to: email, kind: "order.received", payload: { orderId: order.id } });

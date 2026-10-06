@@ -2,6 +2,9 @@
 
 import {
   ArrowRightLeft,
+  Handshake,
+  Landmark,
+  ToggleRight,
   Signpost,
   ListChecks,
   CalendarClock,
@@ -68,6 +71,9 @@ const ICONS = {
   migration: ArrowRightLeft,
   redirects: Signpost,
   checks: ListChecks,
+  company: Landmark,
+  partners: Handshake,
+  features: ToggleRight,
 };
 
 export interface NavItem {

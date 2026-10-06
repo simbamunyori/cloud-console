@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Alert } from "@/components/ui/alert";
 import { Amount } from "@/components/ui/amount";
 import { Card, CardBody } from "@/components/ui/card";
+import { withDataClaims } from "@/lib/data-claims";
 import type { Money } from "@/lib/domain/money";
 
 /**
@@ -51,8 +52,11 @@ function setupTime(hours: number) {
 
 export function ProductDetails({
   product,
+  botswanaData = false,
 }: {
   product: { includes: string[]; excludes: string[]; setupHours: number; minTermMonths: number; commitmentNote: string | null };
+  /** Admin > Features > "Say data is kept in Botswana". */
+  botswanaData?: boolean;
 }) {
   return (
     <div className="flex flex-col gap-6">
@@ -61,7 +65,7 @@ export function ProductDetails({
           <div className="flex flex-col gap-3">
             <h2 className="text-headline text-ink">What&apos;s included</h2>
             <ul className="flex flex-col gap-2">
-              {product.includes.map((i) => (
+              {withDataClaims(product.includes, botswanaData).map((i) => (
                 <li key={i} className="flex gap-2 text-ink-body">
                   <Check aria-hidden className="mt-0.5 size-4 shrink-0 text-positive" />
                   {i}

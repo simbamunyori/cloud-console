@@ -136,6 +136,23 @@ export interface ImportedDomain {
   autoRenew: boolean;
 }
 
+/**
+ * How an order is accepted. A domain in the order goes to the registrar
+ * module named (WHMCS's Openprovider module) when the billing engine sends
+ * orders to registrars at all, which is only in production.
+ */
+export interface AcceptOptions {
+  registrar?: string;
+  /** False when the console has already registered the domain itself (the .bw registry). */
+  sendToRegistrar?: boolean;
+}
+
+export interface DomainPatch {
+  status?: "active";
+  expiresOn?: Date;
+  nextDueOn?: Date;
+}
+
 export interface PlacedOrder {
   orderId: string;
   invoiceId?: string;
@@ -356,7 +373,7 @@ export interface BillingAdapter {
 
   // Orders: AddOrder, AcceptOrder, GetOrders, CancelOrder
   placeOrder(clientId: string, order: NewOrder): Promise<PlacedOrder>;
-  acceptOrder(orderId: string): Promise<void>;
+  acceptOrder(orderId: string, options?: AcceptOptions): Promise<void>;
   listOrders(clientId: string): Promise<BillingOrder[]>;
   /** Only while the order is pending, as in WHMCS. */
   cancelOrder(orderId: string): Promise<void>;
@@ -395,6 +412,8 @@ export interface BillingAdapter {
   transferDomain(clientId: string, request: DomainTransferRequest): Promise<PlacedOrder>;
   renewDomain(clientId: string, domainId: string, years: number, paymentMethod: string): Promise<{ orderId: string; invoiceId?: string }>;
   getTldPricing(currency: string): Promise<TldPrice[]>;
+  /** UpdateClientDomain: the registry's own dates once the console has registered or renewed a domain itself. */
+  updateDomain(domainId: string, patch: DomainPatch): Promise<void>;
 }
 
 /** A new invoice's lines: at least one, in the client's currency, none negative. */

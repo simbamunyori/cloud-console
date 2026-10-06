@@ -1,4 +1,4 @@
-import { ArrowDown, ArrowLeft, ArrowUp, ChevronDown, CreditCard, Plus } from "lucide-react";
+import { ArrowDown, ArrowLeft, ArrowUp, ChevronDown, CreditCard, FileDown, Plus } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -8,7 +8,8 @@ import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Amount } from "@/components/ui/amount";
 import { Card, CardBody, CardHeader, DetailList } from "@/components/ui/card";
-import { company } from "@/config/app";
+import { cachedCompany } from "@/server/company/company";
+import { featureSwitches } from "@/server/features/features";
 import { formatDay, formatLongDate, toDateOnly } from "@/lib/dates";
 import { currencySymbol, formatMoney, money, toPlainAmount } from "@/lib/domain/money";
 import type { InvoiceLine, Service } from "@/server/billing/adapter";
@@ -17,7 +18,8 @@ import { poNumbers } from "@/server/billing/po";
 import { compareWithPreviousMonthly, isOverdue, type LineChange } from "@/server/billing/views";
 import { orderInvoiceIds } from "@/server/orders/orders";
 import { can } from "@/server/org/access";
-import { eftDetails } from "@/server/markets/markets";
+import { bankFor } from "@/server/company/company";
+import { prisma } from "@/server/db";
 import { isPayable } from "@/server/payments/card";
 import { cardPaymentsOn } from "@/server/payments/live";
 import { payByCardAction } from "../../actions";
@@ -80,12 +82,13 @@ export default async function InvoicePage({ params, searchParams }: { params: Pr
   const paid = money(invoice.total.amountMinor - invoice.balance.amountMinor, invoice.total.currency);
   const payable = isPayable(invoice);
   const canPay = payable && can(actor, "pay");
-  const bank = payable ? eftDetails(market) : null;
+  const bank = payable ? await bankFor(prisma, market, invoice.total.currency) : null;
   const byCard = market.paymentMethods.includes("card") && cardPaymentsOn();
   const waiting = eftReports.find((r) => r.status === "AWAITING_CONFIRMATION");
   const cardMessage = card === "failed" ? { tone: "negative" as const, text: `${lastCard?.failureReason ?? "The card payment didn't go through."} Nothing was taken. You can try again or pay by bank transfer.` } : card ? CARD_MESSAGE[card] : undefined;
-  // The market's registered office, one part per line as on a letterhead.
-  const registeredOffice = (market.registeredAddress ?? "").split(",").map((part) => part.trim()).filter(Boolean);
+  const [company, features] = await Promise.all([cachedCompany(prisma), featureSwitches(prisma)]);
+  // Our address from Admin > Company, one part per line as on a letterhead; a market's own registered office as well, when it has one.
+  const registeredOffice = market.registeredAddress ? [`Registered office: ${market.registeredAddress}`] : [];
   const address = [organisation.addressLine1, organisation.addressLine2, organisation.city, organisation.postcode].filter(Boolean);
 
   return (
@@ -100,7 +103,16 @@ export default async function InvoicePage({ params, searchParams }: { params: Pr
             {invoice.number} <InvoiceStatusBadge status={invoice.status} overdue={overdue} />
           </h1>
         </div>
-        <PrintButton />
+        <span className="flex flex-wrap gap-3 print:hidden">
+          {features["branded-pdfs"] ? (
+            <Button asChild variant="secondary">
+              <a href={`/app/billing/invoices/${encodeURIComponent(invoice.invoiceId)}/pdf`} download>
+                <FileDown aria-hidden /> Download PDF
+              </a>
+            </Button>
+          ) : null}
+          <PrintButton />
+        </span>
       </div>
 
       <div className="flex flex-col gap-6">
@@ -127,18 +139,19 @@ export default async function InvoicePage({ params, searchParams }: { params: Pr
             <div className="flex flex-col gap-1">
               <span className="label-kicker text-ink-muted">From</span>
               <span className="font-semibold text-ink">{company.legalName}</span>
-              {registeredOffice.map((line) => (
+              {[...company.addressLines, ...registeredOffice].map((line) => (
                 <span key={line} className="text-callout text-ink-muted">
                   {line}
                 </span>
               ))}
-              {market.companyRegistrationNumber ? <span className="text-callout text-ink-muted">Company registration {market.companyRegistrationNumber}</span> : null}
+              <span className="text-callout text-ink-muted">Company registration {market.companyRegistrationNumber ?? company.registrationNumber}</span>
               {market.taxEnabled && market.taxRegistrationNumber ? (
                 <span className="text-callout text-ink-muted">
                   {market.taxLabel} number {market.taxRegistrationNumber}
                 </span>
               ) : null}
               <span className="text-callout text-ink-muted">{market.supportEmail}</span>
+              {company.phone ? <span className="text-callout text-ink-muted">{company.phone}</span> : null}
             </div>
             <div className="flex flex-col gap-1">
               <span className="label-kicker text-ink-muted">To</span>
@@ -298,6 +311,12 @@ export default async function InvoicePage({ params, searchParams }: { params: Pr
               <BankDetailsList bank={bank} reference={invoice.number} />
             </CardBody>
           </Card>
+        ) : null}
+        {company.paymentTerms || company.invoiceFooter ? (
+          <div className="flex flex-col gap-1 text-callout text-ink-muted">
+            {company.paymentTerms ? <p>{company.paymentTerms}</p> : null}
+            {company.invoiceFooter ? <p>{company.invoiceFooter}</p> : null}
+          </div>
         ) : null}
 
         {can(actor, "pay") && invoice.status !== "cancelled" ? (

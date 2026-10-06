@@ -6,6 +6,9 @@ import { SitePage } from "@/components/site/site-page";
 import { Button } from "@/components/ui/button";
 import { company } from "@/config/app";
 import { formatMoney } from "@/lib/domain/money";
+import { withDataClaims } from "@/lib/data-claims";
+import { prisma } from "@/server/db";
+import { featureOn } from "@/server/features/features";
 import { partnerLinks } from "@/server/site/partner-links";
 import { productPage, siteMarket, siteMetadata, taxNote } from "@/server/site/site";
 
@@ -37,6 +40,7 @@ const months = (n: number) => (n === 1 ? "1 month" : `${n} months`);
 export default async function ProductPage(props: Props) {
   const { m, product: p, price, audience, faq } = await load(props);
   const { bookingHref } = await partnerLinks(m.code);
+  const includes = withDataClaims(p.includes, await featureOn(prisma, "botswana-data-claim"));
   const note = taxNote(m);
   const quote = p.fulfilment === "QUOTE";
   const order = `/sign-in?next=${encodeURIComponent(`/app/marketplace/${p.slug}`)}`;
@@ -76,15 +80,15 @@ export default async function ProductPage(props: Props) {
               </section>
             ) : null}
 
-            {p.includes.length || p.excludes.length ? (
+            {includes.length || p.excludes.length ? (
               <div className="grid gap-8 sm:grid-cols-2">
-                {p.includes.length ? (
+                {includes.length ? (
                   <section aria-labelledby="includes-title" className="flex flex-col gap-3">
                     <h2 id="includes-title" className="text-title-2 text-ink">
                       What is included
                     </h2>
                     <ul className="flex flex-col gap-2.5">
-                      {p.includes.map((line) => (
+                      {includes.map((line) => (
                         <li key={line} className="flex gap-3 text-body text-ink">
                           <Check aria-hidden className="mt-1 size-4 shrink-0 text-positive" />
                           {line}

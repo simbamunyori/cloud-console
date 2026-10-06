@@ -1,8 +1,9 @@
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, FileDown } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { QuoteLines, QuoteStateBadge } from "@/components/quotes/quote-view";
+import { Button } from "@/components/ui/button";
 import { Card, CardBody, CardHeader, DetailList } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
 import { company, DEFAULT_TIME_ZONE } from "@/config/app";
@@ -11,6 +12,7 @@ import { addDays, formatMoment, toDateOnly } from "@/lib/dates";
 import { money, toPlainAmount } from "@/lib/domain/money";
 import { requireStaffCan } from "@/server/admin/context";
 import { prisma } from "@/server/db";
+import { featureOn } from "@/server/features/features";
 import { DEFAULT_VALID_DAYS, quotableProducts, quoteForStaff, quoteState, quoteTaxNote, todayForMarket } from "@/server/quotes/quotes";
 import { partnerLinks } from "@/server/site/partner-links";
 import { CloseQuoteForm, QuoteEditor, ReferQuoteForm } from "../forms";
@@ -24,6 +26,7 @@ export default async function StaffQuotePage({ params }: { params: Promise<{ ref
   if (!quote) notFound();
   const [markets, products] = await Promise.all([prisma.market.findMany({ orderBy: { sortOrder: "asc" } }), quotableProducts(prisma)]);
   const market = markets.find((m) => m.code === quote.market)!;
+  const pdfs = await featureOn(prisma, "branded-pdfs");
   const today = todayForMarket(market);
   const state = quoteState(quote, today);
   const open = quote.status === "NEW" || quote.status === "SENT";
@@ -35,7 +38,19 @@ export default async function StaffQuotePage({ params }: { params: Promise<{ ref
       <Link href="/admin/quotes" className="mb-4 inline-flex items-center gap-1 text-callout text-link hover:underline">
         <ArrowLeft aria-hidden className="size-4" /> Quotes
       </Link>
-      <PageHeader eyebrow={`Quote ${quote.reference}`} title={quote.company ?? quote.name} actions={<QuoteStateBadge state={state} />} />
+      <PageHeader eyebrow={`Quote ${quote.reference}`} title={quote.company ?? quote.name} actions={
+          <span className="flex items-center gap-3">
+            <QuoteStateBadge state={state} />
+            {pdfs && quote.lines.length > 0 && (
+              <Button asChild variant="secondary" size="sm">
+                <a href={`/admin/quotes/${encodeURIComponent(quote.reference)}/pdf`} download>
+                  <FileDown aria-hidden className="size-4" />
+                  Download PDF
+                </a>
+              </Button>
+            )}
+          </span>
+        } />
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_var(--layout-aside-wide)] [&>*]:min-w-0">
         <div className="flex flex-col gap-6">
           {quote.referTo ? (
