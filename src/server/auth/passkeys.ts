@@ -15,6 +15,7 @@ import { recordSignInMethodChange } from "./identities";
 import { generateRecoveryCodes, hashRecoveryCode } from "./recovery-codes";
 import { assertNotLocked, AuthError, clock, finishSignIn, primaryOrganisationId, promote, requireStage, type AuthDeps, type RequestContext, type SessionWithUser } from "./service";
 import { assertStepUp } from "./step-up";
+import { markStaffReady } from "@/server/staff/ready";
 
 /**
  * Passkeys: the fingerprint, face or PIN that unlocks the person's device
@@ -181,6 +182,7 @@ export async function setupWithPasskey(
       });
     }
     await queueEmail(tx, { to: session.user.email, kind: "security.sign_in_method_added", payload: { at: now.toISOString(), what: "A passkey" } });
+    await markStaffReady(tx, session.user, now);
     return promote(tx, session, "passkey", ctx, now);
   });
   return { token: newToken, recoveryCodes };

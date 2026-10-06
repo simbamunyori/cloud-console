@@ -28,7 +28,7 @@ On the server everything lives in `/opt/console`:
 3. **Fill in** the lines marked `FILL IN` in `/opt/console/.env` (`sudo nano /opt/console/.env`), and keep a copy of `BACKUP_PASSPHRASE` in the password manager.
 4. **GitHub secrets** (Settings > Secrets and variables > Actions): `DEPLOY_HOST`, `DEPLOY_KNOWN_HOSTS`, `DEPLOY_SSH_KEY`, as printed by the script (and `DEPLOY_PORT` if SSH is not on port 22).
 5. **Deploy:** Actions > Deploy > Run workflow (after that, every merge deploys by itself).
-6. **The first Admin:** `sudo -u deploy console create-admin "Full Name" you@fourthgeneration.technology`, then sign in at `/admin/sign-in` and set up the authenticator app.
+6. **The first Admin:** `sudo -u deploy console create-admin "Full Name" you@fourthgeneration.technology`, then sign in at `/admin/sign-in` and set up the authenticator app. Invite everyone else from Staff in the staff console: they set up their own account, and you get an email when they have.
    The first deploy also loads the launch catalogue (families, categories, products and domain endings, once, into a database with no products) and the website editor's first content. Nothing shows a price until staff enter this month's exchange rates and approve the price books at `/admin/pricing`; then `sudo -u deploy console whmcs-sync` shows what WHMCS will get and `console whmcs-sync --apply --staff you@fourthgeneration.technology` puts it there (docs/whmcs-setup.md, section 6).
 7. **WHMCS:** allow only this server. In WHMCS, System Settings > General Settings > Security > API IP Access Restriction, and in the console sync addon's Allowed IPs: the server's IP address and `172.30.10.10` (the console's own address inside the server, which is what WHMCS sees because both run on the same machine). Remove the test ranges.
 
@@ -72,7 +72,7 @@ As the deploy user (`sudo -u deploy -i`):
 ```sh
 console status                     # live release and health
 console logs                       # the app's log
-console create-admin "Name" email  # another staff Admin
+console create-admin "Name" email  # a staff Admin from the server (others: invite from Staff)
 console whmcs-sync                 # what the approved prices would change in WHMCS (--apply --staff you@... to do it)
 console backup                     # a backup now
 console restore-test               # prove the newest backup restores (off-site copy once set up)

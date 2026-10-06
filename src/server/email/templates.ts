@@ -8,6 +8,7 @@ import { newConfirmLink } from "@/server/newsletter/newsletter";
 import { FUNNEL_TEMPLATES } from "./funnel-templates";
 import { MIGRATION_TEMPLATES } from "./migration-templates";
 import { PRICING_TEMPLATES } from "./pricing-templates";
+import { STAFF_TEMPLATES } from "./staff-templates";
 import type { EmailBody } from "./layout";
 
 /**
@@ -524,6 +525,7 @@ export const TEMPLATES: Record<string, Template> = {
   ...FUNNEL_TEMPLATES,
   ...MIGRATION_TEMPLATES,
   ...PRICING_TEMPLATES,
+  ...STAFF_TEMPLATES,
 };
 
 export function registerTemplate(kind: string, template: Template) {

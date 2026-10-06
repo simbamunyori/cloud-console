@@ -2,15 +2,27 @@ import type { PrismaClient, WebsiteRole } from "@prisma/client";
 import { DomainError } from "@/server/org/access";
 import { assertStaffCan, staffLabel, websiteRoleOf, WEBSITE_ROLE_LABEL, type StaffActor } from "./access";
 
-/** Every active staff member with what they may do in the website editor. */
+/** Every staff member, active ones first, with what they may do in the website editor and whether they've finished setting up. */
 export async function staffList(db: Pick<PrismaClient, "user">, actor: StaffActor) {
   assertStaffCan(actor, "manageStaff");
   const users = await db.user.findMany({
-    where: { kind: "STAFF", deactivatedAt: null },
-    select: { id: true, name: true, email: true, staffRole: true, websiteRole: true },
+    where: { kind: "STAFF" },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      staffRole: true,
+      websiteRole: true,
+      deactivatedAt: true,
+      lastLoginAt: true,
+      totpEnabled: true,
+      _count: { select: { passkeys: true } },
+    },
     orderBy: { name: "asc" },
   });
-  return users.map((u) => ({ ...u, effectiveWebsiteRole: websiteRoleOf(u) }));
+  return users
+    .map(({ _count, totpEnabled, ...u }) => ({ ...u, twoStepOn: totpEnabled || _count.passkeys > 0, effectiveWebsiteRole: websiteRoleOf(u) }))
+    .sort((a, b) => Number(Boolean(a.deactivatedAt)) - Number(Boolean(b.deactivatedAt)));
 }
 
 /** Gives a staff member a website role, or takes it away (null). Recorded in the staff audit log. */

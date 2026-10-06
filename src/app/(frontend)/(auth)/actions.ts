@@ -27,6 +27,7 @@ import { joinWaitlist } from "@/server/markets/waitlist";
 import { DomainError } from "@/server/org/access";
 import { clearPending, readPending } from "@/server/auth/flow-cookies";
 import { staffPasswordAllowed } from "@/server/auth/sign-in-options";
+import { acceptStaffInvitation } from "@/server/staff/invitations";
 import { stepUpWithCode } from "@/server/auth/step-up";
 import { lockedMessage, rateLimitedMessage } from "./messages";
 import { afterSignIn, field, limitByIp, PATHS, rememberNext, safeNext } from "./shared";
@@ -295,6 +296,30 @@ export async function joinWithAccountAction(_prev: FormState, form: FormData): P
     throw e;
   }
   redirect("/app?joined=1");
+}
+
+/** A colleague accepting a staff invitation: their account is made, then the authenticator (or Microsoft sign-in first). */
+export async function staffAcceptInviteAction(_prev: FormState, form: FormData): Promise<FormState> {
+  const token = field(form, "token");
+  const values = { name: field(form, "name") };
+  if (!values.name.trim()) return { fieldErrors: { name: "Enter your name." }, values };
+  const withPassword = staffPasswordAllowed();
+  let sessionToken: string | null;
+  try {
+    await limitByIp("signUpPerIp");
+    ({ token: sessionToken } = await acceptStaffInvitation(authDeps(), token, { name: values.name, password: field(form, "password"), withPassword }, await requestContext()));
+  } catch (e) {
+    if (e instanceof RateLimitedError) return { error: rateLimitedMessage(e.retryAt), values };
+    if (e instanceof AuthError) {
+      if (e.code === "weak-password") return { fieldErrors: { password: "Use at least 12 characters, and avoid your name or email." }, values };
+      if (e.code === "email-taken") return { error: "This email already has an account. Ask whoever invited you to use a different address.", values };
+      return { error: e.message, values };
+    }
+    throw e;
+  }
+  if (!sessionToken) redirect("/admin/sign-in?joined=1");
+  await setSessionCookie(sessionToken, "STAFF");
+  redirect("/admin/setup-authenticator");
 }
 
 // ─── The recent check before sensitive actions ───────────────────────
