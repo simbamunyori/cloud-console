@@ -4,9 +4,9 @@ import { useActionState, useEffect, useRef } from "react";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { TextField } from "@/components/ui/field";
-import { SelectField } from "@/components/ui/inputs";
+import { SelectField, TextareaField } from "@/components/ui/inputs";
 import type { ActionState } from "@/server/action-state";
-import { finishOnboardingAction, linkTenantAction, recordLicenceAction, recordUserAction, saveOnboardingAction, tickStaffAction } from "./actions";
+import { finishOnboardingAction, linkTenantAction, recordLicenceAction, recordUserAction, saveChecksAction, saveOnboardingAction, setConsentAction, tickStaffAction } from "./actions";
 
 function useResetOnSuccess(state: ActionState) {
   const ref = useRef<HTMLFormElement>(null);
@@ -152,6 +152,46 @@ export function FinishOnboardingButton({ organisationId, onboardingId }: { organ
         {pending ? "Finishing…" : "Finish setup"}
       </Button>
       <Messages state={state} />
+    </form>
+  );
+}
+
+/** Admin access the customer gave us (U6): recorded by hand in manual mode, or to correct the sync. */
+export function ConsentSwitch({ organisationId, tenantId, granted }: { organisationId: string; tenantId: string; granted: boolean }) {
+  const [state, action, pending] = useActionState<ActionState, FormData>(setConsentAction, {});
+  return (
+    <form action={action} className="flex flex-col items-start gap-3">
+      <input type="hidden" name="organisationId" value={organisationId} />
+      <input type="hidden" name="tenantId" value={tenantId} />
+      <input type="hidden" name="granted" value={granted ? "false" : "true"} />
+      <Messages state={state} />
+      <Button type="submit" size="sm" variant="secondary" disabled={pending}>
+        {granted ? "Mark access as removed" : "Mark access as given"}
+      </Button>
+    </form>
+  );
+}
+
+export function SecurityChecksForm({ organisationId, tenantId, current }: { organisationId: string; tenantId: string; current: string }) {
+  const [state, action, pending] = useActionState<ActionState, FormData>(saveChecksAction, {});
+  return (
+    <form action={action} className="flex flex-col gap-3" noValidate>
+      <input type="hidden" name="organisationId" value={organisationId} />
+      <input type="hidden" name="tenantId" value={tenantId} />
+      <Messages state={state} />
+      <TextareaField
+        id={`checks-${tenantId}`}
+        name="checks"
+        label="Security settings"
+        rows={6}
+        defaultValue={state.ok ? current : (state.values?.checks ?? current)}
+        error={state.fieldErrors?.checks}
+        hint='One per line, as "setting=yes" or "setting=no", e.g. "Multi-factor sign-in required for everyone=no". Customers see the ones set to no.'
+        spellCheck={false}
+      />
+      <Button type="submit" size="sm" variant="secondary" disabled={pending} className="w-fit">
+        Save settings
+      </Button>
     </form>
   );
 }

@@ -1,4 +1,4 @@
-import type { LicenceChange, LicenceChangeKind, Prisma, PrismaClient, TenantVendor } from "@prisma/client";
+import type { LicenceChange, LicenceChangeKind, Prisma, PrismaClient, TenantConsent, TenantVendor } from "@prisma/client";
 import type { TenantDb } from "@/server/db";
 import { assertCan, DomainError, type Actor } from "@/server/org/access";
 import { audit, customerAudit } from "@/server/org/audit";
@@ -31,6 +31,8 @@ export interface LicenceView {
   unused: number;
   /** What can still be given out, after changes already waiting. */
   free: number;
+  /** What the licensing partner reported in the last sync (U6). */
+  vendorQuantity: number | null;
 }
 
 export interface PendingView {
@@ -56,6 +58,11 @@ export interface TenantView {
   vendorLabel: string;
   primaryDomain: string;
   lastSyncedAt: Date | null;
+  /** Admin access the customer gave us (U6). */
+  consent: TenantConsent;
+  consentLink: string | null;
+  securityChecks: { key: string; title: string; ok: boolean }[] | null;
+  securityCheckedAt: Date | null;
   licences: LicenceView[];
   users: TenantUserView[];
   /** People asked for who don't exist in the tenant yet. */
@@ -83,9 +90,13 @@ export async function tenantOverview(db: ReadDb, organisationId?: string): Promi
       vendorLabel: VENDOR_LABEL[t.vendor],
       primaryDomain: t.primaryDomain,
       lastSyncedAt: t.lastSyncedAt,
+      consent: t.consent,
+      consentLink: t.consentLink,
+      securityChecks: Array.isArray(t.securityChecks) ? (t.securityChecks as { key: string; title: string; ok: boolean }[]) : null,
+      securityCheckedAt: t.securityCheckedAt,
       licences: t.licences.map((l) => {
         const assigned = l._count.assignments;
-        return { id: l.id, sku: l.sku, name: l.name, purchased: l.purchased, assigned, unused: Math.max(0, l.purchased - assigned), free: Math.max(0, l.purchased - assigned - waitingFor(l.id)) };
+        return { id: l.id, sku: l.sku, name: l.name, purchased: l.purchased, assigned, unused: Math.max(0, l.purchased - assigned), free: Math.max(0, l.purchased - assigned - waitingFor(l.id)), vendorQuantity: l.vendorQuantity };
       }),
       users: t.users.map((u) => ({
         id: u.id,

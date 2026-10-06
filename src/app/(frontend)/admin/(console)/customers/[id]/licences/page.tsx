@@ -13,7 +13,8 @@ import { tenantOverview } from "@/server/licences/licences";
 import { onboardings } from "@/server/licences/onboarding";
 import { tenantProvider, VENDOR_LABEL } from "@/server/licences/provider";
 import { staffCan } from "@/server/staff/access";
-import { FinishOnboardingButton, LinkTenantForm, OnboardingForm, RecordLicenceForm, RecordUserForm, StaffTick } from "./forms";
+import { automationOn } from "@/server/licences/automation";
+import { ConsentSwitch, FinishOnboardingButton, LinkTenantForm, OnboardingForm, RecordLicenceForm, RecordUserForm, SecurityChecksForm, StaffTick } from "./forms";
 
 export const metadata: Metadata = { title: "Users and licences" };
 
@@ -29,7 +30,7 @@ export default async function CustomerLicencesPage({ params }: { params: Promise
   const { id } = await params;
   const org = await prisma.organisation.findUnique({ where: { id }, select: { id: true, name: true, timeZone: true } });
   if (!org) notFound();
-  const [tenants, setups] = await Promise.all([tenantOverview(prisma, org.id), onboardings(prisma, org.id)]);
+  const [tenants, setups, microsoftOn, googleOn] = await Promise.all([tenantOverview(prisma, org.id), onboardings(prisma, org.id), automationOn(prisma, "MICROSOFT"), automationOn(prisma, "GOOGLE")]);
   const edit = staffCan(staff, "workTasks");
   const missing = (["MICROSOFT", "GOOGLE"] as const).filter((v) => !tenants.some((t) => t.vendor === v)).map((v) => ({ value: v, label: VENDOR_LABEL[v] }));
   const waiting = await prisma.licenceChange.count({ where: { organisationId: org.id, status: "PENDING" } });
@@ -112,6 +113,22 @@ export default async function CustomerLicencesPage({ params }: { params: Promise
                 </Card>
               );
             })()}
+            {(t.vendor === "MICROSOFT" ? microsoftOn : googleOn) ? (
+              <Card aria-labelledby={`access-${t.id}`}>
+                <CardHeader
+                  id={`access-${t.id}`}
+                  title="Admin access and security settings"
+                  description={t.consent === "GRANTED" ? `Given. ${t.securityCheckedAt ? `Settings checked ${formatMoment(t.securityCheckedAt, org.timeZone)}.` : "Settings not checked yet."}` : t.consent === "REQUESTED" ? "The customer has the invitation; the nightly sync records it once accepted." : "Not given. The customer asks for the link on their Users and licences page."}
+                  action={<Badge tone={t.consent === "GRANTED" ? "positive" : t.consent === "REQUESTED" ? "info" : "neutral"}>{t.consent === "GRANTED" ? "Given" : t.consent === "REQUESTED" ? "Requested" : "Not given"}</Badge>}
+                />
+                {edit ? (
+                  <CardBody className="flex flex-col gap-4">
+                    <ConsentSwitch organisationId={org.id} tenantId={t.id} granted={t.consent === "GRANTED"} />
+                    {t.consent === "GRANTED" ? <SecurityChecksForm organisationId={org.id} tenantId={t.id} current={(t.securityChecks ?? []).map((c) => `${c.title}=${c.ok ? "yes" : "no"}`).join("\n")} /> : null}
+                  </CardBody>
+                ) : null}
+              </Card>
+            ) : null}
             <div className="grid items-start gap-6 xl:grid-cols-2 [&>*]:min-w-0">
               <Card aria-labelledby={`lic-${t.id}`}>
                 <CardHeader id={`lic-${t.id}`} title="Licences" />
@@ -122,6 +139,7 @@ export default async function CustomerLicencesPage({ params }: { params: Promise
                         <tr className="border-b border-border">
                           <th scope="col" className="px-5 py-3 font-semibold sm:px-6">Licence</th>
                           <th scope="col" className="px-3 py-3 text-right font-semibold">Bought</th>
+                          <th scope="col" className="px-3 py-3 text-right font-semibold">Partner</th>
                           <th scope="col" className="px-3 py-3 text-right font-semibold">In use</th>
                           <th scope="col" className="px-5 py-3 text-right font-semibold sm:px-6">Unused</th>
                         </tr>
@@ -134,6 +152,7 @@ export default async function CustomerLicencesPage({ params }: { params: Promise
                               <span className="block text-caption text-ink-muted">{l.sku}</span>
                             </th>
                             <td className="px-3 py-3 text-right tabular-nums">{l.purchased}</td>
+                            <td className="px-3 py-3 text-right tabular-nums">{l.vendorQuantity === null ? "–" : l.vendorQuantity === l.purchased ? l.vendorQuantity : <Badge tone="warning">{l.vendorQuantity}</Badge>}</td>
                             <td className="px-3 py-3 text-right tabular-nums">{l.assigned}</td>
                             <td className="px-5 py-3 text-right sm:px-6">{l.unused ? <Badge tone="warning">{l.unused}</Badge> : <span className="tabular-nums">0</span>}</td>
                           </tr>

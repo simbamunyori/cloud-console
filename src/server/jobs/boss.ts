@@ -36,6 +36,15 @@ const JOBS: Job[] = [
   { name: "default-po-numbers", cron: "0 3 * * *", run: () => applyDefaultPoNumbers(prisma, billingAdapter()) },
   // Licences bought, billed and held should agree; each gap becomes a staff task.
   { name: "licence-reconcile", cron: "30 3 * * *", run: () => reconcileLicences(prisma, billingAdapter()) },
+  // Microsoft 365 and Google Workspace against the licensing partners (STRATEGY_ROLLOUT U6), before the scores at 04:15.
+  {
+    name: "licence-partner-sync",
+    cron: "0 3 * * *",
+    run: async () => {
+      const { syncLicensing } = await import("@/server/licences/automation");
+      return syncLicensing(prisma);
+    },
+  },
   // Budget warnings, once usage for yesterday is usually in; uploads also check at once.
   { name: "budget-check", cron: "0 7 * * *", run: () => checkBudgets(prisma, todayIn(DEFAULT_TIME_ZONE)) },
   // The site's status: ordering and invoices depend on the billing system answering.
