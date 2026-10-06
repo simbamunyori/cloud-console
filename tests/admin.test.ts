@@ -1,7 +1,7 @@
 import { beforeAll, describe, expect, it } from "vitest";
-import { monthOf } from "../src/lib/domain/pricing";
+import { monthOf, nextPriceChange, priceDay, periodOf } from "../src/lib/domain/pricing";
 import { money } from "../src/lib/domain/money";
-import { nextMonth, parsePercent, parseRate, setCategoryMargin, setCurrencyBuffer, setNextMonthRate } from "../src/server/admin/pricing";
+import { nextMonth, parsePercent, parseRate, setCategoryMargin, setCurrencyBuffer, setNextPeriodRate } from "../src/server/admin/pricing";
 import { completeTask, startTask } from "../src/server/admin/tasks";
 import { scopedBilling } from "../src/server/billing/scoped";
 import { seedStubCatalogue } from "../src/server/billing/stub/catalogue";
@@ -13,7 +13,7 @@ import { changeQuantity, placeOrder, type OrderDeps } from "../src/server/orders
 import type { StaffActor } from "../src/server/staff/access";
 import { db, hasDb, makeOrganisation, uniqueEmail } from "./helpers";
 
-const month = monthOf(new Date());
+const month = priceDay(new Date());
 
 async function staff(role: StaffActor["staffRole"]): Promise<StaffActor> {
   const user = await db.user.create({ data: { email: uniqueEmail("staff"), name: "Onalenna Staff", passwordHash: "x", kind: "STAFF", staffRole: role, totpEnabled: true } });
@@ -31,6 +31,15 @@ describe("pricing input", () => {
     expect(parseRate("0.073412", "r")).toBe(73_412n);
     expect(() => parseRate("0", "r")).toThrow();
     expect(nextMonth("2026-12")).toBe("2027-01");
+    // Prices change every 14 days, on Mondays counted from 12 October 2026.
+    expect(periodOf("2026-10-06")).toBe("2026-09-28");
+    expect(periodOf("2026-10-12")).toBe("2026-10-12");
+    expect(periodOf("2026-10-25")).toBe("2026-10-12");
+    expect(nextPriceChange("2026-10-06")).toBe("2026-10-12");
+    expect(nextPriceChange("2026-10-12")).toBe("2026-10-26");
+    expect(nextPriceChange("2026-10-25")).toBe("2026-10-26");
+    // Month keys from before 14-day pricing sort as their 1st.
+    expect("2026-10" <= "2026-10-01" && "2026-10" > "2026-09-30").toBe(true);
   });
 });
 
@@ -40,7 +49,7 @@ describe.skipIf(!hasDb)("staff console", () => {
     const ids = await seedStubCatalogue(db);
     const prev = new Date();
     prev.setUTCMonth(prev.getUTCMonth() - 1);
-    await seedCatalogue(db, ids, [monthOf(prev), month]);
+    await seedCatalogue(db, ids, [monthOf(prev), monthOf(new Date())]);
     stub = new StubBillingAdapter(db);
   });
 
@@ -94,12 +103,12 @@ describe.skipIf(!hasDb)("staff console", () => {
     expect((await o.billing.getService(m365.billingServiceIds[0]))?.quantity).toBe(5);
   });
 
-  it("changes margins, buffer and next month's rate, which only change suggestions until approved", async () => {
+  it("changes margins, buffer and the next period's rate, which only change suggestions until approved", async () => {
     const bw = { code: "bw", currency: "BWP" };
     const product = (await productBySlug(db, "microsoft-365-business-standard"))!;
     const item = productItem(product.slug);
     const before = await productPrice(db, product, bw, month);
-    const beforeNext = await productPrice(db, product, bw, nextMonth(month));
+    const beforeNext = await productPrice(db, product, bw, nextPriceChange(month));
     const finance = await staff("FINANCE");
     const admin = await staff("ADMIN");
     const deps = { db, staff: admin, month };
@@ -107,40 +116,40 @@ describe.skipIf(!hasDb)("staff console", () => {
 
     const original = (await db.productCategory.findUniqueOrThrow({ where: { key: "productivity" } })).marginBps;
     const originalBuffer = (await db.pricingSettings.findUniqueOrThrow({ where: { id: "global" } })).currencyBufferBps;
-    const originalRate = await db.fxRate.findUnique({ where: { month_base_quote: { month: nextMonth(month), base: "USD", quote: "BWP" } } });
+    const originalRate = await db.fxRate.findUnique({ where: { month_base_quote: { month: nextPriceChange(month), base: "USD", quote: "BWP" } } });
     try {
       await setCategoryMargin(deps, "productivity", "25");
       await setCurrencyBuffer(deps, "5");
-      await setNextMonthRate(deps, "USD", "BWP", "14.00");
+      await setNextPeriodRate(deps, "USD", "BWP", "14.00");
 
       // Nothing customers pay changes until a price is approved.
       expect(await productPrice(db, product, bw, month)).toEqual(before);
-      expect(await productPrice(db, product, bw, nextMonth(month))).toEqual(beforeNext);
+      expect(await productPrice(db, product, bw, nextPriceChange(month))).toEqual(beforeNext);
 
-      // Next month's suggestion: US$ 12.50 x 14.00 = 175.00, +5% = 183.75, +25% = 229.6875, rounded up to P 230.00.
+      // The next period's suggestion: US$ 12.50 x 14.00 = 175.00, +5% = 183.75, +25% = 229.6875, rounded up to P 230.00.
       const row = (await bookRows(db, "bw", month)).rows.find((r) => r.item === item)!;
-      expect(row).toMatchObject({ targetMonth: nextMonth(month), suggestion: { price: money(23000n, "BWP") } });
+      expect(row).toMatchObject({ targetMonth: nextPriceChange(month), suggestion: { price: money(23000n, "BWP") } });
 
       await expect(approvePrice({ ...deps, staff: finance }, "bw", item)).rejects.toMatchObject({ code: "forbidden" });
       await expect(approvePrice(deps, "bw", item, { amount: "abc" })).rejects.toMatchObject({ field: "amount" });
       const entry = await approvePrice(deps, "bw", item);
-      expect(entry).toMatchObject({ month: nextMonth(month), amountMinor: 23000n, suggestedMinor: 23000n, approvedById: admin.userId });
+      expect(entry).toMatchObject({ month: nextPriceChange(month), amountMinor: 23000n, suggestedMinor: 23000n, approvedById: admin.userId });
       expect(await productPrice(db, product, bw, month)).toEqual(before);
-      expect(await productPrice(db, product, bw, nextMonth(month))).toEqual(money(23000n, "BWP"));
+      expect(await productPrice(db, product, bw, nextPriceChange(month))).toEqual(money(23000n, "BWP"));
 
       // Staff can set a different price from the suggestion.
       await approvePrice(deps, "bw", item, { amount: "225" });
-      expect(await productPrice(db, product, bw, nextMonth(month))).toEqual(money(22500n, "BWP"));
+      expect(await productPrice(db, product, bw, nextPriceChange(month))).toEqual(money(22500n, "BWP"));
 
       const log = await db.pricingChange.findMany({ where: { userId: admin.userId }, orderBy: { createdAt: "asc" } });
-      expect(log.map((c) => c.field)).toEqual(["margin:productivity", "buffer", `rate:USD/BWP:${nextMonth(month)}`, `price:bw:${item}:${nextMonth(month)}`, `price:bw:${item}:${nextMonth(month)}`]);
+      expect(log.map((c) => c.field)).toEqual(["margin:productivity", "buffer", `rate:USD/BWP:${nextPriceChange(month)}`, `price:bw:${item}:${nextPriceChange(month)}`, `price:bw:${item}:${nextPriceChange(month)}`]);
       expect(log[0]).toMatchObject({ fromValue: String(original), toValue: "2500" });
       expect(log[4]).toMatchObject({ fromValue: "23000", toValue: "22500" });
     } finally {
       await db.productCategory.update({ where: { key: "productivity" }, data: { marginBps: original } });
       await db.pricingSettings.update({ where: { id: "global" }, data: { currencyBufferBps: originalBuffer } });
       if (originalRate) await db.fxRate.update({ where: { id: originalRate.id }, data: { rateMicros: originalRate.rateMicros, setById: originalRate.setById } });
-      else await db.fxRate.deleteMany({ where: { month: nextMonth(month), base: "USD", quote: "BWP" } });
+      else await db.fxRate.deleteMany({ where: { month: nextPriceChange(month), base: "USD", quote: "BWP" } });
       await db.priceBookEntry.deleteMany({ where: { approvedById: admin.userId } });
     }
   });
@@ -156,7 +165,7 @@ describe.skipIf(!hasDb)("staff console", () => {
       const count = await approveAllSuggestions(deps, "zw");
       expect(count).toBeGreaterThan(0);
       expect(await approveAllSuggestions(deps, "zw")).toBe(0);
-      expect(await db.priceBookEntry.count({ where: { approvedById: admin.userId, marketCode: "zw", month: nextMonth(month) } })).toBe(count);
+      expect(await db.priceBookEntry.count({ where: { approvedById: admin.userId, marketCode: "zw", month: nextPriceChange(month) } })).toBe(count);
 
       await setOffered(deps, "zw", productItem(vps.slug), false);
       expect(await productPrice(db, (await productBySlug(db, vps.slug))!, zw, month)).toBeNull();

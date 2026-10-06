@@ -39,7 +39,7 @@ CREATE TABLE "OfficialRate" (
 -- CreateTable
 CREATE TABLE "PriceBookRun" (
     "id" TEXT NOT NULL,
-    "month" TEXT NOT NULL,
+    "period" TEXT NOT NULL,
     "status" "PriceBookRunStatus" NOT NULL,
     "tableId" TEXT NOT NULL,
     "rates" JSONB NOT NULL,
@@ -71,7 +71,7 @@ CREATE UNIQUE INDEX "OfficialRateTable_publishedOn_key" ON "OfficialRateTable"("
 CREATE UNIQUE INDEX "OfficialRate_tableId_base_quote_key" ON "OfficialRate"("tableId", "base", "quote");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "PriceBookRun_month_key" ON "PriceBookRun"("month");
+CREATE UNIQUE INDEX "PriceBookRun_period_key" ON "PriceBookRun"("period");
 
 -- AddForeignKey
 ALTER TABLE "OfficialRate" ADD CONSTRAINT "OfficialRate_tableId_fkey" FOREIGN KEY ("tableId") REFERENCES "OfficialRateTable"("id") ON DELETE CASCADE ON UPDATE CASCADE;

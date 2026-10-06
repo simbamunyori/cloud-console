@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardBody } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
 import { toJson } from "@/lib/domain/money";
-import { monthOf } from "@/lib/domain/pricing";
+import { priceDay } from "@/lib/domain/pricing";
 import { requireBilling } from "@/server/billing/context";
 import { productBySlug, productOptions } from "@/server/catalogue/catalogue";
 import { offeredIn, productPrice } from "@/server/catalogue/price-book";
@@ -32,7 +32,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
   const product = await productBySlug(prisma, slug, audience);
   if (!product || product.slug === DOMAIN_PRODUCT_SLUG) notFound();
   const byQuote = product.fulfilment === "QUOTE";
-  const price = byQuote ? null : await productPrice(prisma, product, market, monthOf(today), audience);
+  const price = byQuote ? null : await productPrice(prisma, product, market, priceDay(today), audience);
   const refunds = await hasLegalText(market.code, "refunds");
   // Not offered in this account's market.
   if (byQuote ? !offeredIn(product, market.code, audience) : !price) notFound();

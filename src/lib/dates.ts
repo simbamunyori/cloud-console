@@ -141,3 +141,8 @@ export function zonedTime(dateOnly: string, hhmm: string, timeZone: string): Dat
   at = wall - offset(at);
   return new Date(at);
 }
+
+/** When a price book entry or rate starts: "Monday 12 October 2026", or "October 2026" for one from before fortnightly pricing. */
+export function formatPriceStart(key: string): string {
+  return key.length === 7 ? formatMonth(new Date(`${key}-01T00:00:00Z`)) : formatLongDate(parseDateOnly(key)!);
+}

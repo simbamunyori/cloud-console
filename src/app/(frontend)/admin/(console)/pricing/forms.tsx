@@ -3,7 +3,7 @@
 import { useActionState } from "react";
 import { Button } from "@/components/ui/button";
 import type { ActionState } from "@/server/action-state";
-import { acceptRatesAction, approveAllAction, approveMonthAction, approvePriceAction, setOfferedAction } from "../actions";
+import { acceptRatesAction, approveAllAction, approvePriceAction, approvePeriodAction, setOfferedAction } from "../actions";
 
 const input = "h-10 w-28 rounded-md border border-border bg-surface-1 px-3 text-right text-callout text-ink tabular-nums";
 
@@ -83,11 +83,11 @@ export function AcceptRatesForm({ tableId, label }: { tableId: string; label: st
 }
 
 /** The one button the approval email leads to. */
-export function ApproveMonthForm({ month, label }: { month: string; label: string }) {
-  const [state, action, pending] = useActionState<ActionState, FormData>(approveMonthAction, {});
+export function ApprovePeriodForm({ period, label }: { period: string; label: string }) {
+  const [state, action, pending] = useActionState<ActionState, FormData>(approvePeriodAction, {});
   return (
     <form action={action} className="flex flex-col items-start gap-2">
-      <input type="hidden" name="month" value={month} />
+      <input type="hidden" name="period" value={period} />
       <Button type="submit" disabled={pending || state.ok}>
         {pending ? "Approving…" : label}
       </Button>

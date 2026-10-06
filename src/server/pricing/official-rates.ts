@@ -1,8 +1,8 @@
 import type { OfficialRate, OfficialRateTable, PrismaClient } from "@prisma/client";
 import { DEFAULT_TIME_ZONE } from "@/config/app";
-import { addDays, daysBetween, parseDateOnly, toDateOnly, todayIn } from "@/lib/dates";
+import { addDays, daysBetween, formatLongDate, parseDateOnly, toDateOnly, todayIn } from "@/lib/dates";
 import { divCeil } from "@/lib/domain/money";
-import { monthOf } from "@/lib/domain/pricing";
+import { nextPriceChange, periodOf, priceDay } from "@/lib/domain/pricing";
 import { DomainError } from "@/server/org/access";
 import { assertStaffCan, staffLabel, type StaffActor } from "@/server/staff/access";
 import { bpsText, sendAlert } from "./alerts";
@@ -233,7 +233,7 @@ const pause = (ms: number) => new Promise((r) => setTimeout(r, ms));
 /**
  * The daily fetch: gets the latest table, retrying a couple of times,
  * stores it if it is new, and emails Admins when the fetch fails, the
- * table is held back, the rates are out of date, or this month's rate has
+ * table is held back, the rates are out of date, or this period's rate has
  * moved past the buffer.
  */
 export async function checkRates(deps: RatesDeps): Promise<StoreResult | { kind: "off" } | { kind: "failed"; error: string }> {
@@ -280,27 +280,28 @@ async function afterFetch(db: Db, result: StoreResult, now: Date) {
       paragraphs: [latest ? `The newest table in use was published ${toDateOnly(latest.publishedOn)}.` : "No table is in use yet.", "Prices stay as they are. Check the Pricing page."],
     });
   }
-  if (result.kind === "stored") await checkDrift(db, monthOf(today), result.table);
+  if (result.kind === "stored") await checkDrift(db, periodOf(priceDay(today)), result.table);
 }
 
 /**
- * Prices are fixed for the month. When the live rate makes what we pay
- * dearer than this month's rate plus the buffer covers, Admins hear about
- * it, once a month for each pair.
+ * Prices are fixed for 14 days. When the live rate makes what we pay
+ * dearer than this period's rate plus the buffer covers, Admins hear
+ * about it, once a period for each pair. A period is keyed by its first
+ * day.
  */
-export async function checkDrift(db: Db, month: string, table: TableWithRates) {
-  const [rates, settings] = await Promise.all([db.fxRate.findMany({ where: { month } }), db.pricingSettings.findUnique({ where: { id: "global" } })]);
+export async function checkDrift(db: Db, period: string, table: TableWithRates) {
+  const [rates, settings] = await Promise.all([db.fxRate.findMany({ where: { month: period } }), db.pricingSettings.findUnique({ where: { id: "global" } })]);
   const bufferBps = BigInt(settings?.currencyBufferBps ?? 0);
   for (const r of rates) {
     const live = rateMicros(table.rates, r.base, r.quote);
     if (live === null || live * 10_000n <= r.rateMicros * (10_000n + bufferBps)) continue;
     const moved = Number(divCeil((live - r.rateMicros) * 10_000n, r.rateMicros));
-    await sendAlert(db, `drift:${month}:${r.base}/${r.quote}`, {
+    await sendAlert(db, `drift:${period}:${r.base}/${r.quote}`, {
       subject: `The ${r.base} rate has moved past the currency buffer`,
-      heading: `1 ${r.base} now buys more ${r.quote} than this month's prices allow for`,
+      heading: `1 ${r.base} now buys more ${r.quote} than the current prices allow for`,
       paragraphs: [
-        `Bank of Botswana's rate published ${toDateOnly(table.publishedOn)} is ${microsText(live)} ${r.quote}, ${bpsText(moved)}% above the ${microsText(r.rateMicros)} this month's prices use. The currency buffer is ${bpsText(Number(bufferBps))}%.`,
-        "Prices stay fixed until the 1st. Next month's price book will use the new rate.",
+        `Bank of Botswana's rate published ${toDateOnly(table.publishedOn)} is ${microsText(live)} ${r.quote}, ${bpsText(moved)}% above the ${microsText(r.rateMicros)} the current prices use. The currency buffer is ${bpsText(Number(bufferBps))}%.`,
+        `Prices stay fixed until ${formatLongDate(parseDateOnly(nextPriceChange(period))!)}, when the next price book uses the new rate.`,
       ],
     });
   }
@@ -332,6 +333,6 @@ export async function acceptTable(deps: { db: Db; staff: StaffActor; now?: () =>
     });
     return updated;
   });
-  await checkDrift(deps.db, monthOf(todayIn(DEFAULT_TIME_ZONE, deps.now?.() ?? new Date())), accepted);
+  await checkDrift(deps.db, periodOf(priceDay(todayIn(DEFAULT_TIME_ZONE, deps.now?.() ?? new Date()))), accepted);
   return accepted;
 }

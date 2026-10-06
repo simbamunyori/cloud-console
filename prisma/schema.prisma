@@ -705,10 +705,11 @@ model PricingSettings {
   updatedAt         DateTime  @updatedAt
 }
 
-/// The rate used to price one month. Rate is quote per base, times 1,000,000.
+/// The rate used to price from a day ("2026-10-12") or, before
+/// fortnightly pricing, a month ("2026-09"). Rate is quote per base, times 1,000,000.
 model FxRate {
   id         String    @id @default(cuid())
-  /// "2026-09".
+  /// The day or month it applies from; the two sort together.
   month      String
   base       String
   quote      String
@@ -762,12 +763,13 @@ enum PriceBookRunStatus {
   APPLIED
 }
 
-/// The monthly price book worked out on the 1st from the Bank of Botswana
-/// rates and the buffer, and what happened to it.
+/// The price book for a 14-day period, worked out on its first day (a
+/// Monday) from the Bank of Botswana rates and the buffer, and what
+/// happened to it. Prices change every 14 days; quotes hold for 14 days.
 model PriceBookRun {
   id             String             @id @default(cuid())
-  /// "2026-10".
-  month          String             @unique
+  /// The day it starts, "2026-10-12".
+  period         String             @unique
   status         PriceBookRunStatus
   tableId        String
   /// The month's rates: [{ base, quote, rateMicros }].
@@ -790,7 +792,7 @@ model PriceBookRun {
 }
 
 /// An email to Admins about rates or pricing, sent once per key
-/// (e.g. "drift:2026-10:USD/BWP").
+/// (e.g. "drift:2026-10-12:USD/BWP").
 model PricingAlert {
   key    String   @id
   sentAt DateTime @default(now())
@@ -804,7 +806,8 @@ model PriceBookEntry {
   marketCode     String
   /// "product:<slug>" or "tld:<ending>", e.g. "tld:.co.za".
   item           String
-  /// The first month it applies, "2026-10".
+  /// The first day it applies, "2026-10-12", or month for entries from
+  /// before fortnightly pricing, "2026-10". The two sort together.
   month          String
   currency       String
   /// A product's price per unit per month, or a domain's yearly
@@ -818,7 +821,7 @@ model PriceBookEntry {
   /// Null for prices carried over from Phase 1 or seeded for development.
   approvedById   String?
   approvedAt     DateTime @default(now())
-  /// The monthly price book it came from, when it came from one.
+  /// The price book it came from, when it came from one.
   runId          String?
 
   market     Market        @relation(fields: [marketCode], references: [code], onDelete: Restrict)

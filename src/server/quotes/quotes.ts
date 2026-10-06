@@ -1,4 +1,5 @@
 import type { Market, Prisma, PrismaClient, Quote, QuoteLine, QuoteLineKind } from "@prisma/client";
+import { PRICE_PERIOD_DAYS } from "@/lib/domain/pricing";
 import { z } from "zod";
 import { isCountryCode } from "@/lib/countries";
 import { parseDateOnly, todayIn } from "@/lib/dates";
@@ -38,9 +39,9 @@ export const QUOTE_STATE_LABEL: Record<QuoteState, string> = {
 
 export const LINE_KIND_LABEL: Record<QuoteLineKind, string> = { MONTHLY: "A month", ONE_OFF: "Once" };
 
-/** Longest a quote may hold, and the default. */
+/** Longest a quote may hold, and the default: as long as prices hold (PRICE_PERIOD_DAYS). */
 export const MAX_VALID_DAYS = 90;
-export const DEFAULT_VALID_DAYS = 30;
+export const DEFAULT_VALID_DAYS = PRICE_PERIOD_DAYS;
 
 export function quoteState(q: Pick<Quote, "status" | "validUntil">, today: Date): QuoteState {
   if (q.status === "SENT") return q.validUntil && q.validUntil < today ? "expired" : "sent";

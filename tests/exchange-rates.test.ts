@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import { approveRun, buildMonth, retrySync, runChanges, type SyncActor } from "../src/server/pricing/monthly";
+import { approveRun, buildPeriod, retrySync, runChanges, type SyncActor } from "../src/server/pricing/periods";
 import {
   acceptTable,
   allRatesToday,
@@ -70,8 +70,8 @@ describe("rates from a Bank of Botswana table", () => {
   });
 });
 
-// The monthly scenario runs in 2031 so it never meets other tests' months.
-describe.skipIf(!hasDb)("daily rates and the monthly price book", () => {
+// The 14-day scenario runs in 2031 so it never meets other tests' prices. 10 and 24 February and 10 and 24 March 2031 start periods.
+describe.skipIf(!hasDb)("daily rates and the 14-day price book", () => {
   const at = (iso: string) => () => new Date(iso);
   const usd = (bwpPerUsd: string) => ({ base: "USD", quote: "BWP", value: bwpPerUsd });
   const table = (publishedOn: string, bwpPerUsd: string): PublishedTable => ({ publishedOn, rates: [usd(bwpPerUsd), { base: "BWP", quote: "ZAR", value: "1.35" }] });
@@ -89,7 +89,7 @@ describe.skipIf(!hasDb)("daily rates and the monthly price book", () => {
 
   async function cleanUp() {
     await db.priceBookEntry.deleteMany({ where: { month: { startsWith: "2031-" } } });
-    await db.priceBookRun.deleteMany({ where: { month: { startsWith: "2031-" } } });
+    await db.priceBookRun.deleteMany({ where: { period: { startsWith: "2031-" } } });
     await db.officialRateTable.deleteMany({ where: { publishedOn: { gte: new Date("2031-01-01") } } });
     await db.fxRate.deleteMany({ where: { month: { startsWith: "2031-" } } });
     await db.pricingAlert.deleteMany({ where: { key: { contains: "2031-" } } });
@@ -111,134 +111,134 @@ describe.skipIf(!hasDb)("daily rates and the monthly price book", () => {
   const alertsTo = (kind: string, after: Date) => db.outboundEmail.count({ where: { kind, toAddress: { startsWith: "staff+" }, createdAt: { gte: after } } });
 
   it("stores a day's table with its publication date, retrying a failed fetch", async () => {
-    const src = source(new RateFetchError("AllRatesToday didn't answer."), table("2031-01-30", "13.80"));
-    const result = await checkRates({ db, source: src, now: at("2031-01-30T08:00:00Z"), ...noSleep });
+    const src = source(new RateFetchError("AllRatesToday didn't answer."), table("2031-02-06", "13.80"));
+    const result = await checkRates({ db, source: src, now: at("2031-02-06T08:00:00Z"), ...noSleep });
     expect(result.kind).toBe("stored");
     expect(src.latest).toHaveBeenCalledTimes(2);
-    const stored = await latestTable(db, new Date("2031-01-31"));
-    expect(stored?.publishedOn.toISOString().slice(0, 10)).toBe("2031-01-30");
+    const stored = await latestTable(db, new Date("2031-02-07"));
+    expect(stored?.publishedOn.toISOString().slice(0, 10)).toBe("2031-02-06");
     expect(stored?.rates.find((r) => r.base === "USD")?.value).toBe("13.80");
     // The same table again changes nothing.
-    expect((await checkRates({ db, source: source(table("2031-01-30", "13.80")), now: at("2031-01-30T12:00:00Z"), ...noSleep })).kind).toBe("unchanged");
+    expect((await checkRates({ db, source: source(table("2031-02-06", "13.80")), now: at("2031-02-06T12:00:00Z"), ...noSleep })).kind).toBe("unchanged");
   });
 
   it("keeps the previous rates and alerts once a day when every try fails", async () => {
     const before = new Date();
     const src = source(new RateFetchError("AllRatesToday answered HTTP 500."));
-    const result = await checkRates({ db, source: src, now: at("2031-01-31T08:00:00Z"), ...noSleep });
+    const result = await checkRates({ db, source: src, now: at("2031-02-07T08:00:00Z"), ...noSleep });
     expect(result).toEqual({ kind: "failed", error: "AllRatesToday answered HTTP 500." });
     expect(src.latest).toHaveBeenCalledTimes(3);
     expect((await db.pricingSettings.findUniqueOrThrow({ where: { id: "global" } })).ratesError).toMatch(/HTTP 500/);
-    await checkRates({ db, source: src, now: at("2031-01-31T12:00:00Z"), ...noSleep });
-    expect(await db.pricingAlert.count({ where: { key: "fetch-failed:2031-01-31" } })).toBe(1);
+    await checkRates({ db, source: src, now: at("2031-02-07T12:00:00Z"), ...noSleep });
+    expect(await db.pricingAlert.count({ where: { key: "fetch-failed:2031-02-07" } })).toBe(1);
     expect(await alertsTo("pricing.alert", before)).toBeGreaterThan(0);
-    expect((await latestTable(db, new Date("2031-01-31")))?.publishedOn.toISOString().slice(0, 10)).toBe("2031-01-30");
+    expect((await latestTable(db, new Date("2031-02-07")))?.publishedOn.toISOString().slice(0, 10)).toBe("2031-02-06");
   });
 
   it("never stores a broken table", async () => {
-    const result = await checkRates({ db, source: source({ publishedOn: "2031-01-31", rates: [{ base: "BWP", quote: "ZAR", value: "1.35" }] }), now: at("2031-02-01T02:00:00Z"), ...noSleep });
+    const result = await checkRates({ db, source: source({ publishedOn: "2031-02-07", rates: [{ base: "BWP", quote: "ZAR", value: "1.35" }] }), now: at("2031-02-08T02:00:00Z"), ...noSleep });
     expect(result.kind).toBe("failed");
-    expect(await db.officialRateTable.count({ where: { publishedOn: new Date("2031-01-31") } })).toBe(0);
+    expect(await db.officialRateTable.count({ where: { publishedOn: new Date("2031-02-07") } })).toBe(0);
   });
 
-  it("auto-approves the month within the threshold, syncs as the system and audits it", async () => {
+  it("auto-approves the period within the threshold, syncs as the system and audits it", async () => {
     await db.pricingSettings.update({ where: { id: "global" }, data: { autoApproveBps: 5_000 } });
     const sync = vi.fn<(a: SyncActor) => Promise<void>>().mockRejectedValueOnce(new Error("The WHMCS sync addon refused the request (HTTP 403)."));
-    const run = (await buildMonth({ db, sync, now: at("2031-02-01T04:00:00Z") }))!;
-    expect(run.month).toBe("2031-02");
+    const run = (await buildPeriod({ db, sync, now: at("2031-02-10T04:00:00Z") }))!;
+    expect(run.period).toBe("2031-02-10");
     const changes = runChanges(run);
     expect(changes.length).toBeGreaterThan(0);
     expect(run.status).toBe("APPLIED");
     expect(run.maxChangeBps).toBeLessThanOrEqual(5_000);
     expect(run.approvedById).toBeNull();
-    // The month's rate, from the table, with its source date.
-    const rate = await db.fxRate.findUniqueOrThrow({ where: { month_base_quote: { month: "2031-02", base: "USD", quote: "BWP" } } });
+    // The period's rate, from the table, with its source date.
+    const rate = await db.fxRate.findUniqueOrThrow({ where: { month_base_quote: { month: "2031-02-10", base: "USD", quote: "BWP" } } });
     expect(rate).toMatchObject({ rateMicros: 13_800_000n, source: "bob", setById: null });
-    expect(rate.sourceDate?.toISOString().slice(0, 10)).toBe("2031-01-30");
-    // Every change is in the book from the month, marked as from this run.
-    const entries = await db.priceBookEntry.findMany({ where: { month: "2031-02", runId: run.id } });
+    expect(rate.sourceDate?.toISOString().slice(0, 10)).toBe("2031-02-06");
+    // Every change is in the book from Monday, marked as from this run.
+    const entries = await db.priceBookEntry.findMany({ where: { month: "2031-02-10", runId: run.id } });
     expect(entries).toHaveLength(changes.length);
     expect(entries.every((e) => e.approvedById === null)).toBe(true);
-    const audit = await db.staffAuditEvent.findFirstOrThrow({ where: { action: "pricing.auto-approved", summary: { contains: "February 2031" } }, orderBy: { createdAt: "desc" } });
+    const audit = await db.staffAuditEvent.findFirstOrThrow({ where: { action: "pricing.auto-approved", summary: { contains: "the prices from Monday 10 February 2031" } }, orderBy: { createdAt: "desc" } });
     expect(audit).toMatchObject({ actorUserId: "system", actorLabel: "Automatic pricing" });
-    expect(audit.summary).toMatch(/Bank of Botswana, published \w+ 30 January 2031: .*1 USD = 13\.8 BWP/);
+    expect(audit.summary).toMatch(/Bank of Botswana, published \w+ 6 February 2031: .*1 USD = 13\.8 BWP/);
     // WHMCS refused, so it's recorded and tried again later.
     expect(sync).toHaveBeenCalledWith({ system: "Automatic pricing" });
     expect(run.syncError).toMatch(/HTTP 403/);
-    expect(await db.pricingAlert.count({ where: { key: "sync-failed:2031-02:2031-02-01" } })).toBe(1);
-    const retried = await retrySync({ db, sync, now: at("2031-02-01T08:00:00Z") });
+    expect(await db.pricingAlert.count({ where: { key: "sync-failed:2031-02-10:2031-02-10" } })).toBe(1);
+    const retried = await retrySync({ db, sync, now: at("2031-02-10T08:00:00Z") });
     expect(retried?.syncedAt).toBeTruthy();
     // Building again does nothing.
-    expect((await buildMonth({ db, sync, now: at("2031-02-01T08:00:00Z") }))?.id).toBe(run.id);
+    expect((await buildPeriod({ db, sync, now: at("2031-02-12T08:00:00Z") }))?.id).toBe(run.id);
   });
 
-  it("waits, and says so, when the newest table is too old on the 1st", async () => {
-    expect(await buildMonth({ db, now: at("2031-03-01T04:00:00Z") })).toBeNull();
-    expect(await db.priceBookRun.count({ where: { month: "2031-03" } })).toBe(0);
-    expect(await db.pricingAlert.count({ where: { key: "build-waiting:2031-03:2031-03-01" } })).toBe(1);
+  it("waits, and says so, when the newest table is too old on Monday", async () => {
+    expect(await buildPeriod({ db, now: at("2031-02-24T04:00:00Z") })).toBeNull();
+    expect(await db.priceBookRun.count({ where: { period: "2031-02-24" } })).toBe(0);
+    expect(await db.pricingAlert.count({ where: { key: "build-waiting:2031-02-24:2031-02-24" } })).toBe(1);
     // Prices stay as they were.
-    expect(await db.priceBookEntry.count({ where: { month: "2031-03" } })).toBe(0);
+    expect(await db.priceBookEntry.count({ where: { month: "2031-02-24" } })).toBe(0);
   });
 
   it("asks an Admin over the threshold, applies nothing until they approve, then logs the approval", async () => {
     await db.pricingSettings.update({ where: { id: "global" }, data: { autoApproveBps: 0 } });
-    await checkRates({ db, source: source(table("2031-03-28", "14.10")), now: at("2031-03-28T08:00:00Z"), ...noSleep });
+    await checkRates({ db, source: source(table("2031-03-06", "14.10")), now: at("2031-03-06T08:00:00Z"), ...noSleep });
     const before = new Date();
-    const run = (await buildMonth({ db, now: at("2031-04-01T04:00:00Z") }))!;
+    const run = (await buildPeriod({ db, now: at("2031-03-10T04:00:00Z") }))!;
     expect(run.status).toBe("AWAITING_APPROVAL");
     expect(runChanges(run).length).toBeGreaterThan(0);
-    expect(await db.priceBookEntry.count({ where: { month: "2031-04" } })).toBe(0);
+    expect(await db.priceBookEntry.count({ where: { month: "2031-03-10" } })).toBe(0);
     expect(await alertsTo("pricing.approval_needed", before)).toBeGreaterThan(0);
-    expect(await db.staffAuditEvent.count({ where: { action: "pricing.approval-requested", summary: { contains: "April 2031" }, createdAt: { gte: before } } })).toBe(1);
+    expect(await db.staffAuditEvent.count({ where: { action: "pricing.approval-requested", summary: { contains: "Monday 10 March 2031" }, createdAt: { gte: before } } })).toBe(1);
 
     // The email names the biggest changes and links to the page with the one button.
-    const email = await TEMPLATES["pricing.approval_needed"]({ month: "2031-04" }, { db, appUrl: "https://console.example", consoleName: "Cloud Console", now: new Date(), locale: "en-BW", timeZone: "Africa/Gaborone" });
-    expect(email?.subject).toBe("April 2031 prices need your approval");
-    expect(email?.body.button?.url).toBe("https://console.example/admin/pricing/months/2031-04");
+    const email = await TEMPLATES["pricing.approval_needed"]({ period: "2031-03-10" }, { db, appUrl: "https://console.example", consoleName: "Cloud Console", now: new Date(), locale: "en-BW", timeZone: "Africa/Gaborone" });
+    expect(email?.subject).toBe("Prices from Monday 10 March 2031 need your approval");
+    expect(email?.body.button?.url).toBe("https://console.example/admin/pricing/periods/2031-03-10");
     expect(email?.body.facts?.length).toBeGreaterThan(0);
 
     const finance = { ...admin, staffRole: "FINANCE" as const };
-    await expect(approveRun({ db, staff: admin, now: at("2031-05-02T08:00:00Z") }, "2031-04")).rejects.toThrow(/has ended/);
-    await expect(approveRun({ db, staff: finance, now: at("2031-04-02T08:00:00Z") }, "2031-04")).rejects.toThrow(/staff role/);
+    await expect(approveRun({ db, staff: admin, now: at("2031-03-25T08:00:00Z") }, "2031-03-10")).rejects.toThrow(/replaced/);
+    await expect(approveRun({ db, staff: finance, now: at("2031-03-11T08:00:00Z") }, "2031-03-10")).rejects.toThrow(/staff role/);
 
     const sync = vi.fn<(a: SyncActor) => Promise<void>>().mockResolvedValue();
-    const approved = await approveRun({ db, staff: admin, sync, now: at("2031-04-02T08:00:00Z") }, "2031-04");
+    const approved = await approveRun({ db, staff: admin, sync, now: at("2031-03-11T08:00:00Z") }, "2031-03-10");
     expect(approved).toMatchObject({ status: "APPLIED", approvedById: admin.userId, approvedByName: "Kagiso Admin" });
     expect(approved.syncedAt).toBeTruthy();
     expect(sync).toHaveBeenCalledWith({ staff: admin });
-    const entries = await db.priceBookEntry.findMany({ where: { month: "2031-04" } });
+    const entries = await db.priceBookEntry.findMany({ where: { month: "2031-03-10" } });
     expect(entries).toHaveLength(runChanges(run).length);
     expect(entries.every((e) => e.approvedById === admin.userId && e.runId === run.id)).toBe(true);
-    expect(await db.pricingChange.count({ where: { userId: admin.userId, field: { endsWith: ":2031-04" } } })).toBe(entries.length);
-    expect(await db.staffAuditEvent.count({ where: { action: "pricing.month-approved", actorUserId: admin.userId } })).toBe(1);
+    expect(await db.pricingChange.count({ where: { userId: admin.userId, field: { endsWith: ":2031-03-10" } } })).toBe(entries.length);
+    expect(await db.staffAuditEvent.count({ where: { action: "pricing.period-approved", actorUserId: admin.userId } })).toBe(1);
     // A second click changes nothing.
-    await approveRun({ db, staff: admin, sync, now: at("2031-04-02T08:05:00Z") }, "2031-04");
+    await approveRun({ db, staff: admin, sync, now: at("2031-03-11T08:05:00Z") }, "2031-03-10");
     expect(sync).toHaveBeenCalledTimes(1);
   });
 
-  it("keeps prices fixed mid-month and alerts once when the rate moves past the buffer", async () => {
+  it("keeps prices fixed mid-period and alerts once when the rate moves past the buffer", async () => {
     const buffer = (await db.pricingSettings.findUniqueOrThrow({ where: { id: "global" } })).currencyBufferBps;
     const book = () => db.priceBookEntry.findMany({ where: { month: { startsWith: "2031-" } }, orderBy: { id: "asc" } });
     const pricesBefore = await book();
     // 14.10 plus the buffer, and a bit more.
     const moved = ((14.1 * (10_000 + buffer + 100)) / 10_000).toFixed(4);
-    await checkRates({ db, source: source(table("2031-04-14", moved)), now: at("2031-04-14T08:00:00Z"), ...noSleep });
-    expect(await db.pricingAlert.count({ where: { key: "drift:2031-04:USD/BWP" } })).toBe(1);
-    const drifts = () => db.pricingAlert.count({ where: { key: { startsWith: "drift:2031-04:" } } });
+    await checkRates({ db, source: source(table("2031-03-12", moved)), now: at("2031-03-12T08:00:00Z"), ...noSleep });
+    expect(await db.pricingAlert.count({ where: { key: "drift:2031-03-10:USD/BWP" } })).toBe(1);
+    const drifts = () => db.pricingAlert.count({ where: { key: { startsWith: "drift:2031-03-10:" } } });
     const sent = await drifts();
-    await checkRates({ db, source: source(table("2031-04-15", moved)), now: at("2031-04-15T08:00:00Z"), ...noSleep });
+    await checkRates({ db, source: source(table("2031-03-13", moved)), now: at("2031-03-13T08:00:00Z"), ...noSleep });
     expect(await drifts()).toBe(sent);
     expect(await book()).toEqual(pricesBefore);
   });
 
   it("holds back a table that jumps too far until an Admin accepts it", async () => {
-    const result = await checkRates({ db, source: source(table("2031-04-16", "20.00")), now: at("2031-04-16T08:00:00Z"), ...noSleep });
+    const result = await checkRates({ db, source: source(table("2031-03-14", "20.00")), now: at("2031-03-14T08:00:00Z"), ...noSleep });
     expect(result.kind).toBe("held-back");
-    expect(await db.pricingAlert.count({ where: { key: "held-back:2031-04-16" } })).toBe(1);
-    expect((await latestTable(db, new Date("2031-04-16")))?.publishedOn.toISOString().slice(0, 10)).toBe("2031-04-15");
-    const held = await db.officialRateTable.findUniqueOrThrow({ where: { publishedOn: new Date("2031-04-16") } });
-    await acceptTable({ db, staff: admin, now: at("2031-04-16T09:00:00Z") }, held.id);
-    expect((await latestTable(db, new Date("2031-04-16")))?.id).toBe(held.id);
+    expect(await db.pricingAlert.count({ where: { key: "held-back:2031-03-14" } })).toBe(1);
+    expect((await latestTable(db, new Date("2031-03-14")))?.publishedOn.toISOString().slice(0, 10)).toBe("2031-03-13");
+    const held = await db.officialRateTable.findUniqueOrThrow({ where: { publishedOn: new Date("2031-03-14") } });
+    await acceptTable({ db, staff: admin, now: at("2031-03-14T09:00:00Z") }, held.id);
+    expect((await latestTable(db, new Date("2031-03-14")))?.id).toBe(held.id);
     expect(await db.staffAuditEvent.count({ where: { action: "pricing.rates-accepted", actorUserId: admin.userId } })).toBe(1);
   });
 });

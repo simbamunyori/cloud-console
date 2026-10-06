@@ -116,13 +116,13 @@ const JOBS: Job[] = [
       return deliverDue(prisma, emailAdapter());
     },
   },
-  // This month's price book from those rates, approved automatically within the threshold.
+  // Every other Monday, the next 14 days' price book from those rates, approved automatically within the threshold. Quotes are valid for 14 days too.
   {
-    name: "monthly-price-book",
-    cron: "0 6 1 * *",
+    name: "price-book-period",
+    cron: "0 6 * * 1",
     run: async () => {
-      const { monthJob } = await import("@/server/pricing/jobs");
-      await monthJob();
+      const { periodJob } = await import("@/server/pricing/jobs");
+      await periodJob();
       return deliverDue(prisma, emailAdapter());
     },
   },

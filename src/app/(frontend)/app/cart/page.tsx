@@ -9,7 +9,7 @@ import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
 import { toJson } from "@/lib/domain/money";
-import { monthOf } from "@/lib/domain/pricing";
+import { priceDay } from "@/lib/domain/pricing";
 import { requireBilling } from "@/server/billing/context";
 import { hasLegalText, REFUNDS_CONSENT_SECTION } from "@/server/cms/legal";
 import { can } from "@/server/org/access";
@@ -23,7 +23,7 @@ export default async function CartPage() {
   const { billing, db, actor, market, locale, today } = await requireBilling();
   const [names, owned] = await Promise.all([readCart(), billing.listDomains()]);
   const mine = new Set(owned.map((d) => d.name));
-  const month = monthOf(today);
+  const month = priceDay(today);
   const rows: { name: string; result: DomainResult | null }[] =
     await Promise.all(
       names.map(async (name) => ({

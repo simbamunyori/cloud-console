@@ -8,7 +8,7 @@ import { selection } from "@/server/cms/catalogue-options";
 import { SERVICES, type ServiceCard } from "@/config/site";
 import { todayIn } from "@/lib/dates";
 import { applyBps, money, type Money } from "@/lib/domain/money";
-import { monthOf } from "@/lib/domain/pricing";
+import { priceDay } from "@/lib/domain/pricing";
 import { marketplace, tldOffers } from "@/server/catalogue/price-book";
 import { prisma } from "@/server/db";
 import { faqOf } from "@/server/launch/kits";
@@ -26,8 +26,8 @@ export async function siteMarket(code: string): Promise<Market> {
   return m;
 }
 
-/** The month whose prices the site shows, in the market's time zone. */
-export const siteMonth = (m: Market) => monthOf(todayIn(m.timeZone));
+/** The day whose prices the site shows, in the market's time zone. */
+export const siteMonth = (m: Market) => priceDay(todayIn(m.timeZone));
 
 /** A book price as the market shows prices: with tax added where prices are shown including it. */
 export function shownPrice(m: Pick<Market, "taxEnabled" | "taxDisplay" | "taxRateBps">, price: Money): Money {

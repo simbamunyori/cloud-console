@@ -7,7 +7,7 @@ import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
 import { DEFAULT_TIME_ZONE } from "@/config/app";
 import { formatMoment, todayIn } from "@/lib/dates";
-import { monthOf } from "@/lib/domain/pricing";
+import { priceDay } from "@/lib/domain/pricing";
 import { requireStaffCan } from "@/server/admin/context";
 import { catalogueChanges, catalogueTree, CONNECTOR_LABEL, FULFILMENT_LABEL } from "@/server/admin/catalogue";
 import { prisma } from "@/server/db";
@@ -17,7 +17,7 @@ export const metadata: Metadata = { title: "Catalogue" };
 
 export default async function CataloguePage() {
   await requireStaffCan("manageCatalogue");
-  const month = monthOf(todayIn(DEFAULT_TIME_ZONE));
+  const month = priceDay(todayIn(DEFAULT_TIME_ZONE));
   const [{ families, markets }, changes] = await Promise.all([catalogueTree(prisma, month), catalogueChanges(prisma)]);
   const marketName = new Map(markets.map((m) => [m.code, m.code.toUpperCase()]));
 

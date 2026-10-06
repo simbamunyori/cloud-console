@@ -65,7 +65,7 @@ export async function launchChecks(db: PrismaClient): Promise<{ placeholders: st
       key: "exchange-rates",
       label: "Exchange rates come from Bank of Botswana",
       done: Boolean(secret("ALLRATESTODAY_API_KEY")),
-      detail: secret("ALLRATESTODAY_API_KEY") ? "Fetched daily; each month's prices are built on the 1st (docs/exchange-rates.md)." : "Set ALLRATESTODAY_API_KEY on the server (docs/exchange-rates.md). Until then rates are typed at /admin/pricing.",
+      detail: secret("ALLRATESTODAY_API_KEY") ? "Fetched daily; new prices are built every 14 days (docs/exchange-rates.md)." : "Set ALLRATESTODAY_API_KEY on the server (docs/exchange-rates.md). Until then rates are typed at /admin/pricing.",
       href: "/admin/pricing",
     },
   ];

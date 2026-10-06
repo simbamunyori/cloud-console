@@ -161,9 +161,9 @@ export function microsToMinor(micros: bigint, currency: string): bigint {
 
 const monthOf = (d: Date) => toDateOnly(d).slice(0, 7);
 
-async function rateFor(db: Pick<PrismaClient, "fxRate">, month: string, base: string, quote: string): Promise<bigint | null> {
+async function rateFor(db: Pick<PrismaClient, "fxRate">, day: string, base: string, quote: string): Promise<bigint | null> {
   if (base === quote) return 1_000_000n;
-  const upTo = await db.fxRate.findFirst({ where: { base, quote, month: { lte: month } }, orderBy: { month: "desc" } });
+  const upTo = await db.fxRate.findFirst({ where: { base, quote, month: { lte: day } }, orderBy: { month: "desc" } });
   return upTo?.rateMicros ?? null;
 }
 
@@ -203,8 +203,9 @@ export async function importUsage(deps: ImportDeps, fileName: string, text: stri
     const sub = byId.get(row.subscription);
     if (!sub) continue;
     const to = sub.organisation.currency;
-    const rk = `${monthOf(row.day)}|${row.currency}|${to}`;
-    if (!rates.has(rk)) rates.set(rk, await rateFor(deps.db, monthOf(row.day), row.currency, to));
+    // The rate in effect on the day the usage happened (rates change weekly).
+    const rk = `${toDateOnly(row.day)}|${row.currency}|${to}`;
+    if (!rates.has(rk)) rates.set(rk, await rateFor(deps.db, toDateOnly(row.day), row.currency, to));
     const rate = rates.get(rk);
     if (!rate) {
       noRate.add(`${row.currency} to ${to} for ${monthOf(row.day)}`);

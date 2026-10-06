@@ -2,7 +2,7 @@ import { createHmac, randomBytes } from "node:crypto";
 import type { PrismaClient } from "@prisma/client";
 import { todayIn } from "@/lib/dates";
 import { money, type Money } from "@/lib/domain/money";
-import { monthOf } from "@/lib/domain/pricing";
+import { priceDay } from "@/lib/domain/pricing";
 import { bookFor, offeredIn, productItem, tldItem } from "@/server/catalogue/price-book";
 import { DOMAIN_PRODUCT_SLUG } from "@/server/catalogue/seed-data";
 import { isLegacyCategory } from "@/server/catalogue/legacy";
@@ -83,7 +83,7 @@ export interface SyncReport {
 
 const groupRef = (key: string) => `category:${key}`;
 
-/** What WHMCS should hold, from the price books in effect this month in each enabled market. */
+/** What WHMCS should hold, from the price books in effect today in each enabled market. */
 export async function planSync(db: Db, now = new Date()): Promise<SyncPlan> {
   const [markets, categories, links, tlds] = await Promise.all([
     db.market.findMany({ where: { enabled: true }, orderBy: { sortOrder: "asc" } }),
@@ -92,7 +92,7 @@ export async function planSync(db: Db, now = new Date()): Promise<SyncPlan> {
     db.tld.findMany({ orderBy: { sortOrder: "asc" } }),
   ]);
   const linked = (kind: string, key: string) => links.find((l) => l.kind === kind && l.key === key)?.whmcsId ?? null;
-  const books = await Promise.all(markets.map(async (m) => ({ market: m, book: await bookFor(db, m.code, monthOf(todayIn(m.timeZone, now))) })));
+  const books = await Promise.all(markets.map(async (m) => ({ market: m, book: await bookFor(db, m.code, priceDay(todayIn(m.timeZone, now))) })));
   const problems: string[] = [];
 
   /** One price per currency: markets sharing a currency must agree. */

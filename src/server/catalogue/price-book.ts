@@ -1,6 +1,6 @@
 import { Prisma, type CatalogueStatus, type PriceBookEntry, type PrismaClient, type Product, type ProductCategory } from "@prisma/client";
 import { money, parseMoney, MoneyParseError, type Money } from "@/lib/domain/money";
-import { customerPrice, PricingError, type PriceBreakdown } from "@/lib/domain/pricing";
+import { customerPrice, nextPriceChange, PricingError, type PriceBreakdown } from "@/lib/domain/pricing";
 import { company } from "@/config/app";
 import { DomainError } from "@/server/org/access";
 import { assertStaffCan, type StaffActor } from "@/server/staff/access";
@@ -14,11 +14,15 @@ import { effectiveStatus, shownTo, shownWhere, type Audience, type WithFamily } 
  * see approved prices and nothing else, and a product without one isn't
  * offered in that market.
  *
- * An approved price applies from a month until a later one replaces it.
- * Prices in effect are fixed for the month: staff approve changes for
- * next month. The one exception is something with no price in a market
- * yet, which can be priced from this month, since no customer has seen a
- * price for it.
+ * An approved price applies from a day until a later one replaces it.
+ * Prices change every 14 days, on a Monday, since quotes are valid for
+ * 14 days, and are fixed in between: staff approve changes for the next
+ * change day (nextPriceChange).
+ * The one exception is something with no price in a market yet, which
+ * can be priced from today, since no customer has seen a price for it.
+ * "month" in this file is the key prices are looked up by: a day
+ * ("2026-10-06"), or a month for entries from before fortnightly pricing (see
+ * priceDay in lib/domain/pricing.ts).
  */
 
 type Db = Pick<PrismaClient, "priceBookEntry" | "product" | "productCategory" | "tld" | "fxRate" | "pricingSettings" | "market">;
@@ -31,7 +35,7 @@ export interface MarketRef {
 export const productItem = (slug: string) => `product:${slug}`;
 export const tldItem = (tld: string) => `tld:${tld}`;
 
-/** The entries in effect in a month, latest per item. */
+/** The entries in effect on a day, latest per item. */
 export async function bookFor(db: Pick<PrismaClient, "priceBookEntry">, marketCode: string, month: string): Promise<Map<string, PriceBookEntry>> {
   const rows = await db.priceBookEntry.findMany({ where: { marketCode, month: { lte: month } }, orderBy: { month: "asc" } });
   return new Map(rows.map((r) => [r.item, r]));
@@ -110,16 +114,16 @@ export async function marketplace(db: Db, market: MarketRef, month: string, audi
 
 // ─── Suggestions and approval (staff) ────────────────────────────────
 
-/** "2026-10" after "2026-09". */
+/** "2026-10" after "2026-09". For month keys; prices change on nextPriceChange. */
 export function nextMonth(month: string): string {
   const [y, m] = month.split("-").map(Number);
   return m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, "0")}`;
 }
 
 /**
- * The rate for pricing a month: the latest set for that month or before.
- * A market priced for the first time mid-month may only have next month's
- * rate, so that is used when there is nothing earlier.
+ * The rate for pricing a day: the latest set for that day or before. A
+ * market priced for the first time mid-period may only have the next
+ * period's rate, so that is used when there is nothing earlier.
  */
 async function rateFor(db: Pick<PrismaClient, "fxRate">, month: string, base: string, quote: string) {
   const upTo = await db.fxRate.findFirst({ where: { base, quote, month: { lte: month } }, orderBy: { month: "desc" } });
@@ -141,13 +145,13 @@ export interface BookRow {
   /** A product's status with its family's taken into account; domains are always live. */
   status: CatalogueStatus;
   cost: Money;
-  /** In effect this month. */
+  /** In effect today. */
   current: Money | null;
   currentRenew?: Money | null;
   /** Approved for the target month, if it differs from what's in effect. */
   scheduled: Money | null;
   scheduledRenew?: Money | null;
-  /** The month an approval now would apply from. */
+  /** The day an approval now would apply from: the next change day, or today for something not priced yet. */
   targetMonth: string;
   suggestion: Suggestion | null;
   /** Why there's no suggestion, e.g. a missing rate. */
@@ -170,7 +174,7 @@ async function suggestFor(db: Db, month: string, currency: string, inputs: { cos
 export async function bookRows(db: Db, marketCode: string, month: string): Promise<{ rows: BookRow[]; market: { code: string; currency: string; name: string } }> {
   const market = await db.market.findUnique({ where: { code: marketCode } });
   if (!market) throw new DomainError("not-found", "No such market.");
-  const next = nextMonth(month);
+  const next = nextPriceChange(month);
   const [categories, tlds, settings, current, upToNext] = await Promise.all([
     // Drafts are priced too, so a product can be priced before it goes live.
     db.productCategory.findMany({ orderBy: [{ family: { sortOrder: "asc" } }, { sortOrder: "asc" }], include: { family: true, products: { where: { slug: { not: DOMAIN_PRODUCT_SLUG } }, orderBy: { sortOrder: "asc" } } } }),
@@ -241,7 +245,7 @@ export async function bookRows(db: Db, marketCode: string, month: string): Promi
 interface PricingDeps {
   db: PrismaClient;
   staff: StaffActor;
-  /** The month prices are fixed for now, "2026-09". */
+  /** Today, "2026-10-06": prices in effect are fixed until the next change day. */
   month: string;
 }
 

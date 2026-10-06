@@ -9,7 +9,7 @@ import { Card } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
 import { toJson } from "@/lib/domain/money";
 import { requireBilling } from "@/server/billing/context";
-import { monthOf } from "@/lib/domain/pricing";
+import { priceDay } from "@/lib/domain/pricing";
 import { hasLegalText, REFUNDS_CONSENT_SECTION } from "@/server/cms/legal";
 import { can, DomainError } from "@/server/org/access";
 import { searchDomains, type DomainResult } from "@/server/orders/orders";
@@ -24,7 +24,7 @@ export default async function DomainsPage({ searchParams }: { searchParams: Prom
   let error: string | null = null;
   if (q.trim()) {
     try {
-      results = await searchDomains(db, billing, market, q, monthOf(today));
+      results = await searchDomains(db, billing, market, q, priceDay(today));
     } catch (e) {
       if (e instanceof DomainError) error = e.message;
       else throw e;

@@ -2,7 +2,7 @@ import { Prisma, type PrismaClient } from "@prisma/client";
 import { queueEmail } from "@/server/email/outbox";
 
 /**
- * Emails to Admins about exchange rates and the monthly price book. Each
+ * Emails to Admins about exchange rates and the fortnightly price book. Each
  * alert has a key, and a key is only ever sent once, so a fetch that
  * fails at every try in a day sends one email, not four.
  */

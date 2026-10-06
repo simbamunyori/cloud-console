@@ -1,4 +1,5 @@
 import type { PrismaClient } from "@prisma/client";
+import { nextPriceChange } from "@/lib/domain/pricing";
 import { nextMonth } from "@/server/catalogue/price-book";
 export { nextMonth };
 import { DomainError } from "@/server/org/access";
@@ -14,7 +15,7 @@ import { assertStaffCan, type StaffActor } from "@/server/staff/access";
 interface PricingDeps {
   db: PrismaClient;
   staff: StaffActor;
-  /** The month prices are fixed for now, "2026-09". */
+  /** Today, "2026-10-06": prices in effect are fixed until the next change day. */
   month: string;
 }
 
@@ -67,7 +68,7 @@ export async function setCurrencyBuffer(deps: PricingDeps, input: string) {
   });
 }
 
-/** The largest price change the monthly price book approves on its own (src/server/pricing/monthly.ts). */
+/** The largest price change the price book approves on its own (src/server/pricing/periods.ts). */
 export async function setAutoApprove(deps: PricingDeps, input: string) {
   assertStaffCan(deps.staff, "managePricing");
   const bps = parsePercent(input, "threshold");
@@ -82,11 +83,11 @@ export async function setAutoApprove(deps: PricingDeps, input: string) {
   });
 }
 
-/** Sets the rate used from next month on. This month's rate is already in this month's prices. */
-export async function setNextMonthRate(deps: PricingDeps, base: string, quote: string, input: string) {
+/** Sets the rate used from the next change day. The current rate is already in the current prices. */
+export async function setNextPeriodRate(deps: PricingDeps, base: string, quote: string, input: string) {
   assertStaffCan(deps.staff, "managePricing");
   const rateMicros = parseRate(input, "rate");
-  const month = nextMonth(deps.month);
+  const month = nextPriceChange(deps.month);
   const current = await deps.db.fxRate.findUnique({ where: { month_base_quote: { month, base, quote } } });
   return deps.db.$transaction(async (tx) => {
     const rate = await tx.fxRate.upsert({
@@ -105,7 +106,7 @@ async function latestRate(db: PrismaClient, month: string, base: string, quote: 
 
 /** Settings shared by every market, the rates a market's currency needs, and the change log. */
 export async function pricingOverview(db: PrismaClient, month: string, currency: string) {
-  const next = nextMonth(month);
+  const next = nextPriceChange(month);
   const [categories, settings, products, tlds, changes] = await Promise.all([
     db.productCategory.findMany({ orderBy: { sortOrder: "asc" } }),
     db.pricingSettings.findUnique({ where: { id: "global" } }),
@@ -117,7 +118,7 @@ export async function pricingOverview(db: PrismaClient, month: string, currency:
   const bases = new Set([...products.map((p) => (p.fixedPriceMinor !== null && p.fixedPriceCurrency ? p.fixedPriceCurrency : p.costCurrency)), ...tlds.map((t) => t.costCurrency)]);
   bases.delete(currency);
   const rates = await Promise.all(
-    [...bases].sort().map(async (base) => ({ base, quote: currency, thisMonth: await latestRate(db, month, base, currency), nextMonth: await latestRate(db, next, base, currency) })),
+    [...bases].sort().map(async (base) => ({ base, quote: currency, thisPeriod: await latestRate(db, month, base, currency), nextPeriod: await latestRate(db, next, base, currency) })),
   );
   return { month, next, categories, bufferBps: settings?.currencyBufferBps ?? 0, autoApproveBps: settings?.autoApproveBps ?? 300, ratesCheckedAt: settings?.ratesCheckedAt ?? null, ratesError: settings?.ratesError ?? null, rates, changes };
 }

@@ -1,8 +1,8 @@
 import { Prisma, type PriceBookRun, type PrismaClient } from "@prisma/client";
 import { company, DEFAULT_TIME_ZONE } from "@/config/app";
-import { daysBetween, formatLongDate, formatMonth, todayIn, toDateOnly } from "@/lib/dates";
+import { daysBetween, formatLongDate, parseDateOnly, todayIn, toDateOnly } from "@/lib/dates";
 import { divCeil, formatMoney } from "@/lib/domain/money";
-import { monthOf } from "@/lib/domain/pricing";
+import { dayBefore, periodOf, priceDay } from "@/lib/domain/pricing";
 import { bookRows } from "@/server/catalogue/price-book";
 import { DomainError } from "@/server/org/access";
 import { assertStaffCan, staffLabel, type StaffActor } from "@/server/staff/access";
@@ -10,10 +10,12 @@ import { bpsText, emailAdmins, sendAlert } from "./alerts";
 import { latestTable, microsText, neededPairs, rateMicros, type TableWithRates } from "./official-rates";
 
 /**
- * The monthly price book, built on the 1st at 06:00 (boss.ts):
+ * The price book for each 14-day period, built at 06:00 on its first day,
+ * a Monday (boss.ts). Prices change every 14 days because quotes are
+ * valid for 14 days.
  *
- * 1. The month's rates come from the newest Bank of Botswana table in
- *    use, and replace any rate already set for the month.
+ * 1. The period's rates come from the newest Bank of Botswana table in
+ *    use, and replace any rate already set for the period.
  * 2. Every market that is switched on gets a suggestion for each priced
  *    item (cost, the new rate, the buffer and the margin, as always).
  * 3. If no price moves by more than the threshold (PricingSettings,
@@ -22,12 +24,14 @@ import { latestTable, microsText, neededPairs, rateMicros, type TableWithRates }
  *    Otherwise Admins get an email with a link to approve them, and the
  *    previous prices stay until someone does.
  *
- * Prices then stay fixed for the month. A price staff approved by hand
- * for the month is theirs and is left alone. Items with no price yet are
- * left for staff to price.
+ * Prices then stay fixed until the next change day. A price staff
+ * approved by hand for the period is theirs and is left alone. Items with
+ * no price yet are left for staff to price. A period is keyed by its
+ * first day,
+ * "2026-10-12" (see priceDay in lib/domain/pricing.ts).
  */
 
-/** A table older than this on the 1st isn't "the latest official rates"; we wait and alert instead. */
+/** A table older than this on a change day isn't "the latest official rates"; we wait and alert instead. */
 export const MAX_TABLE_AGE_DAYS = 7;
 export const SYSTEM_ACTOR = { actorUserId: "system", actorLabel: "Automatic pricing" };
 
@@ -54,19 +58,15 @@ export interface RunRate {
 /** Who sends the prices to WHMCS: the Admin who approved them, or the system. */
 export type SyncActor = { staff: StaffActor } | { system: string };
 
-export interface MonthlyDeps {
+export interface PeriodDeps {
   db: PrismaClient;
   now?: () => Date;
   /** Sends the price books in effect to billing. Unset when billing reads them directly (the stub). */
   sync?: (actor: SyncActor) => Promise<void>;
 }
 
-const monthLabel = (m: string) => formatMonth(new Date(`${m}-01T00:00:00Z`));
-
-function previousMonth(month: string): string {
-  const [y, m] = month.split("-").map(Number);
-  return m === 1 ? `${y - 1}-12` : `${y}-${String(m - 1).padStart(2, "0")}`;
-}
+/** "the prices from Monday 12 October 2026". */
+export const periodLabel = (period: string) => `the prices from ${formatLongDate(parseDateOnly(period)!)}`;
 
 /** How far a price moves, in basis points, rounded up. From nothing counts as 100%. */
 function changeBps(from: bigint, to: bigint): number {
@@ -86,8 +86,8 @@ export function describePriceChange(c: PriceChange): string {
   return `${c.name} (${c.market}): ${show(c.from)} to ${show(c.to)}${renew}, ${bpsText(c.changeBps)}%`;
 }
 
-/** Works out the month's rates and every price that would change. Writes the rates, nothing else. */
-async function planMonth(db: PrismaClient, month: string, table: TableWithRates) {
+/** Works out the period's rates and every price that would change. Writes the rates, nothing else. */
+async function planPeriod(db: PrismaClient, period: string, table: TableWithRates) {
   const pairs = await neededPairs(db);
   const rates: RunRate[] = [];
   for (const p of pairs) {
@@ -97,17 +97,17 @@ async function planMonth(db: PrismaClient, month: string, table: TableWithRates)
   }
   for (const r of rates) {
     const data = { rateMicros: BigInt(r.rateMicros), source: "bob", sourceDate: table.publishedOn, setById: null };
-    await db.fxRate.upsert({ where: { month_base_quote: { month, base: r.base, quote: r.quote } }, update: data, create: { month, base: r.base, quote: r.quote, ...data } });
+    await db.fxRate.upsert({ where: { month_base_quote: { month: period, base: r.base, quote: r.quote } }, update: data, create: { month: period, base: r.base, quote: r.quote, ...data } });
   }
 
   const changes: PriceChange[] = [];
   const markets = await db.market.findMany({ where: { enabled: true }, orderBy: { sortOrder: "asc" } });
   for (const market of markets) {
-    // Seen from last month, a priced row's next approval applies from this month.
-    const { rows } = await bookRows(db, market.code, previousMonth(month));
-    const byHand = new Set((await db.priceBookEntry.findMany({ where: { marketCode: market.code, month, approvedById: { not: null } }, select: { item: true } })).map((e) => e.item));
+    // Seen from the day before, a priced row's next approval applies from this period's first day.
+    const { rows } = await bookRows(db, market.code, dayBefore(period));
+    const byHand = new Set((await db.priceBookEntry.findMany({ where: { marketCode: market.code, month: period, approvedById: { not: null } }, select: { item: true } })).map((e) => e.item));
     for (const r of rows) {
-      if (!r.offered || !r.suggestion || !r.current || r.targetMonth !== month || byHand.has(r.item)) continue;
+      if (!r.offered || !r.suggestion || !r.current || r.targetMonth !== period || byHand.has(r.item)) continue;
       const to = r.suggestion.price.amountMinor;
       const toRenew = r.kind === "tld" ? (r.suggestion.renew?.amountMinor ?? null) : null;
       const fromRenew = r.kind === "tld" ? (r.currentRenew?.amountMinor ?? null) : null;
@@ -129,7 +129,7 @@ async function planMonth(db: PrismaClient, month: string, table: TableWithRates)
   return { rates, changes } as const;
 }
 
-/** Writes a run's prices into the price books for its month. */
+/** Writes a run's prices into the price books from its first day. */
 async function writeEntries(tx: Prisma.TransactionClient, run: PriceBookRun, approvedById: string | null, now: Date) {
   for (const c of runChanges(run)) {
     const data = {
@@ -143,9 +143,9 @@ async function writeEntries(tx: Prisma.TransactionClient, run: PriceBookRun, app
       runId: run.id,
     };
     await tx.priceBookEntry.upsert({
-      where: { marketCode_item_month: { marketCode: c.market, item: c.item, month: run.month } },
+      where: { marketCode_item_month: { marketCode: c.market, item: c.item, month: run.period } },
       update: data,
-      create: { marketCode: c.market, item: c.item, month: run.month, ...data },
+      create: { marketCode: c.market, item: c.item, month: run.period, ...data },
     });
   }
 }
@@ -153,29 +153,30 @@ async function writeEntries(tx: Prisma.TransactionClient, run: PriceBookRun, app
 const ratesText = (rates: RunRate[]) => rates.map((r) => `1 ${r.base} = ${microsText(BigInt(r.rateMicros))} ${r.quote}`).join(", ");
 
 /**
- * Builds this month's price book, once. Safe to call again: a month that
+ * Builds this period's price book, once. Safe to call again: a period that
  * already has one is left alone. Returns null, with an email to Admins,
  * when there are no recent official rates to build it from.
  */
-export async function buildMonth(deps: MonthlyDeps): Promise<PriceBookRun | null> {
+export async function buildPeriod(deps: PeriodDeps): Promise<PriceBookRun | null> {
   const { db } = deps;
   const now = deps.now?.() ?? new Date();
   const today = todayIn(DEFAULT_TIME_ZONE, now);
-  const month = monthOf(today);
-  const existing = await db.priceBookRun.findUnique({ where: { month } });
+  const period = periodOf(priceDay(today));
+  const existing = await db.priceBookRun.findUnique({ where: { period } });
   if (existing) return existing;
 
   const table = await latestTable(db, today);
+  const label = periodLabel(period);
   const wait = (why: string) =>
-    sendAlert(db, `build-waiting:${month}:${toDateOnly(today)}`, {
-      subject: `${monthLabel(month)} prices are waiting for exchange rates`,
-      heading: `${monthLabel(month)} prices aren't set yet`,
-      paragraphs: [why, `Last month's prices stay in effect. We try again each time the rates are checked, and build the price book as soon as there's a recent table.`],
+    sendAlert(db, `build-waiting:${period}:${toDateOnly(today)}`, {
+      subject: `Prices for ${label} are waiting for exchange rates`,
+      heading: "The new prices aren't set yet",
+      paragraphs: [why, "The previous prices stay in effect. We try again each time the rates are checked, and build the price book as soon as there's a recent table."],
     }).then(() => null);
   if (!table) return wait("There's no Bank of Botswana rate table in use yet.");
-  if (daysBetween(table.publishedOn, today) > MAX_TABLE_AGE_DAYS) return wait(`The newest Bank of Botswana table in use was published ${formatLongDate(table.publishedOn)}, which is too old to price a month from.`);
+  if (daysBetween(table.publishedOn, today) > MAX_TABLE_AGE_DAYS) return wait(`The newest Bank of Botswana table in use was published ${formatLongDate(table.publishedOn)}, which is too old to price from.`);
 
-  const plan = await planMonth(db, month, table);
+  const plan = await planPeriod(db, period, table);
   if ("problem" in plan) return wait(plan.problem!);
   const { rates, changes } = plan;
   const settings = await db.pricingSettings.findUnique({ where: { id: "global" } });
@@ -183,14 +184,13 @@ export async function buildMonth(deps: MonthlyDeps): Promise<PriceBookRun | null
   const maxChangeBps = Math.max(0, ...changes.map((c) => c.changeBps));
   const status = changes.length === 0 ? "NO_CHANGES" : maxChangeBps <= thresholdBps ? "APPLIED" : "AWAITING_APPROVAL";
   const source = `Bank of Botswana, published ${formatLongDate(table.publishedOn)}`;
-  const label = monthLabel(month);
 
   let run: PriceBookRun;
   try {
     run = await db.$transaction(async (tx) => {
       const created = await tx.priceBookRun.create({
         data: {
-          month,
+          period,
           status,
           tableId: table.id,
           rates: rates as unknown as Prisma.InputJsonValue,
@@ -200,7 +200,7 @@ export async function buildMonth(deps: MonthlyDeps): Promise<PriceBookRun | null
           approvedAt: status === "APPLIED" ? now : null,
         },
       });
-      const data = { month, publishedOn: toDateOnly(table.publishedOn), rates, changes, maxChangeBps, thresholdBps } as unknown as Prisma.InputJsonValue;
+      const data = { period, publishedOn: toDateOnly(table.publishedOn), rates, changes, maxChangeBps, thresholdBps } as unknown as Prisma.InputJsonValue;
       if (status === "APPLIED") {
         await writeEntries(tx, created, null, now);
         await tx.staffAuditEvent.create({
@@ -213,24 +213,24 @@ export async function buildMonth(deps: MonthlyDeps): Promise<PriceBookRun | null
         });
       } else if (status === "NO_CHANGES") {
         await tx.staffAuditEvent.create({
-          data: { ...SYSTEM_ACTOR, action: "pricing.month-rates", summary: `Set ${label} rates from ${source} (${ratesText(rates)}). No price changes.`, data },
+          data: { ...SYSTEM_ACTOR, action: "pricing.period-rates", summary: `Set the rates for ${label} from ${source} (${ratesText(rates)}). No price changes.`, data },
         });
       } else {
         await tx.staffAuditEvent.create({
           data: {
             ...SYSTEM_ACTOR,
             action: "pricing.approval-requested",
-            summary: `${label} price book needs approval: the largest change is ${bpsText(maxChangeBps)}%, over the ${bpsText(thresholdBps)}% threshold. Rates from ${source}: ${ratesText(rates)}`,
+            summary: `The price book for ${label} needs approval: the largest change is ${bpsText(maxChangeBps)}%, over the ${bpsText(thresholdBps)}% threshold. Rates from ${source}: ${ratesText(rates)}`,
             data,
           },
         });
-        await emailAdmins(tx, "pricing.approval_needed", { month });
+        await emailAdmins(tx, "pricing.approval_needed", { period });
       }
       return created;
     });
   } catch (e) {
     // Another worker built it first.
-    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") return db.priceBookRun.findUnique({ where: { month } });
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") return db.priceBookRun.findUnique({ where: { period } });
     throw e;
   }
   if (status === "APPLIED") return syncRun(deps, run, { system: SYSTEM_ACTOR.actorLabel });
@@ -238,7 +238,7 @@ export async function buildMonth(deps: MonthlyDeps): Promise<PriceBookRun | null
 }
 
 /** Sends a run's prices to WHMCS and records how it went. A failure emails Admins; the rates job tries again. */
-export async function syncRun(deps: MonthlyDeps, run: PriceBookRun, actor: SyncActor): Promise<PriceBookRun> {
+export async function syncRun(deps: PeriodDeps, run: PriceBookRun, actor: SyncActor): Promise<PriceBookRun> {
   const now = deps.now?.() ?? new Date();
   if (!deps.sync) return deps.db.priceBookRun.update({ where: { id: run.id }, data: { syncedAt: now, syncError: null } });
   try {
@@ -247,37 +247,37 @@ export async function syncRun(deps: MonthlyDeps, run: PriceBookRun, actor: SyncA
   } catch (e) {
     const message = e instanceof Error ? e.message.slice(0, 500) : "Unknown error";
     const updated = await deps.db.priceBookRun.update({ where: { id: run.id }, data: { syncError: message } });
-    await sendAlert(deps.db, `sync-failed:${run.month}:${toDateOnly(todayIn(DEFAULT_TIME_ZONE, now))}`, {
-      subject: `${monthLabel(run.month)} prices didn't reach WHMCS`,
-      heading: "WHMCS still has last month's prices",
-      paragraphs: [`The console's price books have the new prices, but sending them to WHMCS failed: ${message}`, `We try again each time the rates are checked. You can also run the price sync by hand (docs/whmcs-setup.md, section 6).`],
+    await sendAlert(deps.db, `sync-failed:${run.period}:${toDateOnly(todayIn(DEFAULT_TIME_ZONE, now))}`, {
+      subject: `Prices for ${periodLabel(run.period)} didn't reach WHMCS`,
+      heading: "WHMCS still has the previous prices",
+      paragraphs: [`The console's price books have the new prices, but sending them to WHMCS failed: ${message}`, "We try again each time the rates are checked. You can also run the price sync by hand (docs/whmcs-setup.md, section 6)."],
     });
     return updated;
   }
 }
 
-/** Retries the WHMCS sync for this month's applied price book, if it hasn't gone through. */
-export async function retrySync(deps: MonthlyDeps) {
-  const month = monthOf(todayIn(DEFAULT_TIME_ZONE, deps.now?.() ?? new Date()));
-  const run = await deps.db.priceBookRun.findUnique({ where: { month } });
+/** Retries the WHMCS sync for this period's applied price book, if it hasn't gone through. */
+export async function retrySync(deps: PeriodDeps) {
+  const period = periodOf(priceDay(todayIn(DEFAULT_TIME_ZONE, deps.now?.() ?? new Date())));
+  const run = await deps.db.priceBookRun.findUnique({ where: { period } });
   if (!run || run.status !== "APPLIED" || run.syncedAt) return run;
   return syncRun(deps, run, run.approvedById && run.approvedByName ? { staff: { userId: run.approvedById, name: run.approvedByName, staffRole: "ADMIN" } } : { system: SYSTEM_ACTOR.actorLabel });
 }
 
 /**
- * An Admin approves a month's price book that was over the threshold.
- * The prices apply at once and go to WHMCS. Logged. Approving twice does
+ * An Admin approves a period's price book that was over the threshold. The
+ * prices apply at once and go to WHMCS. Logged. Approving twice does
  * nothing the second time.
  */
-export async function approveRun(deps: MonthlyDeps & { staff: StaffActor }, month: string): Promise<PriceBookRun> {
+export async function approveRun(deps: PeriodDeps & { staff: StaffActor }, period: string): Promise<PriceBookRun> {
   assertStaffCan(deps.staff, "managePricing");
   const { db } = deps;
   const now = deps.now?.() ?? new Date();
-  const run = await db.priceBookRun.findUnique({ where: { month } });
-  if (!run) throw new DomainError("not-found", "There's no price book for that month.");
+  const run = await db.priceBookRun.findUnique({ where: { period } });
+  if (!run) throw new DomainError("not-found", "There's no price book for that day.");
   if (run.status !== "AWAITING_APPROVAL") return run;
-  const current = monthOf(todayIn(DEFAULT_TIME_ZONE, now));
-  if (run.month !== current) throw new DomainError("invalid", `This price book was for ${monthLabel(run.month)}, which has ended. ${monthLabel(current)} has its own.`);
+  const current = periodOf(priceDay(todayIn(DEFAULT_TIME_ZONE, now)));
+  if (run.period !== current) throw new DomainError("invalid", `This price book was for ${periodLabel(run.period)}, and a newer one has replaced it.`);
 
   const changes = runChanges(run);
   const approved = await db.$transaction(async (tx) => {
@@ -289,15 +289,15 @@ export async function approveRun(deps: MonthlyDeps & { staff: StaffActor }, mont
     const updated = await tx.priceBookRun.findUniqueOrThrow({ where: { id: run.id } });
     await writeEntries(tx, updated, deps.staff.userId, now);
     for (const c of changes) {
-      await tx.pricingChange.create({ data: { userId: deps.staff.userId, field: `price:${c.market}:${c.item}:${run.month}`, fromValue: c.from, toValue: c.to } });
+      await tx.pricingChange.create({ data: { userId: deps.staff.userId, field: `price:${c.market}:${c.item}:${run.period}`, fromValue: c.from, toValue: c.to } });
     }
     await tx.staffAuditEvent.create({
       data: {
         actorUserId: deps.staff.userId,
         actorLabel: staffLabel(deps.staff),
-        action: "pricing.month-approved",
-        summary: `Approved ${changes.length} ${changes.length === 1 ? "price" : "prices"} for ${monthLabel(run.month)}: the largest change is ${bpsText(run.maxChangeBps)}%, over the ${bpsText(run.thresholdBps)}% threshold`,
-        data: { month: run.month, changes } as unknown as Prisma.InputJsonValue,
+        action: "pricing.period-approved",
+        summary: `Approved ${changes.length} ${changes.length === 1 ? "price" : "prices"} for ${periodLabel(run.period)}: the largest change is ${bpsText(run.maxChangeBps)}%, over the ${bpsText(run.thresholdBps)}% threshold`,
+        data: { period: run.period, changes } as unknown as Prisma.InputJsonValue,
       },
     });
     return updated;
@@ -306,7 +306,7 @@ export async function approveRun(deps: MonthlyDeps & { staff: StaffActor }, mont
   return syncRun(deps, approved, { staff: deps.staff });
 }
 
-/** For the Pricing page: the last few months' price books, newest first. */
+/** For the Pricing page: the last few periods' price books, newest first. */
 export function recentRuns(db: Pick<PrismaClient, "priceBookRun">, take = 12) {
-  return db.priceBookRun.findMany({ orderBy: { month: "desc" }, take, include: { table: { select: { publishedOn: true } } } });
+  return db.priceBookRun.findMany({ orderBy: { period: "desc" }, take, include: { table: { select: { publishedOn: true } } } });
 }

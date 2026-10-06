@@ -6,34 +6,34 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
 import { company, DEFAULT_TIME_ZONE } from "@/config/app";
-import { formatLongDate, formatMoment, formatMonth, todayIn } from "@/lib/dates";
+import { formatLongDate, formatMoment, parseDateOnly, todayIn } from "@/lib/dates";
 import { formatMoney } from "@/lib/domain/money";
-import { monthOf } from "@/lib/domain/pricing";
+import { priceDay, periodOf } from "@/lib/domain/pricing";
 import { requireStaffCan } from "@/server/admin/context";
 import { bpsToPercent, microsToRate } from "@/server/admin/pricing";
 import { prisma } from "@/server/db";
-import { runChanges, runRates } from "@/server/pricing/monthly";
-import { ApproveMonthForm } from "../../forms";
+import { runChanges, runRates } from "@/server/pricing/periods";
+import { ApprovePeriodForm } from "../../forms";
 
-export const metadata: Metadata = { title: "Monthly price book" };
+export const metadata: Metadata = { title: "Price book" };
 
 const L = company.staffLocale;
 
 /**
- * One month's price book: the rates, every price that changes and how it
+ * One period's price book: the rates, every price that changes and how it
  * was approved. The approval email links here; approving takes the one
  * button, never just opening the link.
  */
-export default async function MonthPage({ params }: { params: Promise<{ month: string }> }) {
+export default async function PeriodPage({ params }: { params: Promise<{ period: string }> }) {
   await requireStaffCan("managePricing");
-  const { month } = await params;
-  if (!/^\d{4}-\d{2}$/.test(month)) notFound();
-  const run = await prisma.priceBookRun.findUnique({ where: { month }, include: { table: { select: { publishedOn: true } } } });
+  const { period } = await params;
+  const monday = parseDateOnly(period);
+  if (!monday) notFound();
+  const run = await prisma.priceBookRun.findUnique({ where: { period }, include: { table: { select: { publishedOn: true } } } });
   if (!run) notFound();
-  const label = formatMonth(new Date(`${month}-01T00:00:00Z`));
   const changes = runChanges(run).slice().sort((a, b) => b.changeBps - a.changeBps);
   const show = (v: string | null | undefined, currency: string) => (v ? formatMoney({ amountMinor: BigInt(v), currency }, L) : "None");
-  const current = run.month === monthOf(todayIn(DEFAULT_TIME_ZONE));
+  const current = run.period === periodOf(priceDay(todayIn(DEFAULT_TIME_ZONE)));
 
   return (
     <>
@@ -42,7 +42,7 @@ export default async function MonthPage({ params }: { params: Promise<{ month: s
         Pricing
       </Link>
       <PageHeader
-        title={`${label} price book`}
+        title={`Price book from ${formatLongDate(monday)}`}
         description={`Worked out ${formatMoment(run.createdAt, DEFAULT_TIME_ZONE)} from Bank of Botswana's rates published ${formatLongDate(run.table.publishedOn)}, the currency buffer and each category's margin.`}
       />
       <div className="flex flex-col gap-6">
@@ -52,9 +52,9 @@ export default async function MonthPage({ params }: { params: Promise<{ month: s
             {run.status === "AWAITING_APPROVAL" ? (
               <>
                 <p className="text-ink">
-                  The largest change is {bpsToPercent(run.maxChangeBps)}%, more than the {bpsToPercent(run.thresholdBps)}% approved automatically. Last month&apos;s prices stay in effect, here and in WHMCS, until you approve.
+                  The largest change is {bpsToPercent(run.maxChangeBps)}%, more than the {bpsToPercent(run.thresholdBps)}% approved automatically. The previous prices stay in effect, here and in WHMCS, until you approve.
                 </p>
-                {current ? <ApproveMonthForm month={run.month} label={`Approve ${changes.length} ${changes.length === 1 ? "price" : "prices"} for ${label}`} /> : <p className="text-ink-muted">{label} has ended, so these prices can no longer be approved.</p>}
+                {current ? <ApprovePeriodForm period={run.period} label={`Approve ${changes.length} ${changes.length === 1 ? "price" : "prices"}`} /> : <p className="text-ink-muted">A newer price book has replaced this one, so these prices can no longer be approved.</p>}
               </>
             ) : run.status === "NO_CHANGES" ? (
               <p className="text-ink">Every price stayed the same with the new rates.</p>
