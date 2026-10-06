@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { claimsBotswanaData, withDataClaims } from "../src/lib/data-claims";
 import { money } from "../src/lib/domain/money";
 import { senderAddress } from "../src/server/billing/whmcs/company-push";
@@ -10,6 +10,16 @@ import { parseDnsRecords } from "../src/server/domains/manage";
 import { OpenproviderRegistrar, splitPhone } from "../src/server/domains/openprovider";
 import { parseNameservers, RegistrarError, splitDomain } from "../src/server/domains/registrar";
 import { openSecrets, openValue, sealSecrets, sealValue } from "../src/server/partners/vault";
+
+// The partner vault's key comes from TOTP_ENCRYPTION_KEY, which the check job doesn't set.
+const TOTP = process.env.TOTP_ENCRYPTION_KEY;
+beforeAll(() => {
+  process.env.TOTP_ENCRYPTION_KEY ||= Buffer.alloc(32, 7).toString("base64");
+});
+afterAll(() => {
+  if (TOTP === undefined) delete process.env.TOTP_ENCRYPTION_KEY;
+  else process.env.TOTP_ENCRYPTION_KEY = TOTP;
+});
 
 describe("data kept in Botswana", () => {
   it("holds back lines that say where data is kept, and nothing else", () => {

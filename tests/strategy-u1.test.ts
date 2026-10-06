@@ -22,6 +22,16 @@ import { registerDomain, type OrderDeps } from "../src/server/orders/orders";
 import type { StaffActor } from "../src/server/staff/access";
 import { db, hasDb, makeOrganisation, uniqueEmail } from "./helpers";
 
+// The partner vault's key comes from TOTP_ENCRYPTION_KEY, which the check job doesn't set.
+const TOTP = process.env.TOTP_ENCRYPTION_KEY;
+beforeAll(() => {
+  process.env.TOTP_ENCRYPTION_KEY ||= Buffer.alloc(32, 7).toString("base64");
+});
+afterAll(() => {
+  if (TOTP === undefined) delete process.env.TOTP_ENCRYPTION_KEY;
+  else process.env.TOTP_ENCRYPTION_KEY = TOTP;
+});
+
 /** A registrar in memory: names it holds are taken; it can be told to fail. */
 class FakeRegistrar implements Registrar {
   domains = new Map<string, RegistrarDomain>();
