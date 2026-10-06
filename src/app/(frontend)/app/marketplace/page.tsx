@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
 import { withDataCentre } from "@/config/site";
-import { monthOf } from "@/lib/domain/pricing";
+import { priceDay } from "@/lib/domain/pricing";
 import { requireBilling } from "@/server/billing/context";
 import { marketplace } from "@/server/catalogue/price-book";
 import { audienceFor } from "@/server/catalogue/visibility";
@@ -15,11 +15,11 @@ export const metadata: Metadata = { title: "Marketplace" };
 
 export default async function MarketplacePage() {
   const { today, market, locale, organisation } = await requireBilling();
-  const categories = await marketplace(prisma, market, monthOf(today), audienceFor(organisation));
+  const categories = await marketplace(prisma, market, priceDay(today), audienceFor(organisation));
 
   return (
     <>
-      <PageHeader title="Marketplace" description="Everything we offer, with the monthly price you'll pay. Prices are fixed for the month and go on your one monthly invoice." />
+      <PageHeader title="Marketplace" description="Everything we offer, with the monthly price you'll pay. Prices are fixed for 14 days at a time and go on your one monthly invoice." />
       <div className="flex flex-col gap-10">
         <form action="/app/marketplace/domains" method="get" className="flex flex-col gap-3 rounded-lg bg-navy p-5 text-on-navy sm:flex-row sm:items-end sm:p-6" role="search">
           <label className="flex flex-1 flex-col gap-2">

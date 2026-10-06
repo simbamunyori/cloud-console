@@ -18,7 +18,9 @@ export type SecretName =
   | "WHMCS_ACCESS_KEY"
   | "WHMCS_SYNC_SECRET"
   | "MICROSOFT_CLIENT_SECRET"
-  | "GOOGLE_CLIENT_SECRET";
+  | "GOOGLE_CLIENT_SECRET"
+  /** AllRatesToday, for Bank of Botswana's daily rates (src/server/pricing/official-rates.ts). */
+  | "ALLRATESTODAY_API_KEY";
 
 export interface SecretSource {
   get(name: SecretName): string | undefined;

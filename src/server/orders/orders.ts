@@ -2,7 +2,7 @@ import { randomInt } from "node:crypto";
 import type { PrismaClient } from "@prisma/client";
 import { todayIn } from "@/lib/dates";
 import { divRound, money, times, type Money } from "@/lib/domain/money";
-import { monthOf } from "@/lib/domain/pricing";
+import { priceDay } from "@/lib/domain/pricing";
 import { BillingError, PAYMENT_METHODS, type DomainAvailability, type UpgradePreview } from "@/server/billing/adapter";
 import type { ScopedBilling } from "@/server/billing/scoped";
 import { approvedPrice, productItem, productPrice, tldOffers } from "@/server/catalogue/price-book";
@@ -90,7 +90,7 @@ export async function quoteOrder(deps: OrderDeps, input: { slug: string; quantit
   if (!billingProductId) throw new DomainError("unavailable", "This can't be ordered yet. Contact support and we'll set it up for you.");
   const quantity = parseQuantity(product, input.quantity);
   const options = validateOptions(productOptions(product), input.options);
-  const month = monthOf(todayIn(deps.organisation.timeZone, deps.now));
+  const month = priceDay(todayIn(deps.organisation.timeZone, deps.now));
   const unitPrice = await productPrice(catalogueDb(deps.db), product, marketOf(deps), month, audience);
   if (!unitPrice) throw new DomainError("not-found", "That product isn't on sale.");
   return { product: { ...product, billingProductId }, quantity, unitPrice, monthlyTotal: times(unitPrice, quantity), options };
@@ -203,7 +203,7 @@ async function quantityChange(deps: OrderDeps, serviceId: string, rawQuantity: s
     const preview = await deps.billing.previewUpgrade(serviceId, { quantity: to, recurringPrice }).catch(billingFailure);
     return { serviceId, serviceName: service.name, from: service.quantity, to, unitPrice, preview, product };
   }
-  const month = monthOf(todayIn(deps.organisation.timeZone, deps.now));
+  const month = priceDay(todayIn(deps.organisation.timeZone, deps.now));
   // Existing customers keep adding users at the book price, even if the product is no longer offered to new ones.
   const unitPrice = await approvedPrice(catalogueDb(deps.db), marketOf(deps), productItem(product.slug), month);
   if (!unitPrice) throw new DomainError("unavailable", "We can't price this change right now. Contact support to change it.");
@@ -343,7 +343,7 @@ export async function registerDomain(deps: OrderDeps, rawName: string, rawYears:
   const years = Number(rawYears);
   if (!Number.isInteger(years) || years < 1 || years > 5) throw new DomainError("invalid", "Choose between 1 and 5 years.", "years");
   const market = await catalogueDb(deps.db).market.findUniqueOrThrow({ where: { code: deps.organisation.billingMarket } });
-  const month = monthOf(todayIn(deps.organisation.timeZone, deps.now));
+  const month = priceDay(todayIn(deps.organisation.timeZone, deps.now));
   const [result] = (await searchDomains(deps.db, deps.billing, market, rawName, month)).filter((r) => r.name === rawName.trim().toLowerCase());
   if (!result || !result.supported || !result.price) throw new DomainError("invalid", "We don't sell that ending yet.", "domain");
   if (!result.available) throw new DomainError("conflict", `${result.name} is taken. Try another name or ending.`, "domain");

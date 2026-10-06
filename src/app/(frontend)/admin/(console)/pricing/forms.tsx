@@ -3,7 +3,7 @@
 import { useActionState } from "react";
 import { Button } from "@/components/ui/button";
 import type { ActionState } from "@/server/action-state";
-import { approveAllAction, approvePriceAction, setOfferedAction } from "../actions";
+import { acceptRatesAction, approveAllAction, approvePriceAction, approvePeriodAction, setOfferedAction } from "../actions";
 
 const input = "h-10 w-28 rounded-md border border-border bg-surface-1 px-3 text-right text-callout text-ink tabular-nums";
 
@@ -60,6 +60,36 @@ export function ApproveAllForm({ market, count }: { market: string; count: numbe
       <input type="hidden" name="market" value={market} />
       <Button type="submit" disabled={pending || count === 0}>
         {pending ? "Approving…" : count ? `Approve ${count} ${count === 1 ? "suggestion" : "suggestions"}` : "All approved"}
+      </Button>
+      {state.ok && state.message ? <p className="text-callout text-positive">{state.message}</p> : null}
+      {state.error ? <p className="text-callout text-negative">{state.error}</p> : null}
+    </form>
+  );
+}
+
+/** Puts a held-back Bank of Botswana table into use. */
+export function AcceptRatesForm({ tableId, label }: { tableId: string; label: string }) {
+  const [state, action, pending] = useActionState<ActionState, FormData>(acceptRatesAction, {});
+  return (
+    <form action={action} className="flex flex-col items-end gap-1">
+      <input type="hidden" name="tableId" value={tableId} />
+      <Button type="submit" size="sm" variant="secondary" disabled={pending} aria-label={label}>
+        {pending ? "Accepting…" : "Accept"}
+      </Button>
+      {state.ok && state.message ? <p className="text-caption text-positive">{state.message}</p> : null}
+      {state.error ? <p className="text-caption text-negative">{state.error}</p> : null}
+    </form>
+  );
+}
+
+/** The one button the approval email leads to. */
+export function ApprovePeriodForm({ period, label }: { period: string; label: string }) {
+  const [state, action, pending] = useActionState<ActionState, FormData>(approvePeriodAction, {});
+  return (
+    <form action={action} className="flex flex-col items-start gap-2">
+      <input type="hidden" name="period" value={period} />
+      <Button type="submit" disabled={pending || state.ok}>
+        {pending ? "Approving…" : label}
       </Button>
       {state.ok && state.message ? <p className="text-callout text-positive">{state.message}</p> : null}
       {state.error ? <p className="text-callout text-negative">{state.error}</p> : null}
