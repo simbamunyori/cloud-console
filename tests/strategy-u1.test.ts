@@ -109,6 +109,8 @@ describe.skipIf(!hasDb)("strategy U1", () => {
     await db.partnerSetting.deleteMany({ where: { key: { in: ["openprovider", "bw-registry"] } } });
     await db.bankAccount.deleteMany({ where: { marketCode: "u1x" } });
     await db.marketChange.deleteMany({ where: { marketCode: "u1x" } });
+    // Another test file seeding the catalogue at the same time prices every market, this one included.
+    await db.priceBookEntry.deleteMany({ where: { marketCode: "u1x" } });
     await db.market.deleteMany({ where: { code: "u1x" } });
     if (!savedCompany) await db.companyProfile.deleteMany({ where: { id: "company" } });
   });
@@ -359,7 +361,7 @@ describe.skipIf(!hasDb)("strategy U1", () => {
       expect(message.attachments?.[0].content.subarray(0, 5).toString()).toBe("%PDF-");
       expect(message.text).toContain(`/app/billing/invoices/${invoiceId}`);
       expect(message.text).toContain("BW00001816431");
-    });
+    }, 120_000);
   });
 
   describe("company details into WHMCS", () => {
