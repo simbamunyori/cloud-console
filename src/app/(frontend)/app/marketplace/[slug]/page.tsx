@@ -22,6 +22,8 @@ import { hasLegalText, REFUNDS_CONSENT_SECTION } from "@/server/cms/legal";
 import { can } from "@/server/org/access";
 import { MAX_QUANTITY } from "@/server/orders/orders";
 import { OrderForm } from "./order-form";
+import { InterestForm } from "../../security/managed/forms";
+import { MANAGED_SECURITY_PRODUCTS, managedSecurityOn } from "@/server/soc/soc";
 
 export const metadata: Metadata = { title: "Product" };
 
@@ -39,6 +41,8 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
   // Not offered in this account's market.
   if (byQuote ? !offeredIn(product, market.code, audience) : !price) notFound();
 
+  // STRATEGY_ROLLOUT U5: managed security is sold once Admin > Features > Managed security is on; until then, interest is a pre-sales lead.
+  const interestOnly = MANAGED_SECURITY_PRODUCTS.includes(product.slug) && !(await managedSecurityOn(prisma));
   const [botswanaData, included] = await Promise.all([featureOn(prisma, "botswana-data-claim"), shownInclusionsBySlug(prisma, [product.slug])]);
   return (
     <>
@@ -66,6 +70,11 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
               </>
             ) : !price ? (
               <p className="text-ink-muted">This can&apos;t be ordered online yet. Contact support and we&apos;ll set it up for you.</p>
+            ) : can(actor, "order") && interestOnly ? (
+              <>
+                <p className="text-callout text-ink-muted">Tell us about your computers and a security specialist will set it up with you.</p>
+                <InterestForm />
+              </>
             ) : can(actor, "order") ? (
               <OrderForm
                 slug={product.slug}

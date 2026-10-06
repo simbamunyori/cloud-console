@@ -74,6 +74,17 @@ export const FEATURES = {
       return null;
     },
   },
+  "managed-security": {
+    label: "Managed security",
+    description:
+      "Publishes managed security and the 24/7 SOC: customers subscribe from the marketplace and see their installer link, device coverage, incidents and monthly reports under our name. Until then, asking for it records a pre-sales lead. Turn on once the partner agreement is signed.",
+    milestone: "U5",
+    requires: async (db) => {
+      const p = await db.securityProvider.findFirst({ where: { active: true } });
+      if (!p?.lastTestOk) return "Set up a security provider in Partners, test it and make it active first.";
+      return null;
+    },
+  },
   "security-score": {
     label: "Full security score and monthly report",
     description:

@@ -67,7 +67,27 @@ const fullScore: CardSource = async ({ prisma, db }) => {
   };
 };
 
-export const CARD_SOURCES: CardSource[] = [fullScore, twoStepTeam, twoStepYou, backupCodes];
+/** Managed security (STRATEGY_ROLLOUT U5), once it is published and the account has it. */
+const managedSecurity: CardSource = async ({ prisma, db }) => {
+  if (!(await featureOn(prisma, "managed-security"))) return null;
+  const [tenant, devices, open] = await Promise.all([
+    db.securityTenant.findFirst({ select: { status: true } }),
+    db.securityDevice.findMany({ select: { health: true } }),
+    db.securityIncident.count({ where: { status: { not: "RESOLVED" } } }),
+  ]);
+  if (!tenant || tenant.status === "REMOVED") return { key: "managed-security", label: "Managed security", value: "Not set up", detail: "Computers watched by our security operations centre around the clock.", href: "/app/security/managed" };
+  const covered = devices.filter((d) => d.health !== "UNPROTECTED").length;
+  return {
+    key: "managed-security",
+    label: "Managed security",
+    value: open ? `${open} open ${open === 1 ? "incident" : "incidents"}` : `${covered} of ${devices.length} protected`,
+    detail: open ? "Our security operations centre is on it." : "Watched around the clock.",
+    tone: open ? "warning" : "positive",
+    href: "/app/security/managed",
+  };
+};
+
+export const CARD_SOURCES: CardSource[] = [fullScore, managedSecurity, twoStepTeam, twoStepYou, backupCodes];
 
 export async function securityCards(ctx: SecurityContext): Promise<SecurityCard[]> {
   const cards = await Promise.all(CARD_SOURCES.map((source) => source(ctx)));

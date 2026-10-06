@@ -38,10 +38,12 @@ export async function emailDomainFor(db: PrismaClient, organisationId: string, c
 export async function scoreFacts(db: PrismaClient, organisationId: string, input: { services: Service[]; emailDomain: string | null; email: EmailReport | null; now: Date }): Promise<ScoreFacts> {
   const tenant = tenantDb(organisationId);
   const live = input.services.filter((s) => s.status !== "cancelled" && s.status !== "terminated");
-  const [team, products, protections] = await Promise.all([
+  const [team, products, protections, securityTenant, devices] = await Promise.all([
     teamOverview(tenant, input.now),
     db.product.findMany({ where: { billingProductId: { in: [...new Set(live.map((s) => s.productId))] } }, select: { slug: true, billingProductId: true } }),
     tenant.backupProtection.findMany({ orderBy: { createdAt: "asc" }, select: { billingServiceId: true, label: true, health: true, lastSuccessAt: true } }),
+    tenant.securityTenant.findFirst({ select: { status: true } }),
+    tenant.securityDevice.findMany({ select: { health: true } }),
   ]);
   const slugOf = new Map(products.map((p) => [p.billingProductId, p.slug]));
   const serviceSlug = new Map(live.map((s) => [s.serviceId, slugOf.get(s.productId) ?? ""]));
@@ -73,8 +75,9 @@ export async function scoreFacts(db: PrismaClient, organisationId: string, input
     admins: team.members.filter((m) => m.role === "OWNER" || m.role === "ADMIN").length,
     services,
     hasThreatMonitoring: [...serviceSlug.values()].includes(MONITORING_SLUG),
-    // Filled by U5 (device coverage from the security provider) and U6 (workspace settings) once connected.
-    devices: null,
+    // Device coverage from the security provider (U5), once its tenant is active and devices report.
+    devices: securityTenant?.status === "ACTIVE" && devices.length ? { protected: devices.filter((d) => d.health !== "UNPROTECTED").length, total: devices.length } : null,
+    // Filled by U6 (workspace settings) once connected.
     workspace: null,
     now: input.now,
   };
