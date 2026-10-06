@@ -162,6 +162,7 @@ model Organisation {
   memberships        Membership[]
   invitations        Invitation[]
   billingAccount     BillingAccount?
+  thebeAccount       ThebeAccount?
   orders             Order[]
   quotes             Quote[]
   tasks              ProvisioningTask[]
@@ -2957,4 +2958,34 @@ model ReferralSettings {
   commissionBps Int      @default(1000)
   updatedById   String?
   updatedAt     DateTime @updatedAt
+}
+
+enum ThebeAccountStatus {
+  /// Waiting for the Thebe organisation: automatic or a staff task.
+  PENDING
+  ACTIVE
+  /// Thebe's API refused; the setup task carries the reason.
+  FAILED
+}
+
+/// A customer's Thebe organisation, made when they subscribe to a Thebe plan (U10).
+model ThebeAccount {
+  id             String             @id @default(cuid())
+  organisationId String             @unique
+  /// "thebe-founders", "thebe-team" or "thebe-organisation".
+  plan           String
+  users          Int                @default(1)
+  orderId        String?
+  /// The setup task that is the manual fallback.
+  taskId         String?
+  status         ThebeAccountStatus @default(PENDING)
+  /// Thebe's id for the organisation, and where the customer signs in.
+  thebeId        String?
+  url            String?
+  attempts       Int                @default(0)
+  error          String?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Restrict)
 }

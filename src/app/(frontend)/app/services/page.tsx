@@ -13,11 +13,12 @@ import { requireBilling } from "@/server/billing/context";
 import { prisma } from "@/server/db";
 import { featureSwitches } from "@/server/features/features";
 import { monthlyPrice } from "@/server/billing/views";
+import { PLAN_LABEL } from "@/server/thebe/thebe";
 
 export const metadata: Metadata = { title: "Services" };
 
 export default async function ServicesPage() {
-  const { billing, locale } = await requireBilling();
+  const { billing, locale, organisation } = await requireBilling();
   const [services, domains] = await Promise.all([billing.listServices(), billing.listDomains()]);
   const current = services.filter((s) => s.status !== "cancelled" && s.status !== "terminated");
   const ended = services.filter((s) => s.status === "cancelled" || s.status === "terminated");
@@ -25,6 +26,7 @@ export default async function ServicesPage() {
   for (const s of current) groups.set(s.groupName, [...(groups.get(s.groupName) ?? []), s]);
   const liveDomains = domains.filter((d) => d.status !== "cancelled" && d.status !== "transferred_away");
   const features = await featureSwitches(prisma);
+  const thebe = await prisma.thebeAccount.findUnique({ where: { organisationId: organisation.id } });
   const manageDomains = features["openprovider-domains"] || features["bw-registry-domains"];
 
   return (
@@ -38,6 +40,23 @@ export default async function ServicesPage() {
           </Button>
         }
       />
+      {thebe ? (
+        <Card aria-labelledby="thebe-title" className="mb-6">
+          <CardBody className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 id="thebe-title" className="text-headline font-semibold">
+                Thebe, {PLAN_LABEL[thebe.plan] ?? thebe.plan} plan
+              </h2>
+              <p className="text-ink-muted">{thebe.url ? "Your expenses, receipts and approvals. Sign in with your work email." : "We're setting up your Thebe organisation. We'll email you when it's ready."}</p>
+            </div>
+            {thebe.url ? (
+              <a href={thebe.url} className="inline-flex h-10 shrink-0 items-center justify-center rounded-sm bg-thebe-teal px-4 text-callout font-semibold text-thebe-white hover:opacity-90" rel="noreferrer" target="_blank">
+                Open Thebe
+              </a>
+            ) : null}
+          </CardBody>
+        </Card>
+      ) : null}
       {current.length === 0 && liveDomains.length === 0 ? (
         <EmptyState
           icon={Server}

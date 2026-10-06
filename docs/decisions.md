@@ -265,6 +265,10 @@ What the console assumes, decided or leaves out, for review before launch. Each 
 225. **A referral counts when the customer signs up within 90 days of clicking the link**, while the partner is active. Attribution is at sign-up only and never moves to another partner.
 226. **Commission is a share of what the partner's customers paid us** (billing payments received in the month), not of invoices raised. The default is 10%, set by Admins; each partner can have their own rate from 0% to 50%. Statements are written on the 3rd for the month before, once each.
 227. **Finance records payouts** (`confirmPayments`), with the bank's reference; the partner is emailed. Partners give their bank details on their dashboard, sealed with the partner vault key, and only staff who pay them see them.
+228. **Thebe's three plans are ordinary catalogue products** under a new Expense management category (Founders and Team per organisation, Organisation per user from 10), added as drafts with placeholder prices. Staff set the prices in the price book and put them live; billing gets them from the product sync. Thebe keeps its own brand there.
+229. **A Thebe order makes its setup task first**, like every product, and records the customer's Thebe account. With the Thebe partner on and "Thebe organisations made automatically" on in Features, the organisation is created through Thebe's API straight after the order, the task closes itself and the customer is emailed the sign-in address.
+230. **When Thebe refuses, the reason goes on the task** and the console tries again each night, three times in all. Our own organisation id is sent as the reference so a retry never makes a second organisation. Staff can always create it by hand and record its id and address on the customer's page.
+231. **Only the first organisation is automatic.** A later change of plan stays with its setup task. The customer opens Thebe from their Services page once the address is known.
 
 ## Carried over from the Phase 1 go-ahead
 

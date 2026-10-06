@@ -38,7 +38,7 @@ export function pillarOf(product: { slug: string; categoryKey: string } | null):
   if (["productivity", "public-cloud", "servers", "plans", "services"].includes(c)) return "cloud";
   if (c === "protection") return /security|detection|soc|firewall/.test(slug) ? "security" : "resilience";
   if (c === "web") return "growth";
-  if (c === "our-software") return "apps";
+  if (c === "our-software" || c === "expense-management") return "apps";
   if (c === "legacy-services") return /hosting|domain|web/.test(slug) ? "growth" : "cloud";
   return "other";
 }

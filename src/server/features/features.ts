@@ -138,6 +138,16 @@ export const FEATURES = {
       "Accountants, consultants and IT resellers can apply on the website. Once approved in Admin > Referral partners, they get a referral link and a dashboard; customers who sign up through the link count as theirs, and each month they get a statement of their commission. Finance records each payout.",
     milestone: "U9",
   },
+  "thebe-automation": {
+    label: "Thebe organisations made automatically",
+    description:
+      "When a customer subscribes to a Thebe plan, their Thebe organisation is created through Thebe's API and the setup task closes itself; they get an email with the link. Without it, or when Thebe refuses, our team creates it from the setup task as before. The Thebe plans themselves go on sale in the catalogue.",
+    milestone: "U10",
+    requires: async (db) => {
+      const p = await db.partnerSetting.findUnique({ where: { key: "thebe" } });
+      return p?.enabled ? null : "Set up Thebe in Partners and switch it on first.";
+    },
+  },
 } satisfies Record<string, FeatureDefinition>;
 
 export type FeatureKey = keyof typeof FEATURES;

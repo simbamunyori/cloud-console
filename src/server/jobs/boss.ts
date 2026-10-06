@@ -95,6 +95,17 @@ const JOBS: Job[] = [
     },
   },
   // Admins hear about partner agreements before their notice period starts (U7).
+  // Thebe organisations Thebe refused are tried again, up to three times in all (U10).
+  {
+    name: "thebe-retry",
+    cron: "45 4 * * *",
+    run: async () => {
+      const { retryThebe } = await import("@/server/thebe/thebe");
+      const done = await retryThebe(prisma, billingAdapter());
+      if (done) await runSoon("email-deliver").catch(() => undefined);
+      return done;
+    },
+  },
   {
     name: "partner-renewals",
     cron: "0 8 * * *",
