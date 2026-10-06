@@ -15,6 +15,7 @@ import { siteMarket } from "@/server/site/site";
 import { estimate, parseNeeds, parseUsers, PROVIDER_LABEL, type Provider } from "@/server/tools/calculator";
 import { nextSteps, parseAnswers } from "@/server/tools/readiness";
 import { readinessByToken, saveReadiness } from "@/server/tools/readiness-store";
+import { shareEmailReport } from "@/server/tools/results";
 import { calculatorPrices, runEmailCheck, TOOL_CONSENT } from "@/server/tools/site-tools";
 
 /**
@@ -126,5 +127,19 @@ export async function emailReadinessAction(_prev: ActionState, form: FormData): 
         await prisma.readinessCheck.update({ where: { id: row.id }, data: { leadId } });
       },
     };
+  });
+}
+
+/** "Share this report" (U9): a link anyone can open for 90 days, only with the visitor's tick. */
+export async function shareReportAction(_prev: ActionState, form: FormData): Promise<ActionState> {
+  const market = field(form, "market");
+  return run(async () => {
+    if (field(form, "consent") !== "yes") throw new DomainError("invalid", "Tick the box to make the link.", "consent");
+    await limited("toolPerIp");
+    const token = await shareEmailReport(prisma, await runEmailCheck(field(form, "domain")), true);
+    return `/${(await siteMarket(market)).code}/tools/email-security/shared/${token}`;
+  }).catch((e) => {
+    if (e instanceof RateLimitedError) return { error: "You've made several links already. Try again in an hour." } satisfies ActionState;
+    throw e;
   });
 }

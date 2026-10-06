@@ -16,7 +16,9 @@ describe("tenant models", () => {
       // organisation to open its link claims it (src/server/tools/readiness-store.ts).
       .filter((name) => name !== "ReadinessCheck")
       // Staff-only: what the Odoo import made, across organisations.
-      .filter((name) => name !== "MigrationRecord");
+      .filter((name) => name !== "MigrationRecord")
+      // Staff and the referral partner's dashboard only: which partner brought each organisation (U9).
+      .filter((name) => name !== "Referral");
     expect([...withOrg].sort()).toEqual([...TENANT_MODELS].sort());
   });
 });

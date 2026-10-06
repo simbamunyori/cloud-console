@@ -259,6 +259,12 @@ What the console assumes, decided or leaves out, for review before launch. Each 
 219. **Pillars come from the catalogue category**, with Protection split into security (email security, detection and response) and resilience (backup, recovery, archiving). Recurring revenue is per month in the Botswana market's currency, at the latest exchange rate; anything unreadable or without a rate is listed, not guessed.
 220. **The figures are taken every night** for the month so far and kept per month; the last refresh is the month-end figure. On the 1st the previous month is taken once more and then emailed, once.
 221. **Every figure is better higher**, so on track means at or above its target. Response times use the share of first replies within the units' targets (U7), not a median, for that reason.
+222. **Shared free tool results need a tick**, with the exact wording kept on the row. A link shows only that report (domain, score and checks), works for 90 days, isn't indexed, and is deleted the night after it ends. Behind "Free tool results".
+223. **The free email check becomes the starting point of a new customer's score** when they sign up with the address they emailed the report to: the same domain, its checks and the date it was run. A customer who already has an email report keeps theirs. The nightly check takes over from then on.
+224. **Referral partners apply on the website and an Admin approves them.** Each gets a code from their firm's name, a referral link that works on any page (`?ref=`), and a private dashboard link with no password. Partners aren't console users and never see a customer's account, only organisation names and dates.
+225. **A referral counts when the customer signs up within 90 days of clicking the link**, while the partner is active. Attribution is at sign-up only and never moves to another partner.
+226. **Commission is a share of what the partner's customers paid us** (billing payments received in the month), not of invoices raised. The default is 10%, set by Admins; each partner can have their own rate from 0% to 50%. Statements are written on the 3rd for the month before, once each.
+227. **Finance records payouts** (`confirmPayments`), with the bank's reference; the partner is emailed. Partners give their bank details on their dashboard, sealed with the partner vault key, and only staff who pay them see them.
 
 ## Carried over from the Phase 1 go-ahead
 

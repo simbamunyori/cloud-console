@@ -20,6 +20,7 @@ import {
 import { billingAdapter } from "@/server/billing";
 import { ensureBillingAccount } from "@/server/billing/accounts";
 import { prisma } from "@/server/db";
+import { afterCustomerSignUp } from "@/server/referrals/sign-up";
 import { runSoon } from "@/server/jobs/boss";
 import { hit, LIMITS, RateLimitedError } from "@/server/security/rate-limit";
 import { isCountryCode } from "@/lib/countries";
@@ -83,6 +84,7 @@ export async function signUpAction(_prev: FormState, form: FormData): Promise<Fo
     if (identity) await clearPending();
     await rememberNext(safeNext(field(form, "next"), "CUSTOMER"));
     await countForCampaign("SIGN_UP", result.organisationId);
+    await afterCustomerSignUp(result.organisationId, values.email);
     // Opens the organisation's billing account now. If the billing engine
     // is down, it is opened the first time billing is used instead.
     await ensureBillingAccount(prisma, billingAdapter(), result.organisationId).catch((err) => console.error("Billing account not opened at sign-up:", err));
