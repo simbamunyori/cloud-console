@@ -103,6 +103,9 @@ export const CATEGORIES: CategorySeed[] = [
   { key: "plans", name: "Plans", description: "One price for the whole business: a monthly price per business plus a price per user.", familyKey: "services", marginBps: 0, sortOrder: 8 },
   // STRATEGY_ROLLOUT U10: Thebe keeps its own brand, sold under this heading.
   { key: "expense-management", name: "Expense management", description: "Thebe: company ledgers where every payment waits for your signatories to approve it.", familyKey: "our-software", marginBps: 0, sortOrder: 9 },
+  // STRATEGY_ROLLOUT U12: in the Connectivity family, a draft until the licence is granted.
+  { key: "connect", name: "Connect", description: "Managed links for your offices, between your sites and to the cloud, sized and priced for you.", familyKey: "connectivity", marginBps: 2500, sortOrder: 10 },
+  { key: "connect-bundles", name: "Connected bundles", description: "A managed link together with the security and support that look after it, on one quote.", familyKey: "connectivity", marginBps: 2500, sortOrder: 11 },
 ];
 
 /** The three plans, each a price per business and a price per user. Their words are the home page's comparison table. */
@@ -162,6 +165,24 @@ const m365 = (slug: string, name: string, cost: bigint, billing: StubProductKey,
 
 const gws = (slug: string, name: string, cost: bigint, billing: StubProductKey, summary: string, includes: string[]): ProductSeed => ({
   ...m365(slug, name, cost, billing, summary, includes),
+});
+
+/** STRATEGY_ROLLOUT U12: the Connect products and bundles, all drafts sold by quote. The words are placeholders for staff to finish in the catalogue. */
+const connect = (slug: string, category: string, name: string, summary: string, includes: string[], unitLabel: string, setupHours: number, billing: StubProductKey): ProductSeed => ({
+  slug,
+  category,
+  name,
+  summary,
+  includes,
+  excludes: ["Building work or cabling inside your premises (quoted separately)"],
+  unitLabel,
+  quantityAllowed: true,
+  cost: [0n, "BWP"],
+  setupHours,
+  commitmentNote: "Priced by quote, usually for 12, 24 or 36 months.",
+  billing,
+  status: "DRAFT",
+  fulfilment: "QUOTE",
 });
 
 export const PRODUCTS: ProductSeed[] = [
@@ -524,6 +545,12 @@ export const PRODUCTS: ProductSeed[] = [
     // Domain orders go through registerDomain; this links the catalogue entry to its billing product.
     billing: "domain-registration",
   },
+  connect("connect-office", "connect", "Connect Office", "A dedicated, managed business link for one office, with the speed you need and a router we look after.", ["Survey of your site", "Router installed and monitored", "Fault reports answered around the clock"], "per site", 40, "connect-office"),
+  connect("connect-sites", "connect", "Connect Sites", "Private links between your offices, so every branch reaches your shared systems as if it were in one building.", ["Design of the links between your sites", "Routers installed and monitored at every site", "One fault line for all of them"], "per site", 60, "connect-sites"),
+  connect("connect-cloud", "connect", "Connect Cloud", "A private link from your office to our servers and to Microsoft Azure, kept off the public network.", ["Private link to our data centre", "Option to reach Microsoft Azure", "Monitoring of the link"], "per link", 40, "connect-cloud"),
+  connect("connect-standby", "connect", "Connect Standby", "A second link from a different provider that takes over by itself if the main one fails.", ["Second link on a separate route", "Switch-over by itself, and back", "Monthly test of the switch-over"], "per site", 24, "connect-standby"),
+  connect("connected-secure-office", "connect-bundles", "Secure Connected Office", "Connect Office with a standby link, threat monitoring and email security, looked after as one service.", ["Connect Office and Connect Standby", "Managed detection and response", "Email security"], "per site", 64, "connected-secure-office"),
+  connect("connected-branch-network", "connect-bundles", "Managed Branch Network", "Connect Sites and Connect Cloud with server backup and a support plan, for businesses with several branches.", ["Connect Sites and Connect Cloud", "Server backup", "Managed support plan"], "per site", 100, "connected-branch-network"),
 ];
 
 /**
@@ -681,8 +708,21 @@ async function addPlans(db: PrismaClient): Promise<boolean> {
   return true;
 }
 
+/** STRATEGY_ROLLOUT U12: the Connect products, and what each bundle includes. */
+export const CONNECT_PRODUCTS = ["connect-office", "connect-sites", "connect-cloud", "connect-standby", "connected-secure-office", "connected-branch-network"];
+export const CONNECT_BUNDLES: [bundle: string, included: string][] = [
+  ["connected-secure-office", "connect-office"],
+  ["connected-secure-office", "connect-standby"],
+  ["connected-secure-office", "managed-detection-response"],
+  ["connected-secure-office", "email-security"],
+  ["connected-branch-network", "connect-sites"],
+  ["connected-branch-network", "connect-cloud"],
+  ["connected-branch-network", "server-backup"],
+  ["connected-branch-network", "managed-support"],
+];
+
 /** Products added to the catalogue after launch (final build, Milestone 9), each off sale until staff set it up. */
-export const LATER_PRODUCTS = ["compliance-archiving", "fourth-generation-signatures", "website-builder", "email-security", "thebe-founders", "thebe-team", "thebe-organisation"];
+export const LATER_PRODUCTS = ["compliance-archiving", "fourth-generation-signatures", "website-builder", "email-security", "thebe-founders", "thebe-team", "thebe-organisation", ...CONNECT_PRODUCTS];
 
 /**
  * What each plan includes to start with (STRATEGY_ROLLOUT U3): email
@@ -708,7 +748,7 @@ export async function seedInclusions(db: PrismaClient) {
   if (await db.productInclusion.count()) return;
   const products = new Map((await db.product.findMany({ select: { id: true, slug: true } })).map((p) => [p.slug, p.id]));
   const order = new Map<string, number>();
-  for (const [plan, included] of DEFAULT_INCLUSIONS) {
+  for (const [plan, included] of [...DEFAULT_INCLUSIONS, ...CONNECT_BUNDLES]) {
     const planId = products.get(plan);
     const includedId = products.get(included);
     if (!planId || !includedId) continue;
@@ -729,5 +769,22 @@ async function addLaterProducts(db: PrismaClient): Promise<boolean> {
   const missing = LATER_PRODUCTS.filter((slug) => !have.has(slug));
   if (!missing.length) return false;
   await seedCatalogue(db, "sync", [], (p) => missing.includes(p.slug));
+  await addBundleInclusions(db, missing);
   return true;
+}
+
+/** What a bundle just added includes, as CONNECT_BUNDLES describes it. Bundles staff already have are left alone. */
+export async function addBundleInclusions(db: PrismaClient, added: string[]) {
+  const bundles = CONNECT_BUNDLES.filter(([bundle]) => added.includes(bundle));
+  if (!bundles.length) return;
+  const products = new Map((await db.product.findMany({ where: { slug: { in: bundles.flat() } }, select: { id: true, slug: true } })).map((p) => [p.slug, p.id]));
+  const order = new Map<string, number>();
+  for (const [bundle, included] of bundles) {
+    const planId = products.get(bundle);
+    const includedId = products.get(included);
+    if (!planId || !includedId) continue;
+    const n = order.get(bundle) ?? 0;
+    order.set(bundle, n + 1);
+    await db.productInclusion.upsert({ where: { planId_includedId: { planId, includedId } }, update: {}, create: { planId, includedId, quantity: 1, sortOrder: n } });
+  }
 }

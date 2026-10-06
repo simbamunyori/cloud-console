@@ -30,6 +30,7 @@ export function QuoteRequestForm({
   after,
   notice,
   button = "Ask for a quote",
+  connect,
 }: {
   action: (prev: QuoteRequestState, form: FormData) => Promise<QuoteRequestState>;
   countries: Option[];
@@ -42,6 +43,8 @@ export function QuoteRequestForm({
   /** Shown above the button, e.g. who else gets the request. */
   notice?: string;
   button?: string;
+  /** STRATEGY_ROLLOUT U12: the connectivity questions, with the speeds to choose from. */
+  connect?: { speeds: Option[] };
 }) {
   const [state, formAction, pending] = useActionState<QuoteRequestState, FormData>(action, {});
   if (state.reference) {
@@ -76,15 +79,45 @@ export function QuoteRequestForm({
         <TextField id="phone" label="Phone" type="tel" autoComplete="tel" required defaultValue={v.phone} error={fe.phone} hint="In case we need to ask something." />
         <SelectField id="country" label="Country" autoComplete="country" required placeholder="Choose a country" options={countries} defaultValue={v.country ?? ""} error={fe.country} />
       </div>
+      {connect ? (
+        <fieldset className="flex flex-col gap-5 rounded-lg border border-border p-4 sm:p-5">
+          <legend className="px-1 text-headline text-ink">Your sites</legend>
+          <input type="hidden" name="connect" value="1" />
+          <TextareaField
+            id="sites"
+            label="Where should we connect?"
+            rows={4}
+            maxLength={4000}
+            required
+            defaultValue={v.sites}
+            error={fe.sites}
+            hint="One site per line: the town, a comma, then the address. For example: Gaborone, Plot 64518, Fairgrounds."
+          />
+          <SelectField id="speed" label="Speed each site needs" required placeholder="Choose a speed" options={connect.speeds} defaultValue={v.speed ?? ""} error={fe.speed} />
+          <div className="flex flex-col gap-3">
+            {[
+              ["standby", "A standby link that takes over if the main one fails"],
+              ["cloudLink", "A private link to our servers or Microsoft Azure"],
+              ["managed", "Managed security and support with it, as a bundle"],
+            ].map(([key, label]) => (
+              <label key={key} className="flex items-start gap-3 text-body text-ink">
+                <input type="checkbox" name={key} defaultChecked={v[key] === "on"} className="mt-1 size-4 shrink-0 accent-brand" />
+                {label}
+              </label>
+            ))}
+          </div>
+          <TextField id="startBy" label="Needed by (optional)" type="date" defaultValue={v.startBy} error={fe.startBy} />
+        </fieldset>
+      ) : null}
       <TextareaField
         id="need"
-        label="What do you need?"
+        label={connect ? "Anything else we should know? (optional)" : "What do you need?"}
         rows={5}
         maxLength={2000}
-        required
+        required={!connect}
         defaultValue={v.need}
         error={fe.need}
-        hint="Where, for how many people or sites, and by when. Plain words are fine."
+        hint={connect ? "Such as what you have now, or when someone is on site to let us in." : "Where, for how many people or sites, and by when. Plain words are fine."}
       />
       {/* People never see this; bots fill it in. */}
       <div aria-hidden className="absolute -left-[10000px] h-px w-px overflow-hidden">

@@ -166,6 +166,13 @@ export const FEATURES = {
       "Customers answer two questions in the Marketplace (how many people, and what they need) and see the Microsoft 365 or Google Workspace plan that fits, at their market's prices, with a button to order it. The same logic as the website's cost calculator and Thapelo.",
     milestone: "U11",
   },
+  connectivity: {
+    label: "Connectivity",
+    description:
+      "Customers and visitors in markets with a recorded licence can ask for a connectivity quote, with their sites, speed and options. Staff can then put the Connect products and bundles live in the catalogue. Until it is on, nothing about connectivity is shown anywhere outside the staff console.",
+    milestone: "U12",
+    requires: async (db) => ((await db.connectivityLicence.count()) ? null : "Record the licence for at least one market in Connectivity first."),
+  },
 } satisfies Record<string, FeatureDefinition>;
 
 export type FeatureKey = keyof typeof FEATURES;

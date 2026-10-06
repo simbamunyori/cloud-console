@@ -14,6 +14,7 @@ import { audit, customerAudit } from "@/server/org/audit";
 import { assertStartNow, billingFailure, newReference, type OrderDeps } from "@/server/orders/orders";
 import { assertStaffCan, staffLabel, type StaffActor } from "@/server/staff/access";
 import { staffAudit } from "@/server/staff/audit";
+import { recordConnectRequest, type ConnectRequest } from "@/server/connectivity/connectivity";
 
 /**
  * Quotes. Anyone can ask for one, signed in or not, with a short form.
@@ -94,7 +95,7 @@ const requestSchema = z.object({
   need: z.string().trim().min(10, "Tell us a little more about what you need.").max(2000, "Keep it under 2,000 characters."),
 });
 
-export type QuoteRequestInput = z.input<typeof requestSchema> & { product?: string; referral?: string };
+export type QuoteRequestInput = z.input<typeof requestSchema> & { product?: string; referral?: string; connect?: ConnectRequest };
 
 /**
  * Work we pass to a partner instead of doing ourselves, asked for through
@@ -148,6 +149,7 @@ export async function requestQuote(
         requestedById: where.userId ?? null,
       },
     });
+    if (input.connect) await recordConnectRequest(tx, quote.id, input.connect);
     await queueEmail(tx, { organisationId: quote.organisationId, to: quote.email, kind: "quote.requested", payload: { quoteId: quote.id } });
     await queueEmail(tx, { to: market.supportEmail, kind: "quote.new_request", payload: { quoteId: quote.id } });
     if (quote.organisationId && where.userId) {
@@ -194,7 +196,7 @@ export async function quoteForStaff(db: PrismaClient, staff: StaffActor, referen
   assertStaffCan(staff, "manageQuotes");
   return db.quote.findUnique({
     where: { reference },
-    include: { lines: { orderBy: { sortOrder: "asc" } }, product: { include: { category: { include: { family: true } } } }, organisation: { select: { id: true, name: true, currency: true } } },
+    include: { lines: { orderBy: { sortOrder: "asc" } }, product: { include: { category: { include: { family: true } } } }, organisation: { select: { id: true, name: true, currency: true } }, connectivity: true },
   });
 }
 

@@ -89,6 +89,7 @@ model Market {
   organisations Organisation[]
   changes       MarketChange[]
   prices        PriceBookEntry[]
+  connectivityLicence ConnectivityLicence?
 }
 
 /// Every change to a market's settings, for the staff audit.
@@ -1014,6 +1015,7 @@ model Quote {
   organisation Organisation? @relation(fields: [organisationId], references: [id], onDelete: Restrict)
   product      Product?      @relation(fields: [productId], references: [id], onDelete: Restrict)
   lines        QuoteLine[]
+  connectivity ConnectivityRequest?
 
   @@index([status, createdAt])
   @@index([organisationId, createdAt])
@@ -3025,4 +3027,34 @@ model WelcomeChecklist {
   createdAt      DateTime  @default(now())
 
   organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+}
+
+/// The licence to sell connectivity in a market (U12). Connectivity can't be switched on, or offered in a market, until it is recorded here.
+model ConnectivityLicence {
+  market      String   @id
+  /// Who granted it, such as BOCRA.
+  regulator   String
+  reference   String
+  grantedOn   DateTime @db.Date
+  updatedById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  marketRow Market @relation(fields: [market], references: [code], onDelete: Restrict)
+}
+
+/// What a connectivity quote request asks for, beside the quote's own words (U12).
+model ConnectivityRequest {
+  id        String    @id @default(cuid())
+  quoteId   String    @unique
+  /// [{ "place": "Gaborone", "address": "Plot 64518, Fairgrounds" }]
+  sites     Json
+  speed     String
+  standby   Boolean   @default(false)
+  cloudLink Boolean   @default(false)
+  managed   Boolean   @default(false)
+  startBy   DateTime? @db.Date
+  createdAt DateTime  @default(now())
+
+  quote Quote @relation(fields: [quoteId], references: [id], onDelete: Cascade)
 }

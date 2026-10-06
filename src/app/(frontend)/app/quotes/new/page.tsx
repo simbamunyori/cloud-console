@@ -10,19 +10,26 @@ import { audienceFor } from "@/server/catalogue/visibility";
 import { prisma } from "@/server/db";
 import { requireMember } from "@/server/org/context";
 import { requestQuoteFromConsoleAction } from "../actions";
+import { connectivityOffered, isConnectProduct, SPEEDS } from "@/server/connectivity/connectivity";
 
 export const metadata: Metadata = { title: "Ask for a quote" };
 
-export default async function NewQuotePage({ searchParams }: { searchParams: Promise<{ product?: string }> }) {
+export default async function NewQuotePage({ searchParams }: { searchParams: Promise<{ product?: string; for?: string }> }) {
   const { actor, organisation, session } = await requireMember();
-  const slug = (await searchParams).product;
+  const asked = await searchParams;
+  const slug = asked.product;
   const product = slug ? await productBySlug(prisma, slug, audienceFor(organisation)) : null;
+  // STRATEGY_ROLLOUT U12: the connectivity questions, where it is offered.
+  const connect = (asked.for === "connect" || (await isConnectProduct(prisma, product?.slug))) && (await connectivityOffered(prisma, organisation.billingMarket));
   return (
     <>
       <Link href={product ? `/app/marketplace/${product.slug}` : "/app/quotes"} className="mb-4 inline-flex items-center gap-1 text-callout text-link hover:underline">
         <ArrowLeft aria-hidden className="size-4" /> {product ? product.name : "Quotes"}
       </Link>
-      <PageHeader title="Ask for a quote" description={`Tell us what you need. We'll email a quote to you and add it to ${organisation.name}'s quotes here.`} />
+      <PageHeader
+        title={connect ? "Connect your offices" : "Ask for a quote"}
+        description={connect ? "Tell us where your sites are and what they need. We'll survey them, design the links and add the quote to your quotes here." : `Tell us what you need. We'll email a quote to you and add it to ${organisation.name}'s quotes here.`}
+      />
       <Card className="max-w-3xl">
         <CardBody>
           <QuoteRequestForm
@@ -32,6 +39,7 @@ export default async function NewQuotePage({ searchParams }: { searchParams: Pro
             hidden={product ? { product: product.slug } : {}}
             product={product?.name}
             after="It's in your Quotes, and we'll email you when it's priced."
+            connect={connect ? { speeds: SPEEDS } : undefined}
           />
         </CardBody>
       </Card>
