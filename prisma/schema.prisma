@@ -694,24 +694,108 @@ model Tld {
 
 /// Single row: settings that apply to every product.
 model PricingSettings {
-  id                String   @id @default("global")
+  id                String    @id @default("global")
   /// Added to the exchange rate for products we pay for in another currency.
   currencyBufferBps Int
-  updatedAt         DateTime @updatedAt
+  /// The monthly price book is approved on its own when no price moves by more than this.
+  autoApproveBps    Int       @default(300)
+  /// When the Bank of Botswana rates were last fetched, and why the last try failed.
+  ratesCheckedAt    DateTime?
+  ratesError        String?
+  updatedAt         DateTime  @updatedAt
 }
 
-/// The rate used to price one month. Rate is quote per base, times 1,000,000.
+/// The rate used to price from a day ("2026-10-12") or, before
+/// fortnightly pricing, a month ("2026-09"). Rate is quote per base, times 1,000,000.
 model FxRate {
-  id         String   @id @default(cuid())
-  /// "2026-09".
+  id         String    @id @default(cuid())
+  /// The day or month it applies from; the two sort together.
   month      String
   base       String
   quote      String
   rateMicros BigInt
   setById    String?
-  createdAt  DateTime @default(now())
+  /// "bob" when worked out from a Bank of Botswana table; null when typed or seeded.
+  source     String?
+  /// The publication date of that table.
+  sourceDate DateTime? @db.Date
+  createdAt  DateTime  @default(now())
 
   @@unique([month, base, quote])
+}
+
+/// One day's Bank of Botswana reference rates, as published.
+model OfficialRateTable {
+  id           String         @id @default(cuid())
+  /// The day Bank of Botswana published it.
+  publishedOn  DateTime       @unique @db.Date
+  /// Where it was fetched from, e.g. "allratestoday".
+  source       String
+  fetchedAt    DateTime       @default(now())
+  /// Why it isn't used, e.g. a jump too large to trust. Null when it is.
+  heldBack     String?
+  /// Staff who accepted a held-back table.
+  acceptedById String?
+  rates        OfficialRate[]
+  runs         PriceBookRun[]
+}
+
+/// A rate as published: 1 base in quote, e.g. 1 BWP = "0.0742" USD. The
+/// value is kept as the decimal text published, never as a float.
+model OfficialRate {
+  id      String @id @default(cuid())
+  tableId String
+  base    String
+  quote   String
+  value   String
+
+  table OfficialRateTable @relation(fields: [tableId], references: [id], onDelete: Cascade)
+
+  @@unique([tableId, base, quote])
+}
+
+enum PriceBookRunStatus {
+  /// Every suggestion matched the prices already in effect.
+  NO_CHANGES
+  /// Waiting for an Admin: a price moves by more than the threshold.
+  AWAITING_APPROVAL
+  /// In effect, approved automatically or by an Admin.
+  APPLIED
+}
+
+/// The price book for a 14-day period, worked out on its first day (a
+/// Monday) from the Bank of Botswana rates and the buffer, and what
+/// happened to it. Prices change every 14 days; quotes hold for 14 days.
+model PriceBookRun {
+  id             String             @id @default(cuid())
+  /// The day it starts, "2026-10-12".
+  period         String             @unique
+  status         PriceBookRunStatus
+  tableId        String
+  /// The month's rates: [{ base, quote, rateMicros }].
+  rates          Json
+  /// Each price that changes: market, item, name, currency, from and to (minor units, as text) and the change in basis points.
+  changes        Json
+  maxChangeBps   Int
+  thresholdBps   Int
+  /// Null when it was approved automatically.
+  approvedById   String?
+  approvedByName String?
+  approvedAt     DateTime?
+  /// When WHMCS got the new prices, or why it hasn't yet.
+  syncedAt       DateTime?
+  syncError      String?
+  createdAt      DateTime           @default(now())
+
+  table   OfficialRateTable @relation(fields: [tableId], references: [id], onDelete: Restrict)
+  entries PriceBookEntry[]
+}
+
+/// An email to Admins about rates or pricing, sent once per key
+/// (e.g. "drift:2026-10-12:USD/BWP").
+model PricingAlert {
+  key    String   @id
+  sentAt DateTime @default(now())
 }
 
 /// A market's price book: the prices staff approved, each from a month
@@ -722,7 +806,8 @@ model PriceBookEntry {
   marketCode     String
   /// "product:<slug>" or "tld:<ending>", e.g. "tld:.co.za".
   item           String
-  /// The first month it applies, "2026-10".
+  /// The first day it applies, "2026-10-12", or month for entries from
+  /// before fortnightly pricing, "2026-10". The two sort together.
   month          String
   currency       String
   /// A product's price per unit per month, or a domain's yearly
@@ -736,9 +821,12 @@ model PriceBookEntry {
   /// Null for prices carried over from Phase 1 or seeded for development.
   approvedById   String?
   approvedAt     DateTime @default(now())
+  /// The price book it came from, when it came from one.
+  runId          String?
 
-  market     Market @relation(fields: [marketCode], references: [code], onDelete: Restrict)
-  approvedBy User?  @relation(fields: [approvedById], references: [id], onDelete: Restrict)
+  market     Market        @relation(fields: [marketCode], references: [code], onDelete: Restrict)
+  approvedBy User?         @relation(fields: [approvedById], references: [id], onDelete: Restrict)
+  run        PriceBookRun? @relation(fields: [runId], references: [id], onDelete: Restrict)
 
   @@unique([marketCode, item, month])
 }

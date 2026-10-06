@@ -106,6 +106,26 @@ const JOBS: Job[] = [
       return prepareIssues({ db: prisma, payload: await cms() });
     },
   },
+  // Bank of Botswana's reference rates: kept daily, with alerts when they fail, jump or drift past the buffer.
+  {
+    name: "exchange-rates",
+    cron: "30 5,9,13,17 * * *",
+    run: async () => {
+      const { ratesJob } = await import("@/server/pricing/jobs");
+      await ratesJob();
+      return deliverDue(prisma, emailAdapter());
+    },
+  },
+  // Every other Monday, the next 14 days' price book from those rates, approved automatically within the threshold. Quotes are valid for 14 days too.
+  {
+    name: "price-book-period",
+    cron: "0 6 * * 1",
+    run: async () => {
+      const { periodJob } = await import("@/server/pricing/jobs");
+      await periodJob();
+      return deliverDue(prisma, emailAdapter());
+    },
+  },
 ];
 
 /** Later milestones add their jobs here (billing sync, purges). */

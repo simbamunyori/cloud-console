@@ -6,11 +6,11 @@ import { launchChecks, siteUrlCheck } from "../src/server/launch/checks";
 vi.mock("next/headers", () => ({ draftMode: async () => ({ isEnabled: false }), headers: async () => new Headers(), cookies: async () => ({ toString: () => "" }) }));
 
 describe("launch checks", () => {
-  it("list the site address, backups, the allowlist and every enabled market's legal pages", async () => {
+  it("list the site address, backups, the allowlist, exchange rates and every enabled market's legal pages", async () => {
     const { placeholders, checks } = await launchChecks(db);
     expect(Array.isArray(placeholders)).toBe(true);
     const keys = checks.map((c) => c.key);
-    expect(keys.slice(0, 3)).toEqual(["site-url", "offsite", "allowlist"]);
+    expect(keys.slice(0, 4)).toEqual(["site-url", "offsite", "allowlist", "exchange-rates"]);
     for (const m of await db.market.findMany({ where: { enabled: true } })) {
       for (const kind of ["terms", "privacy", "refunds", "service-providers", "data-protection"]) expect(keys).toContain(`legal-${m.code}-${kind}`);
     }

@@ -1,6 +1,7 @@
 import type { CatalogueStatus, ConnectorFamily, Fulfilment, Prisma, PrismaClient, Product } from "@prisma/client";
 import { currencyInfo, parseMoney } from "@/lib/domain/money";
-import { parsePercent, nextMonth } from "@/server/admin/pricing";
+import { nextPriceChange } from "@/lib/domain/pricing";
+import { parsePercent } from "@/server/admin/pricing";
 import { productItem } from "@/server/catalogue/price-book";
 import { DOMAIN_PRODUCT_SLUG } from "@/server/catalogue/seed-data";
 import { effectiveStatus, STATUS_LABEL } from "@/server/catalogue/visibility";
@@ -54,7 +55,7 @@ export async function catalogueTree(db: PrismaClient, month: string) {
       include: { categories: { orderBy: { sortOrder: "asc" }, include: { products: { where: { slug: { not: DOMAIN_PRODUCT_SLUG } }, orderBy: { sortOrder: "asc" } } } } },
     }),
     db.market.findMany({ orderBy: { sortOrder: "asc" }, select: { code: true, name: true, currency: true, enabled: true } }),
-    db.priceBookEntry.findMany({ where: { item: { startsWith: "product:" }, month: { lte: nextMonth(month) } }, select: { item: true, marketCode: true, currency: true } }),
+    db.priceBookEntry.findMany({ where: { item: { startsWith: "product:" }, month: { lte: nextPriceChange(month) } }, select: { item: true, marketCode: true, currency: true } }),
   ]);
   const priced = pricedIn(entries, markets);
   return {
@@ -78,7 +79,7 @@ function pricedIn(entries: { item: string; marketCode: string; currency: string 
 async function unpricedMarkets(db: PrismaClient, slug: string, markets: string[], month: string) {
   const [all, entries] = await Promise.all([
     db.market.findMany({ select: { code: true, currency: true } }),
-    db.priceBookEntry.findMany({ where: { item: productItem(slug), month: { lte: nextMonth(month) } }, select: { item: true, marketCode: true, currency: true } }),
+    db.priceBookEntry.findMany({ where: { item: productItem(slug), month: { lte: nextPriceChange(month) } }, select: { item: true, marketCode: true, currency: true } }),
   ]);
   const priced = pricedIn(entries, all)(slug);
   return markets.filter((m) => !priced.includes(m));

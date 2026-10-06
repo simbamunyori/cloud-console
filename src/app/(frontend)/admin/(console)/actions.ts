@@ -2,17 +2,19 @@
 
 import { revalidatePath } from "next/cache";
 import { DEFAULT_TIME_ZONE } from "@/config/app";
-import { formatMonth, todayIn } from "@/lib/dates";
-import { monthOf } from "@/lib/domain/pricing";
+import { formatPriceStart, todayIn } from "@/lib/dates";
+import { priceDay } from "@/lib/domain/pricing";
 import { requireStaff } from "@/server/admin/context";
-import { setCategoryMargin, setCurrencyBuffer, setNextMonthRate } from "@/server/admin/pricing";
+import { setAutoApprove, setCategoryMargin, setCurrencyBuffer, setNextPeriodRate } from "@/server/admin/pricing";
 import { completeTask, startTask } from "@/server/admin/tasks";
 import { field, run, type ActionState } from "@/server/action-state";
-import { billingAdapter } from "@/server/billing";
+import { billingAdapter, priceSyncer } from "@/server/billing";
 import { approveAllSuggestions, approvePrice, setOffered } from "@/server/catalogue/price-book";
 import { prisma } from "@/server/db";
 import { runSoon } from "@/server/jobs/boss";
 import { confirmEftPayment, rejectEftPayment } from "@/server/payments/eft";
+import { approveRun } from "@/server/pricing/periods";
+import { acceptTable } from "@/server/pricing/official-rates";
 import { staffReply } from "@/server/support/tickets";
 
 async function deps() {
@@ -73,7 +75,7 @@ export async function rejectEftAction(_prev: ActionState, form: FormData): Promi
 
 async function pricingDeps() {
   const { staff } = await requireStaff();
-  return { db: prisma, staff, month: monthOf(todayIn(DEFAULT_TIME_ZONE)) };
+  return { db: prisma, staff, month: priceDay(todayIn(DEFAULT_TIME_ZONE)) };
 }
 
 export async function setMarginAction(_prev: ActionState, form: FormData): Promise<ActionState> {
@@ -99,10 +101,44 @@ export async function setBufferAction(_prev: ActionState, form: FormData): Promi
 export async function setRateAction(_prev: ActionState, form: FormData): Promise<ActionState> {
   const values = { rate: field(form, "rate") };
   const result = await run(async () => {
-    await setNextMonthRate(await pricingDeps(), field(form, "base"), field(form, "quote"), values.rate);
-    return "Saved for next month. The suggestions are updated.";
+    await setNextPeriodRate(await pricingDeps(), field(form, "base"), field(form, "quote"), values.rate);
+    return "Saved for the next price change. The suggestions are updated.";
   }, values);
   revalidatePath("/admin/pricing");
+  return result;
+}
+
+export async function setAutoApproveAction(_prev: ActionState, form: FormData): Promise<ActionState> {
+  const values = { threshold: field(form, "threshold") };
+  const result = await run(async () => {
+    await setAutoApprove(await pricingDeps(), values.threshold);
+    return "Saved. It applies from the next price book.";
+  }, values);
+  revalidatePath("/admin/pricing");
+  return result;
+}
+
+export async function acceptRatesAction(_prev: ActionState, form: FormData): Promise<ActionState> {
+  const result = await run(async () => {
+    const { staff } = await requireStaff();
+    await acceptTable({ db: prisma, staff }, field(form, "tableId"));
+    // Accepting can raise a buffer alert.
+    await sendEmails();
+    return "Accepted. These rates are now in use.";
+  }, {});
+  revalidatePath("/admin/pricing");
+  return result;
+}
+
+export async function approvePeriodAction(_prev: ActionState, form: FormData): Promise<ActionState> {
+  const period = field(form, "period");
+  const result = await run(async () => {
+    const { staff } = await requireStaff();
+    const done = await approveRun({ db: prisma, staff, sync: priceSyncer() }, period);
+    return done.syncError ? `Approved. The prices are in effect here, but WHMCS didn't take them: ${done.syncError}` : "Approved. The prices are in effect and sent to billing.";
+  }, {});
+  revalidatePath("/admin/pricing");
+  revalidatePath(`/admin/pricing/periods/${period}`);
   return result;
 }
 
@@ -110,7 +146,7 @@ export async function approvePriceAction(_prev: ActionState, form: FormData): Pr
   const values = { amount: field(form, "amount"), renew: field(form, "renew") };
   const result = await run(async () => {
     const entry = await approvePrice(await pricingDeps(), field(form, "market"), field(form, "item"), values);
-    return `Approved from ${formatMonth(new Date(`${entry.month}-01T00:00:00Z`))}.`;
+    return `Approved from ${formatPriceStart(entry.month)}.`;
   }, values);
   revalidatePath("/admin/pricing");
   return result;

@@ -53,8 +53,8 @@ export async function findPlaceholders(db: Pick<PrismaClient, "market" | "fxRate
     }
   }
 
-  // Staff-entered rates record who set them; seeded rates don't.
-  const seeded = await db.fxRate.findMany({ where: { setById: null }, select: { month: true, base: true, quote: true }, orderBy: [{ month: "asc" }, { base: "asc" }] });
+  // Staff-entered rates record who set them, and Bank of Botswana ones their source; seeded rates have neither.
+  const seeded = await db.fxRate.findMany({ where: { setById: null, source: null }, select: { month: true, base: true, quote: true }, orderBy: [{ month: "asc" }, { base: "asc" }] });
   if (seeded.length) {
     const sample = seeded.slice(0, 3).map((r) => `${r.base} to ${r.quote} for ${r.month}`).join(", ");
     found.push(`${seeded.length} exchange ${seeded.length === 1 ? "rate is a" : "rates are"} demo ${seeded.length === 1 ? "value" : "values"} (${sample}${seeded.length > 3 ? ", and more" : ""}). Enter the real rates at /admin/pricing.`);

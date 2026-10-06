@@ -6,7 +6,7 @@ import { Card, CardHeader } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
 import { formatDay } from "@/lib/dates";
-import { monthOf } from "@/lib/domain/pricing";
+import { priceDay } from "@/lib/domain/pricing";
 import { requireBilling } from "@/server/billing/context";
 import { marketplace } from "@/server/catalogue/price-book";
 import { audienceFor } from "@/server/catalogue/visibility";
@@ -46,7 +46,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
       billing.listDomains(),
       billing.listInvoices(),
       db.ticket.findMany({ where: { deletedAt: null, subject: { contains: q, mode: "insensitive" } }, orderBy: { updatedAt: "desc" }, take: 8 }),
-      marketplace(prisma, market, monthOf(today), audienceFor(organisation)),
+      marketplace(prisma, market, priceDay(today), audienceFor(organisation)),
     ]);
     groups.push(
       { title: "Services", hits: services.filter((s) => has(s.name, s.groupName, s.domain)).map((s) => ({ key: s.serviceId, label: s.name, detail: [s.groupName, s.domain].filter(Boolean).join(", "), href: `/app/services/${s.serviceId}` })) },

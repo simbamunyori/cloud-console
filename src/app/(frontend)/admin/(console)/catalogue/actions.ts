@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { todayIn } from "@/lib/dates";
-import { monthOf } from "@/lib/domain/pricing";
+import { priceDay } from "@/lib/domain/pricing";
 import { requireStaff } from "@/server/admin/context";
 import { saveCategory, saveFamily, saveProduct, setInternalOrganisation } from "@/server/admin/catalogue";
 import { field, run, type ActionState } from "@/server/action-state";
@@ -16,7 +16,7 @@ import { runSoon } from "@/server/jobs/boss";
 
 async function deps() {
   const { staff } = await requireStaff();
-  return { db: prisma, staff, month: monthOf(todayIn(DEFAULT_TIME_ZONE)) };
+  return { db: prisma, staff, month: priceDay(todayIn(DEFAULT_TIME_ZONE)) };
 }
 
 const values = (form: FormData, keys: readonly string[]) => Object.fromEntries(keys.map((k) => [k, field(form, k)]));

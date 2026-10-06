@@ -104,3 +104,40 @@ export function customerPrice(input: PriceInputs, currency: string): { price: Mo
 
 /** "2026-09" for the month a date falls in. */
 export const monthOf = (d: Date) => d.toISOString().slice(0, 7);
+
+/**
+ * Prices change every 14 days, on a Monday, and quotes are valid for 14
+ * days. Prices and rates are looked up by day ("2026-10-06"). Price book
+ * entries and rates start on a day (a change day) or, from before
+ * fortnightly pricing, a month ("2026-10"). The two kinds of key sort
+ * together as text, and a month key sorts as its 1st, so lookups need no
+ * conversion.
+ */
+export const priceDay = (d: Date) => d.toISOString().slice(0, 10);
+
+/** How long prices hold. Quotes say the same. */
+export const PRICE_PERIOD_DAYS = 14;
+/** The first change day; every PRICE_PERIOD_DAYS from it is another. A Monday. */
+export const FIRST_PRICE_CHANGE = "2026-10-12";
+
+const DAY_MS = 86_400_000;
+const dayDate = (key: string) => new Date(`${key.length === 7 ? `${key}-01` : key.slice(0, 10)}T00:00:00Z`);
+
+/** The change day on or before a day: the start of its pricing period. */
+export function periodOf(dayKey: string): string {
+  const epoch = dayDate(FIRST_PRICE_CHANGE).getTime();
+  const days = Math.round((dayDate(dayKey).getTime() - epoch) / DAY_MS);
+  return priceDay(new Date(epoch + Math.floor(days / PRICE_PERIOD_DAYS) * PRICE_PERIOD_DAYS * DAY_MS));
+}
+
+/** The first change day after a day: when a price approved that day takes effect. */
+export function nextPriceChange(dayKey: string): string {
+  return priceDay(new Date(dayDate(periodOf(dayKey)).getTime() + PRICE_PERIOD_DAYS * DAY_MS));
+}
+
+/** The day before a key, "2026-10-11" before "2026-10-12". */
+export function dayBefore(dayKey: string): string {
+  const d = dayDate(dayKey);
+  d.setUTCDate(d.getUTCDate() - 1);
+  return priceDay(d);
+}

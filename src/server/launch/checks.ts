@@ -70,6 +70,13 @@ export async function launchChecks(db: PrismaClient): Promise<{ placeholders: st
       done: Boolean(e.ADMIN_IP_ALLOWLIST.trim()),
       detail: e.ADMIN_IP_ALLOWLIST.trim() ? "ADMIN_IP_ALLOWLIST is set." : "Optional. Set ADMIN_IP_ALLOWLIST to the office and VPN addresses so nobody else can reach /admin.",
     },
+    {
+      key: "exchange-rates",
+      label: "Exchange rates come from Bank of Botswana",
+      done: Boolean(secret("ALLRATESTODAY_API_KEY")),
+      detail: secret("ALLRATESTODAY_API_KEY") ? "Fetched daily; new prices are built every 14 days (docs/exchange-rates.md)." : "Set ALLRATESTODAY_API_KEY on the server (docs/exchange-rates.md). Until then rates are typed at /admin/pricing.",
+      href: "/admin/pricing",
+    },
   ];
   for (const m of await db.market.findMany({ where: { enabled: true }, orderBy: { sortOrder: "asc" } })) {
     for (const kind of LEGAL_KINDS) {

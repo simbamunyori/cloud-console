@@ -8,9 +8,8 @@ import { Amount } from "@/components/ui/amount";
 import { Card, CardBody } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
 import { todayIn } from "@/lib/dates";
-import { monthOf } from "@/lib/domain/pricing";
+import { nextPriceChange, priceDay } from "@/lib/domain/pricing";
 import { requireStaffCan } from "@/server/admin/context";
-import { nextMonth } from "@/server/admin/pricing";
 import { anyProductBySlug } from "@/server/catalogue/catalogue";
 import { approvedPrice, productItem } from "@/server/catalogue/price-book";
 import { DOMAIN_PRODUCT_SLUG } from "@/server/catalogue/seed-data";
@@ -31,8 +30,8 @@ export default async function ProductPreviewPage({ params, searchParams }: { par
   if (!product) notFound();
   const markets = await prisma.market.findMany({ orderBy: { sortOrder: "asc" } });
   const market = markets.find((m) => m.code === query.market) ?? markets.find((m) => product.markets.includes(m.code)) ?? markets[0];
-  const month = monthOf(todayIn(market.timeZone));
-  const price = (await approvedPrice(prisma, market, productItem(product.slug), month)) ?? (await approvedPrice(prisma, market, productItem(product.slug), nextMonth(month)));
+  const month = priceDay(todayIn(market.timeZone));
+  const price = (await approvedPrice(prisma, market, productItem(product.slug), month)) ?? (await approvedPrice(prisma, market, productItem(product.slug), nextPriceChange(month)));
   const shown = effectiveStatus(product, product.category.family);
 
   return (
