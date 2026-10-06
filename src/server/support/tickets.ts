@@ -1,11 +1,14 @@
-import type { PrismaClient, Ticket, TicketStatus } from "@prisma/client";
+import { randomBytes } from "node:crypto";
+import type { BusinessUnit, PrismaClient, Ticket, TicketPriority, TicketStatus } from "@prisma/client";
 import type { TenantDb } from "@/server/db";
 import { queueEmail } from "@/server/email/outbox";
+import { featureOn } from "@/server/features/features";
 import { assertCan, DomainError, type Actor } from "@/server/org/access";
 import { audit, customerAudit } from "@/server/org/audit";
 import { newReference } from "@/server/orders/orders";
 import { assertStaffCan, staffLabel, type StaffActor } from "@/server/staff/access";
 import { staffAudit } from "@/server/staff/audit";
+import { PRIORITIES, PRIORITY_LABEL, UNIT_KEYS, UNITS } from "@/server/units/units";
 
 /**
  * Support tickets: a customer asks, our team answers, the customer can
@@ -63,6 +66,19 @@ export async function openTicket(deps: CustomerSupportDeps, input: { subject: st
   });
 }
 
+type RatingTx = { ticket: { update: PrismaClient["ticket"]["update"] }; outboundEmail: PrismaClient["outboundEmail"]; user: { findUnique: PrismaClient["user"]["findUnique"] } };
+
+/** When a ticket is resolved with "Service standards" on (U7): one email asking how we did, once per ticket. */
+async function askForRating(tx: RatingTx, ticket: Ticket, standardsOn: boolean) {
+  if (!standardsOn || ticket.rating !== null || ticket.ratingToken) return;
+  const opener = await tx.user.findUnique({ where: { id: ticket.openedById }, select: { email: true } });
+  if (!opener) return;
+  await tx.ticket.update({ where: { id: ticket.id }, data: { ratingToken: randomBytes(24).toString("base64url") } });
+  await queueEmail(tx, { organisationId: ticket.organisationId, to: opener.email, kind: "ticket.rating", payload: { ticketId: ticket.id } });
+}
+
+const standardsOn = (db: unknown) => featureOn(db as Pick<PrismaClient, "featureSwitch">, "service-standards");
+
 async function ownTicket(db: TenantDb, reference: string) {
   const ticket = await db.ticket.findFirst({ where: { reference, deletedAt: null } });
   if (!ticket) throw new DomainError("not-found", "That ticket isn't on your account.");
@@ -76,7 +92,7 @@ export async function customerReply(deps: CustomerSupportDeps, reference: string
   return deps.db.$transaction(async (tx) => {
     await tx.ticketMessage.create({ data: { organisationId: deps.organisation.id, ticketId: ticket.id, authorKind: "CUSTOMER", authorUserId: deps.actor.userId, authorLabel: deps.actor.name, body } });
     // Replying reopens a resolved ticket.
-    return tx.ticket.update({ where: { id: ticket.id }, data: { status: "OPEN" } });
+    return tx.ticket.update({ where: { id: ticket.id }, data: { status: "OPEN", resolvedAt: null } });
   });
 }
 
@@ -84,9 +100,12 @@ export async function customerResolve(deps: CustomerSupportDeps, reference: stri
   assertCan(deps.actor, "support");
   const ticket = await ownTicket(deps.db, reference);
   if (ticket.status === "RESOLVED") return ticket;
+  const rate = await standardsOn(deps.db);
   return deps.db.$transaction(async (tx) => {
     await audit(tx, customerAudit(deps.actor, deps.organisation.id, { action: "ticket.resolved", summary: `Marked ${ticket.reference} as sorted`, targetType: "Ticket", targetId: ticket.id }));
-    return tx.ticket.update({ where: { id: ticket.id }, data: { status: "RESOLVED" } });
+    const resolved = await tx.ticket.update({ where: { id: ticket.id }, data: { status: "RESOLVED", resolvedAt: new Date() } });
+    await askForRating(tx as unknown as RatingTx, resolved, rate);
+    return resolved;
   });
 }
 
@@ -136,6 +155,8 @@ export async function staffReply(
   const internal = Boolean(input.internal);
   const status = internal ? ticket.status : (input.status ?? "WAITING_ON_CUSTOMER");
   const opener = await deps.db.user.findUnique({ where: { id: ticket.openedById }, select: { email: true } });
+  const rate = await standardsOn(deps.db);
+  const now = new Date();
 
   return deps.db.$transaction(async (tx) => {
     await tx.ticketMessage.create({ data: { organisationId: ticket.organisationId, ticketId: ticket.id, authorKind: "STAFF", authorUserId: deps.staff.userId, authorLabel: staffLabel(deps.staff), body, internal } });
@@ -151,6 +172,47 @@ export async function staffReply(
     if (!internal && opener) {
       await queueEmail(tx, { organisationId: ticket.organisationId, to: opener.email, kind: "ticket.reply", payload: { ticketId: ticket.id } });
     }
-    return tx.ticket.update({ where: { id: ticket.id }, data: { status, assigneeId: ticket.assigneeId ?? deps.staff.userId } });
+    const updated = await tx.ticket.update({
+      where: { id: ticket.id },
+      data: {
+        status,
+        assigneeId: ticket.assigneeId ?? deps.staff.userId,
+        // Measured against the unit's targets (U7): our first reply the customer sees, and when it was resolved.
+        ...(!internal && !ticket.firstResponseAt ? { firstResponseAt: now } : {}),
+        ...(status === "RESOLVED" && ticket.status !== "RESOLVED" ? { resolvedAt: now } : status !== "RESOLVED" ? { resolvedAt: null } : {}),
+      },
+    });
+    if (status === "RESOLVED" && ticket.status !== "RESOLVED") await askForRating(tx, updated, rate);
+    return updated;
   });
+}
+
+/** Staff set a ticket's priority and the unit that works it (U7). Visible in the customer's activity log. */
+export async function routeTicket(deps: { db: PrismaClient; staff: StaffActor }, reference: string, input: { priority: string; unit: string }) {
+  assertStaffCan(deps.staff, "answerTickets");
+  const ticket = await deps.db.ticket.findUnique({ where: { reference } });
+  if (!ticket || ticket.deletedAt) throw new DomainError("not-found", "No such ticket.");
+  const priority = input.priority as TicketPriority;
+  const unit = input.unit as BusinessUnit;
+  const fieldErrors: Record<string, string> = {};
+  if (!PRIORITIES.includes(priority)) fieldErrors.priority = "Choose a priority.";
+  if (!UNIT_KEYS.includes(unit)) fieldErrors.unit = "Choose a unit.";
+  if (Object.keys(fieldErrors).length) throw new DomainError("invalid", "Check the highlighted fields.", undefined, fieldErrors);
+  if (ticket.priority === priority && ticket.unit === unit) return ticket;
+  return deps.db.$transaction(async (tx) => {
+    await audit(tx, staffAudit(deps.staff, ticket.organisationId, { action: "ticket.routed", summary: `Set ${ticket.reference} to ${PRIORITY_LABEL[priority].toLowerCase()} priority with ${UNITS[unit].label}`, targetType: "Ticket", targetId: ticket.id }));
+    return tx.ticket.update({ where: { id: ticket.id }, data: { priority, unit } });
+  });
+}
+
+/** The one-question rating, from the email's link (no sign-in) or the console. Can be changed for 30 days. */
+export async function rateTicket(db: PrismaClient, where: { token: string } | { reference: string; organisationId: string }, input: { score: number; comment?: string }, now = new Date()) {
+  if (!(await standardsOn(db))) throw new DomainError("not-found", "Ratings aren't open.");
+  const ticket = "token" in where ? (where.token ? await db.ticket.findUnique({ where: { ratingToken: where.token } }) : null) : await db.ticket.findFirst({ where: { reference: where.reference, organisationId: where.organisationId } });
+  if (!ticket || ticket.deletedAt) throw new DomainError("not-found", "That link has expired.");
+  if (ticket.status !== "RESOLVED") throw new DomainError("conflict", "You can rate it once it's sorted.");
+  if (ticket.ratedAt && now.getTime() - ticket.ratedAt.getTime() > 30 * 86_400_000) throw new DomainError("conflict", "Thanks, your rating is in.");
+  if (!Number.isInteger(input.score) || input.score < 1 || input.score > 5) throw new DomainError("invalid", "Choose from 1 to 5.", "score");
+  const comment = input.comment?.trim().slice(0, 1000) || null;
+  return db.ticket.update({ where: { id: ticket.id }, data: { rating: input.score, ratingComment: comment, ratedAt: now } });
 }

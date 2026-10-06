@@ -45,6 +45,26 @@ const JOBS: Job[] = [
       return syncLicensing(prisma);
     },
   },
+  // Last month's response times against the units' targets (STRATEGY_ROLLOUT U7), published once there are enough tickets.
+  {
+    name: "response-report",
+    cron: "0 6 2 * *",
+    run: async () => {
+      const { writeResponseReport } = await import("@/server/units/units");
+      return writeResponseReport(prisma);
+    },
+  },
+  // Admins hear about partner agreements before their notice period starts (U7).
+  {
+    name: "partner-renewals",
+    cron: "0 8 * * *",
+    run: async () => {
+      const { remindRenewals } = await import("@/server/units/partner-register");
+      const sent = await remindRenewals(prisma);
+      if (sent) await runSoon("email-deliver").catch(() => undefined);
+      return sent;
+    },
+  },
   // Budget warnings, once usage for yesterday is usually in; uploads also check at once.
   { name: "budget-check", cron: "0 7 * * *", run: () => checkBudgets(prisma, todayIn(DEFAULT_TIME_ZONE)) },
   // The site's status: ordering and invoices depend on the billing system answering.

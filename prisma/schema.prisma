@@ -229,6 +229,8 @@ model User {
   staffRole       StaffRole?
   /// Staff only: what they may do in the website editor. Admins can always publish.
   websiteRole     WebsiteRole?
+  /// Staff only: the business units they belong to (STRATEGY_ROLLOUT U7).
+  units           BusinessUnit[] @default([])
   deactivatedAt   DateTime?
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
@@ -1331,6 +1333,14 @@ enum TicketStatus {
   RESOLVED
 }
 
+/// How urgent a ticket is; response targets are per unit and priority (U7).
+enum TicketPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
 model Ticket {
   id             String       @id @default(cuid())
   reference      String       @unique
@@ -1341,6 +1351,18 @@ model Ticket {
   assigneeId     String?
   /// Set when the assistant handed over; the conversation is attached.
   conversationId String?      @unique
+  /// Routing and measurement (STRATEGY_ROLLOUT U7).
+  priority        TicketPriority @default(NORMAL)
+  unit            BusinessUnit   @default(SUPPORT)
+  /// Our first reply the customer can see.
+  firstResponseAt DateTime?
+  /// When it was last resolved; cleared if it reopens.
+  resolvedAt      DateTime?
+  /// The one-question satisfaction rating, 1 to 5, after it is resolved.
+  rating          Int?
+  ratingComment   String?
+  ratedAt         DateTime?
+  ratingToken     String?        @unique
   deletedAt      DateTime?
   purgeAfter     DateTime?
   createdAt      DateTime     @default(now())
@@ -2720,4 +2742,80 @@ model SocSettings {
   escalationEmail String?
   updatedById     String?
   updatedAt       DateTime @updatedAt
+}
+
+// ─── STRATEGY_ROLLOUT U7: the business structure ─────────────────────
+
+enum BusinessUnit {
+  SALES
+  DELIVERY
+  SUPPORT
+  OPERATIONS
+  PARTNERSHIPS
+  FINANCE
+  MARKETING
+  PRODUCT
+}
+
+/// Which unit works each queue (leads, setup tasks, tickets...). Missing rows use the defaults in src/server/units/units.ts.
+model UnitRoute {
+  queue       String       @id
+  unit        BusinessUnit
+  updatedById String?
+  updatedAt   DateTime     @updatedAt
+}
+
+/// Response targets per unit and priority, in minutes.
+model UnitTarget {
+  unit                 BusinessUnit
+  priority             TicketPriority
+  firstResponseMinutes Int
+  resolveMinutes       Int
+  updatedById          String?
+  updatedAt            DateTime       @updatedAt
+
+  @@id([unit, priority])
+}
+
+/// A month's measured response times, published on the Support pages once there is enough data.
+model ResponseReport {
+  /// "2026-10".
+  month     String   @id
+  /// Per unit and priority: counts, medians and share within target; satisfaction.
+  data      Json
+  tickets   Int
+  published Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+enum PartnerStatus {
+  PROSPECT
+  ACTIVE
+  PAUSED
+  ENDED
+}
+
+/// The partner register: who we depend on, under which agreement, until when.
+model PartnerRecord {
+  id           String        @id @default(cuid())
+  name         String
+  /// e.g. "Distributor", "Security provider", "Registrar".
+  category     String
+  status       PartnerStatus @default(ACTIVE)
+  /// People to call, one per line.
+  contacts     String?
+  agreementRef String?
+  agreementUrl String?
+  startsOn     DateTime?
+  renewsOn     DateTime?
+  /// Days of notice the agreement needs; the reminder goes out before that.
+  noticeDays   Int           @default(60)
+  /// Catalogue product slugs that depend on this partner.
+  products     String[]      @default([])
+  notes        String?
+  /// The renewal date the last reminder was sent for.
+  remindedFor  DateTime?
+  updatedById  String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
 }

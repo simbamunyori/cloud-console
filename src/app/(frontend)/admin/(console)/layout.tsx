@@ -17,6 +17,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const counts = await staffOverview(prisma);
   const all: (NavItem & { needs: StaffPermission })[] = [
     { href: "/admin", label: "Overview", icon: "overview", exact: true, needs: "viewCustomers" },
+    { href: "/admin/my-work", label: "My work", icon: "mywork", needs: "viewCustomers" },
     { href: "/admin/customers", label: "Customers", icon: "customers", needs: "viewCustomers" },
     { href: "/admin/tasks", label: "Setup queue", icon: "tasks", needs: "viewCustomers", badge: counts.openTasks || undefined },
     { href: "/admin/tickets", label: "Tickets", icon: "support", needs: "viewCustomers", badge: counts.tickets || undefined },
@@ -35,10 +36,12 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     { href: "/admin/status", label: "Service status", icon: "status", needs: "manageStatus" },
     { href: "/admin/waitlist", label: "Waiting list", icon: "waitlist", needs: "viewCustomers", badge: counts.waitlist || undefined },
     { href: "/admin/staff", label: "Staff", icon: "staff", needs: "manageStaff" },
+    { href: "/admin/units", label: "Units", icon: "units", needs: "manageStaff" },
     { href: "/admin/migration", label: "Client migration", icon: "migration", needs: "migrateClients" },
     { href: "/admin/launch", label: "Launch checks", icon: "checks", needs: "manageMarkets" },
     { href: "/admin/company", label: "Company", icon: "company", needs: "manageCompany" },
     { href: "/admin/partners", label: "Partners", icon: "partners", needs: "managePartners" },
+    { href: "/admin/partner-register", label: "Partner register", icon: "register", needs: "managePartners" },
     { href: "/admin/features", label: "Features", icon: "features", needs: "manageFeatures" },
   ];
   const nav: NavItem[] = all.filter((i) => staffCan(staff, i.needs)).map(({ needs: _needs, ...i }) => i);

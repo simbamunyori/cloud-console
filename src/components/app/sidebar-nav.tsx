@@ -3,6 +3,9 @@
 import {
   ArrowRightLeft,
   Handshake,
+  Inbox,
+  Network,
+  NotebookTabs,
   DatabaseBackup,
   ShieldAlert,
   Landmark,
@@ -78,6 +81,9 @@ const ICONS = {
   company: Landmark,
   partners: Handshake,
   features: ToggleRight,
+  mywork: Inbox,
+  units: Network,
+  register: NotebookTabs,
 };
 
 export interface NavItem {

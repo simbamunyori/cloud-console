@@ -3,10 +3,13 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { helpPath } from "@/cms/collections/help";
 import { HELP_SECTIONS } from "@/cms/topics";
+import { ResponseTimes } from "@/components/app/response-times";
 import { SitePage } from "@/components/site/site-page";
 import { company } from "@/config/app";
 import { helpArticles } from "@/server/site/cms";
+import { prisma } from "@/server/db";
 import { siteMarket, siteMetadata } from "@/server/site/site";
+import { publishedResponseTimes } from "@/server/units/units";
 
 type Props = { params: Promise<{ market: string }> };
 
@@ -18,7 +21,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 /** Every help article, by section. Not found while there are none, so nothing empty is ever shown. */
 export default async function HelpCentre({ params }: Props) {
   const m = await siteMarket((await params).market);
-  const articles = await helpArticles(m.code);
+  const [articles, times] = await Promise.all([helpArticles(m.code), publishedResponseTimes(prisma)]);
   if (!articles.length) notFound();
   const sections = HELP_SECTIONS.map((s) => ({ ...s, articles: articles.filter((a) => a.section === s.value) })).filter((s) => s.articles.length);
   return (
@@ -50,6 +53,7 @@ export default async function HelpCentre({ params }: Props) {
             </section>
           ))}
         </div>
+        {times ? <ResponseTimes data={times} className="border-t border-ink pt-6" /> : null}
       </div>
     </SitePage>
   );

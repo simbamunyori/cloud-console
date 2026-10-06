@@ -10,7 +10,7 @@ import { runSoon } from "@/server/jobs/boss";
 import { DomainError } from "@/server/org/access";
 import { ask, confirmAction, declineAction } from "@/server/support/assistant/assistant";
 import { assistantModel } from "@/server/support/assistant/model";
-import { customerReply, customerResolve, openTicket } from "@/server/support/tickets";
+import { customerReply, customerResolve, openTicket, rateTicket } from "@/server/support/tickets";
 
 async function deps() {
   const { db, billing, organisation, actor } = await requireBilling();
@@ -43,7 +43,21 @@ export async function replyAction(_prev: ActionState, form: FormData): Promise<A
 export async function resolveAction(form: FormData) {
   const reference = field(form, "reference");
   await customerResolve(await deps(), reference);
+  await runSoon("email-deliver").catch(() => undefined);
   revalidatePath(`/app/support/tickets/${reference}`);
+}
+
+/** The satisfaction rating in the console (U7), the same one question as the email. */
+export async function rateAction(_prev: ActionState, form: FormData): Promise<ActionState> {
+  const reference = field(form, "reference");
+  const values = { score: field(form, "score"), comment: field(form, "comment") };
+  const result = await run(async () => {
+    const { organisation } = await deps();
+    await rateTicket(prisma, { reference, organisationId: organisation.id }, { score: Number(values.score), comment: values.comment });
+    return "Thank you. Your answer helps us get better.";
+  }, values);
+  if (result.ok) revalidatePath(`/app/support/tickets/${reference}`);
+  return result;
 }
 
 export async function askAction(_prev: ActionState, form: FormData): Promise<ActionState> {

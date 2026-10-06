@@ -113,6 +113,12 @@ export const FEATURES = {
       return null;
     },
   },
+  "service-standards": {
+    label: "Service standards: ratings and published response times",
+    description:
+      "After each resolved ticket the customer gets one question by email (how did we do, 1 to 5), and can answer in the console too. Each month's measured response times are published on the Support pages once there were at least 20 tickets. Response targets and units are set in Admin > Units either way.",
+    milestone: "U7",
+  },
 } satisfies Record<string, FeatureDefinition>;
 
 export type FeatureKey = keyof typeof FEATURES;
