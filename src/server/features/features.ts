@@ -57,6 +57,23 @@ export const FEATURES = {
     description: "Shows the wording that customer data is kept in Botswana. Leave off until our own platform has moved to the Botswana data centre.",
     milestone: "U1",
   },
+  "included-protection": {
+    label: "Security and backup included in plans",
+    description:
+      "Shows customers the email security and backup each Microsoft 365, Google Workspace and hosting plan includes (set in the catalogue), sets them up with each new order, and counts their cost in the price book's suggestions. Check the plan margin report at /admin/pricing first.",
+    milestone: "U3",
+  },
+  "customer-backup": {
+    label: "Off-site backup in the console",
+    description:
+      "Customers see a Backup page: each backup's status, last successful backup, how long copies are kept, and restore requests. Delivered through the backup provider set up in Partners, under our name only.",
+    milestone: "U3",
+    requires: async (db) => {
+      const p = await db.partnerSetting.findUnique({ where: { key: "backup-provider" } });
+      if (!p?.enabled) return "Set up the backup provider in Partners and switch it on first.";
+      return null;
+    },
+  },
 } satisfies Record<string, FeatureDefinition>;
 
 export type FeatureKey = keyof typeof FEATURES;

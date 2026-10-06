@@ -28,6 +28,8 @@ import { PlanEstimate } from "../plan-estimate";
 import { ClientGrid, EmailPartnerBadge, PartnerGrid, ProofNumbers, ShowcaseCard } from "../proof";
 import { emailPartner, firstReplyMinutes, approvedPartners, permittedClientLogos, permittedShowcaseSites, visibleProofNumbers, visibleTeam } from "@/server/site/proof";
 import { formatReplyTime } from "@/server/support/first-reply";
+import { includedWords, shownInclusionsBySlug } from "@/server/catalogue/inclusions";
+import { prisma } from "@/server/db";
 import { KgaleSignature, MothibiSite, ThebeScreen } from "../showcase";
 import { linkHref, MediaImage, type BlockContext, type CmsLinkValue } from "./parts";
 
@@ -419,7 +421,18 @@ export async function PlansTable({ block: b, ctx }: { block: PlansTableBlock; ct
   const plans = planPrices(prices);
   if (!plans) return null;
   const fmt = (p: SitePrice) => formatMoney(p.price, m.locale);
-  const rows = b.rows ?? [];
+  // STRATEGY_ROLLOUT U3: what each plan includes at no extra charge, from the catalogue, once that feature is on.
+  const inclusions = await shownInclusionsBySlug(prisma, PLAN_KEYS.flatMap((k) => [`plan-${k}`, `plan-${k}-users`]));
+  const includedIn = (k: PlanKey) => [...new Set([...(inclusions.get(`plan-${k}`) ?? []), ...(inclusions.get(`plan-${k}-users`) ?? [])])];
+  const includedRow = inclusions.size
+    ? ({
+        id: "included-at-no-extra-charge",
+        label: "Included at no extra charge",
+        labelPhone: "Included free",
+        ...Object.fromEntries(PLAN_KEYS.flatMap((k) => [[k, includedWords(includedIn(k)) || "Not included"], [`${k}Phone`, includedIn(k).length ? "Yes" : "No"], [`${k}Included`, includedIn(k).length > 0]])),
+      } as unknown as NonNullable<PlansTableBlock["rows"]>[number])
+    : null;
+  const rows = [...(b.rows ?? []), ...(includedRow ? [includedRow] : [])];
   const footnote = [b.footnote, taxNote(m)].filter(Boolean).join(" ");
   const rec = plans[RECOMMENDED];
   const estimate = { name: PLAN_NAMES[RECOMMENDED], base: rec.base.price.amountMinor.toString(), perUser: rec.perUser.price.amountMinor.toString() };

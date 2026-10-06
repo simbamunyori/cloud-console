@@ -144,6 +144,15 @@ const JOBS: Job[] = [
       return syncDomainCosts({ db: prisma });
     },
   },
+  // Off-site backup status from the provider's API (STRATEGY_ROLLOUT U3); nothing in manual mode or while the partner is off.
+  {
+    name: "backup-sync",
+    cron: "10 * * * *",
+    run: async () => {
+      const { syncBackups } = await import("@/server/backup/backup");
+      return syncBackups({ db: prisma });
+    },
+  },
   // Each new invoice by email with its PDF, once Admin > Features > Invoice emails is on.
   {
     name: "invoice-emails",

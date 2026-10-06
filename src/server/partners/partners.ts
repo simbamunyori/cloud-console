@@ -4,6 +4,7 @@ import { assertStaffCan, type StaffActor } from "@/server/staff/access";
 import { EppRegistry } from "@/server/domains/epp";
 import { OPENPROVIDER_NAMESERVERS, OpenproviderRegistrar } from "@/server/domains/openprovider";
 import { RegistrarError, parseNameservers, type Registrar } from "@/server/domains/registrar";
+import { ApiBackupProvider, BackupProviderError, ManualBackupProvider, parseCustomFields, type BackupProvider } from "@/server/backup/provider";
 import { openSecrets, sealSecrets } from "./vault";
 
 /**
@@ -13,7 +14,7 @@ import { openSecrets, sealSecrets } from "./vault";
  * and an Admin switches it on.
  */
 
-export type PartnerKey = "openprovider" | "bw-registry";
+export type PartnerKey = "openprovider" | "bw-registry" | "backup-provider";
 
 export interface PartnerField {
   name: string;
@@ -69,12 +70,35 @@ export const PARTNERS: Record<PartnerKey, PartnerDefinition> = {
       { name: "nameservers", label: "Nameservers for new domains", kind: "textarea", hint: "One per line." },
     ],
   },
+  "backup-provider": {
+    label: "Backup provider",
+    description:
+      "Off-site backup for customers' Microsoft 365, Google Workspace and servers (STRATEGY_ROLLOUT U3). White-label: customers see backups under our name only, never the provider's. In manual mode our team records status and carries out restores; with an API, status is fetched every hour and restores go straight to the provider.",
+    fields: [
+      { name: "name", label: "Provider name", kind: "text", required: true, hint: "For staff only. Never shown to customers." },
+      {
+        name: "mode",
+        label: "How we work with it",
+        kind: "select",
+        options: [
+          { value: "manual", label: "Manual: our team records status and does restores" },
+          { value: "api", label: "API: status and restores through the provider's API" },
+        ],
+        initial: "manual",
+      },
+      { name: "endpoint", label: "API endpoint", kind: "text", hint: "The base address, e.g. https://api.example.com. Only for API mode." },
+      { name: "apiKey", label: "API key", kind: "password", secret: true },
+      { name: "apiSecret", label: "API secret", kind: "password", secret: true, hint: "Only if the provider issues one." },
+      { name: "region", label: "Storage region", kind: "text", hint: "Where the copies are kept, e.g. South Africa North. Staff only." },
+      { name: "custom", label: "Custom fields", kind: "textarea", hint: "Anything else the provider asks for, one name=value per line. Sent as headers in API mode." },
+    ],
+  },
 };
 
 export const isPartnerKey = (k: string): k is PartnerKey => k in PARTNERS;
 
 /** The feature in Admin > Features each partner serves; it goes off whenever the partner does. */
-const FEATURE_OF = { openprovider: "openprovider-domains", "bw-registry": "bw-registry-domains" } as const;
+export const FEATURE_OF = { openprovider: "openprovider-domains", "bw-registry": "bw-registry-domains", "backup-provider": "customer-backup" } as const;
 
 export interface PartnerConfig {
   key: PartnerKey;
@@ -134,11 +158,16 @@ export async function savePartner(deps: { db: PrismaClient; staff: StaffActor },
     if (f.required && !value) fieldErrors[f.name] = `Enter the ${f.label.toLowerCase()}.`;
     if (f.kind === "select" && value && !f.options?.some((o) => o.value === value)) fieldErrors[f.name] = "Choose one of the options.";
     if (f.kind === "number" && value && !/^\d{1,5}$/.test(value)) fieldErrors[f.name] = "Enter a number.";
+    if (f.name === "endpoint" && value && !/^https:\/\/[^\s/]+/i.test(value)) fieldErrors[f.name] = "Enter an address starting with https://.";
     if (f.name === "nameservers" && value) {
       const ns = parseNameservers(value);
       if (typeof ns === "string") fieldErrors[f.name] = ns;
     }
     settings[f.name] = value;
+  }
+  if (key === "backup-provider" && settings.mode === "api") {
+    if (!settings.endpoint) fieldErrors.endpoint = "Enter the API endpoint.";
+    if (!secrets.apiKey) fieldErrors.apiKey = "Enter the API key.";
   }
   if (Object.keys(fieldErrors).length) throw new DomainError("invalid", "Check the highlighted fields.", undefined, fieldErrors);
 
@@ -184,20 +213,30 @@ export function registrarFrom(config: PartnerConfig): Registrar {
   });
 }
 
+/** The backup provider's adapter from saved settings: the API, or our team by hand. */
+export function backupProviderFrom(config: PartnerConfig, fetcher?: typeof fetch): BackupProvider {
+  const s = config.settings;
+  if (s.mode !== "api") return new ManualBackupProvider();
+  if (!s.endpoint || !config.secrets.apiKey) throw new DomainError("invalid", "Enter the API endpoint and key first.");
+  return new ApiBackupProvider({ endpoint: s.endpoint, apiKey: config.secrets.apiKey, apiSecret: config.secrets.apiSecret, region: s.region, custom: parseCustomFields(s.custom) }, fetcher);
+}
+
+const testerFrom = (config: PartnerConfig): { test(): Promise<string> } => (config.key === "backup-provider" ? backupProviderFrom(config) : registrarFrom(config));
+
 /** Test connection: signs in and reads something harmless. The result is kept and audited. */
-export async function testPartner(deps: { db: PrismaClient; staff: StaffActor; build?: (c: PartnerConfig) => Registrar; now?: Date }, key: string) {
+export async function testPartner(deps: { db: PrismaClient; staff: StaffActor; build?: (c: PartnerConfig) => { test(): Promise<string> }; now?: Date }, key: string) {
   assertStaffCan(deps.staff, "managePartners");
   if (!isPartnerKey(key)) throw new DomainError("not-found", "No such partner.");
   const config = await partnerConfig(deps.db, key);
   if (!config) throw new DomainError("invalid", "Save the settings first.");
-  const registrar = (deps.build ?? registrarFrom)(config);
+  const registrar = (deps.build ?? testerFrom)(config);
   let ok = true;
   let message: string;
   try {
     message = await registrar.test();
   } catch (e) {
     ok = false;
-    message = e instanceof RegistrarError ? e.message : `The test failed: ${(e as Error).message}`;
+    message = e instanceof RegistrarError || e instanceof BackupProviderError ? e.message : `The test failed: ${(e as Error).message}`;
   }
   await deps.db.$transaction(async (tx) => {
     await tx.partnerSetting.update({ where: { key }, data: { lastTestAt: deps.now ?? new Date(), lastTestOk: ok, lastTestMessage: message.slice(0, 500), ...(ok ? {} : { enabled: false }) } });

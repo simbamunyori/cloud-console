@@ -9,10 +9,11 @@ import { PageHeader } from "@/components/ui/page-header";
 import { DEFAULT_TIME_ZONE } from "@/config/app";
 import { formatMoment } from "@/lib/dates";
 import { requireStaffCan } from "@/server/admin/context";
+import { includedProtectionOn, inclusionsByPlan } from "@/server/catalogue/inclusions";
 import { DOMAIN_PRODUCT_SLUG } from "@/server/catalogue/seed-data";
 import { effectiveStatus } from "@/server/catalogue/visibility";
 import { prisma } from "@/server/db";
-import { ProductForm } from "../../forms";
+import { AddInclusionForm, InclusionRow, ProductForm } from "../../forms";
 import { BackToCatalogue, StatusBadge } from "../../parts";
 import { productFormOptions, productValues } from "../options";
 
@@ -25,10 +26,17 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
   const [p, options, changes] = await Promise.all([
     prisma.product.findUnique({ where: { slug }, include: { category: { include: { family: true } } } }),
     productFormOptions(prisma),
-    prisma.staffAuditEvent.findMany({ where: { action: { startsWith: "catalogue.product" }, data: { path: ["product"], equals: slug } }, orderBy: { createdAt: "desc" }, take: 20 }),
+    prisma.staffAuditEvent.findMany({ where: { OR: [{ action: { startsWith: "catalogue.product" }, data: { path: ["product"], equals: slug } }, { action: { startsWith: "catalogue.inclusion" }, data: { path: ["plan"], equals: slug } }] }, orderBy: { createdAt: "desc" }, take: 20 }),
   ]);
   if (!p) notFound();
   const shown = effectiveStatus(p, p.category.family);
+  const [inclusions, includedIn, featureOn, others] = await Promise.all([
+    inclusionsByPlan(prisma, [p.id]).then((m) => m.get(p.id) ?? []),
+    prisma.productInclusion.findMany({ where: { includedId: p.id }, include: { plan: { select: { name: true, slug: true } } } }),
+    includedProtectionOn(prisma),
+    prisma.product.findMany({ where: { id: { not: p.id }, slug: { not: DOMAIN_PRODUCT_SLUG }, inclusions: { none: {} } }, select: { slug: true, name: true }, orderBy: { name: "asc" } }),
+  ]);
+  const unit = p.unitLabel.startsWith("per ") ? p.unitLabel : `per ${p.unitLabel}`;
 
   return (
     <>
@@ -57,6 +65,45 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
           <CardBody>
             <ProductForm {...options} existing={p.slug} product={productValues(p)} />
           </CardBody>
+        </Card>
+        <Card aria-labelledby="included-title">
+          <CardHeader
+            id="included-title"
+            title="Included at no extra charge"
+            description={
+              featureOn
+                ? "Customers see these on the product, orders set them up and the suggested price counts their cost."
+                : "Customers don't see these yet: they show, are set up and are priced in once Admin > Features > Security and backup included in plans is on."
+            }
+          />
+          {includedIn.length ? (
+            <CardBody>
+              <p className="text-ink-muted">
+                Included in {includedIn.map((i, n) => (
+                  <span key={i.plan.slug}>
+                    {n ? ", " : ""}
+                    <Link className="text-link underline" href={`/admin/catalogue/products/${i.plan.slug}`}>
+                      {i.plan.name}
+                    </Link>
+                  </span>
+                ))}
+                , so it can&apos;t include other products itself.
+              </p>
+            </CardBody>
+          ) : (
+            <>
+              {inclusions.length ? (
+                <div className="divide-y divide-border">
+                  {inclusions.map((i) => (
+                    <InclusionRow key={i.included.slug} plan={p.slug} included={i.included.slug} name={i.included.name} quantity={i.quantity} unit={unit} />
+                  ))}
+                </div>
+              ) : null}
+              <CardBody>
+                <AddInclusionForm plan={p.slug} products={others.filter((o) => !inclusions.some((i) => i.included.slug === o.slug)).map((o) => ({ value: o.slug, label: o.name }))} />
+              </CardBody>
+            </>
+          )}
         </Card>
         <Card aria-labelledby="changes-title">
           <CardHeader id="changes-title" title="Changes" />

@@ -3,6 +3,7 @@
 import {
   ArrowRightLeft,
   Handshake,
+  DatabaseBackup,
   Landmark,
   ToggleRight,
   Signpost,
@@ -49,6 +50,7 @@ const ICONS = {
   support: LifeBuoy,
   team: Users,
   licences: KeyRound,
+  backup: DatabaseBackup,
   security: ShieldCheck,
   settings: SlidersHorizontal,
   customers: Building2,

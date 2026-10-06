@@ -1,11 +1,12 @@
 import { Prisma, type CatalogueStatus, type PriceBookEntry, type PrismaClient, type Product, type ProductCategory } from "@prisma/client";
 import { money, parseMoney, MoneyParseError, type Money } from "@/lib/domain/money";
-import { customerPrice, nextPriceChange, PricingError, type PriceBreakdown } from "@/lib/domain/pricing";
+import { convertAt, customerPrice, nextPriceChange, PricingError, type PriceBreakdown } from "@/lib/domain/pricing";
 import { company } from "@/config/app";
 import { DomainError } from "@/server/org/access";
 import { assertStaffCan, type StaffActor } from "@/server/staff/access";
 import { DOMAIN_PRODUCT_SLUG } from "./seed-data";
 import { effectiveStatus, shownTo, shownWhere, type Audience, type WithFamily } from "./visibility";
+import { includedProtectionOn, inclusionsByPlan, type Inclusion } from "./inclusions";
 
 /**
  * Each market has a price book: the prices staff approved, in the
@@ -25,7 +26,7 @@ import { effectiveStatus, shownTo, shownWhere, type Audience, type WithFamily } 
  * priceDay in lib/domain/pricing.ts).
  */
 
-type Db = Pick<PrismaClient, "priceBookEntry" | "product" | "productCategory" | "tld" | "fxRate" | "pricingSettings" | "market">;
+type Db = Pick<PrismaClient, "priceBookEntry" | "product" | "productCategory" | "tld" | "fxRate" | "pricingSettings" | "market" | "productInclusion" | "featureSwitch">;
 
 export interface MarketRef {
   code: string;
@@ -158,6 +159,26 @@ export interface BookRow {
   problem?: string;
 }
 
+/**
+ * A plan's true cost: its own plus what it includes (STRATEGY_ROLLOUT U3),
+ * in the plan's cost currency. An included product costed in another
+ * currency is converted at the day's rate. A string says why it can't be.
+ */
+export async function trueCost(db: Pick<PrismaClient, "fxRate">, month: string, own: Money, inclusions: Inclusion[]): Promise<Money | string> {
+  let total = own.amountMinor;
+  for (const i of inclusions) {
+    const cost = money(i.included.costMinor * BigInt(i.quantity), i.included.costCurrency);
+    if (cost.currency === own.currency) {
+      total += cost.amountMinor;
+      continue;
+    }
+    const rate = await rateFor(db, month, cost.currency, own.currency);
+    if (!rate) return `There's no ${cost.currency} to ${own.currency} rate to add ${i.included.name}.`;
+    total += convertAt(cost, own.currency, rate.rateMicros);
+  }
+  return money(total, own.currency);
+}
+
 async function suggestFor(db: Db, month: string, currency: string, inputs: { cost: Money; fixedPrice?: Money | null; marginBps: number; bufferBps: number }): Promise<Suggestion | string> {
   const base = inputs.fixedPrice ? inputs.fixedPrice.currency : inputs.cost.currency;
   const rate = base === currency ? null : await rateFor(db, month, base, currency);
@@ -184,6 +205,8 @@ export async function bookRows(db: Db, marketCode: string, month: string): Promi
     bookFor(db, marketCode, next),
   ]);
   const bufferBps = settings?.currencyBufferBps ?? 0;
+  // With the feature on, a plan's suggestion covers what it includes too.
+  const inclusions = (await includedProtectionOn(db)) ? await inclusionsByPlan(db) : new Map<string, Inclusion[]>();
   const domainMargin = (await db.product.findUnique({ where: { slug: DOMAIN_PRODUCT_SLUG }, include: { category: true } }))?.category.marginBps ?? 0;
   const rows: BookRow[] = [];
 
@@ -195,7 +218,10 @@ export async function bookRows(db: Db, marketCode: string, month: string): Promi
       const later = upToNext.get(item);
       const scheduled = later && later.month > month ? entryMoney(later, market) : null;
       const fixedPrice = p.fixedPriceMinor !== null && p.fixedPriceCurrency ? money(p.fixedPriceMinor, p.fixedPriceCurrency) : null;
-      const s = await suggestFor(db, targetMonth, market.currency, { cost: money(p.costMinor, p.costCurrency), fixedPrice, marginBps: c.marginBps, bufferBps });
+      const included = fixedPrice ? [] : (inclusions.get(p.id) ?? []);
+      const cost = included.length ? await trueCost(db, targetMonth, money(p.costMinor, p.costCurrency), included) : money(p.costMinor, p.costCurrency);
+      const s = typeof cost === "string" ? cost : await suggestFor(db, targetMonth, market.currency, { cost, fixedPrice, marginBps: c.marginBps, bufferBps });
+      if (typeof s !== "string" && included.length) s.breakdown.included = included.map((i) => ({ name: i.included.name, quantity: i.quantity, cost: i.included.costMinor.toString(), costCurrency: i.included.costCurrency }));
       rows.push({
         item,
         kind: "product",

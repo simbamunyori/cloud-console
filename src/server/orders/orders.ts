@@ -7,6 +7,8 @@ import { BillingError, PAYMENT_METHODS, type DomainAvailability, type UpgradePre
 import type { ScopedBilling } from "@/server/billing/scoped";
 import { approvedPrice, productItem, productPrice, tldOffers } from "@/server/catalogue/price-book";
 import { productBySlug, productOptions, validateOptions, type ProductWithCategory } from "@/server/catalogue/catalogue";
+import { startProtection } from "@/server/backup/backup";
+import { includedToSetUp } from "@/server/catalogue/inclusions";
 import { DOMAIN_PRODUCT_SLUG } from "@/server/catalogue/seed-data";
 import { audienceFor } from "@/server/catalogue/visibility";
 import { connectorFor } from "@/server/connectors/registry";
@@ -125,6 +127,7 @@ export async function placeOrder(deps: OrderDeps, input: { slug: string; quantit
 
   const now = deps.now ?? new Date();
   const email = await placerEmail(deps.db, deps.actor.userId);
+  const included = await includedToSetUp(catalogueDb(deps.db), product.id);
   return deps.db.$transaction(async (tx) => {
     const order = await tx.order.create({
       data: {
@@ -159,6 +162,28 @@ export async function placeOrder(deps: OrderDeps, input: { slug: string; quantit
       },
       now,
     );
+    // STRATEGY_ROLLOUT U3: what the product includes is set up with it, at no extra charge, so it has no billing ids of its own.
+    for (const i of included) {
+      await connectorFor(i.included.category.family.connector).request(
+        tx,
+        {
+          organisationId: deps.organisation.id,
+          organisationName: deps.organisation.name,
+          orderId: order.id,
+          orderReference: order.reference,
+          work: "provision",
+          productName: `${i.included.name} (included with ${product.name})`,
+          quantity: i.quantity * (product.quantityAllowed ? quantity : 1),
+          options: labelled,
+          billingIds: [],
+          setupHours: i.included.setupHours,
+        },
+        now,
+      );
+      await startProtection(tx, { organisationId: deps.organisation.id, productSlug: i.included.slug, productName: i.included.name, reference: `included:${order.reference}:${i.included.slug}` });
+    }
+    // An off-site backup shows on the customer's Backup page from the order on.
+    await startProtection(tx, { organisationId: deps.organisation.id, productSlug: product.slug, productName: product.name, reference: placed.serviceIds[0] ?? `order:${order.reference}` });
     const updated = await tx.order.update({ where: { id: order.id }, data: { expectedBy: result.expectedBy } });
     await audit(
       tx,

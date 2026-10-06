@@ -179,6 +179,8 @@ model Organisation {
   tenantLicences     TenantLicence[]
   tenantUsers        TenantUser[]
   domainOperations   DomainOperation[]
+  backups            BackupProtection[]
+  restoreRequests    BackupRestoreRequest[]
   licenceAssignments LicenceAssignment[]
   licenceChanges     LicenceChange[]
   tenantOnboardings  TenantOnboarding[]
@@ -225,23 +227,23 @@ model User {
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
 
-  memberships     Membership[]
-  sessions        Session[]
-  identities      ExternalIdentity[]
-  passkeys        Passkey[]
-  recoveryCodes   RecoveryCode[]
-  passwordResets  PasswordReset[]
-  signInEvents    SignInEvent[]
-  assignedTasks   ProvisioningTask[] @relation("taskAssignee")
-  completedTasks  ProvisioningTask[] @relation("taskCompletedBy")
-  confirmedEft    EftPayment[]       @relation("eftConfirmedBy")
-  assignedTickets Ticket[]           @relation("ticketAssignee")
-  settingsChanged PricingChange[]
-  marketChanges   MarketChange[]
-  pricesApproved  PriceBookEntry[]
-  presales        PresalesEngineer?
-  staffInvitationsSent StaffInvitation[] @relation("staffInvitedBy")
-  staffInvitation      StaffInvitation?  @relation("staffInvitationAccepted")
+  memberships          Membership[]
+  sessions             Session[]
+  identities           ExternalIdentity[]
+  passkeys             Passkey[]
+  recoveryCodes        RecoveryCode[]
+  passwordResets       PasswordReset[]
+  signInEvents         SignInEvent[]
+  assignedTasks        ProvisioningTask[] @relation("taskAssignee")
+  completedTasks       ProvisioningTask[] @relation("taskCompletedBy")
+  confirmedEft         EftPayment[]       @relation("eftConfirmedBy")
+  assignedTickets      Ticket[]           @relation("ticketAssignee")
+  settingsChanged      PricingChange[]
+  marketChanges        MarketChange[]
+  pricesApproved       PriceBookEntry[]
+  presales             PresalesEngineer?
+  staffInvitationsSent StaffInvitation[]  @relation("staffInvitedBy")
+  staffInvitation      StaffInvitation?   @relation("staffInvitationAccepted")
 }
 
 /// An invitation for a colleague to set up their own staff account.
@@ -702,16 +704,36 @@ model Product {
   createdAt          DateTime        @default(now())
   updatedAt          DateTime        @updatedAt
 
-  category  ProductCategory @relation(fields: [categoryKey], references: [key], onDelete: Restrict)
-  orders    Order[]
-  quotes    Quote[]
-  launchKit LaunchKit?
+  category   ProductCategory    @relation(fields: [categoryKey], references: [key], onDelete: Restrict)
+  orders     Order[]
+  quotes     Quote[]
+  launchKit  LaunchKit?
+  inclusions ProductInclusion[] @relation("planIncludes")
+  includedIn ProductInclusion[] @relation("includedIn")
+}
+
+/// A product included in a plan at no extra charge (STRATEGY_ROLLOUT U3):
+/// email security and backup in every Microsoft 365, Google Workspace and
+/// hosting plan. Set in the staff catalogue. The included product keeps its
+/// own cost, so the plan's true cost is its own plus what it includes.
+model ProductInclusion {
+  planId     String
+  includedId String
+  /// How many of the included product come with each unit of the plan (per user, per server).
+  quantity   Int      @default(1)
+  sortOrder  Int      @default(0)
+  createdAt  DateTime @default(now())
+
+  plan     Product @relation("planIncludes", fields: [planId], references: [id], onDelete: Cascade)
+  included Product @relation("includedIn", fields: [includedId], references: [id], onDelete: Restrict)
+
+  @@id([planId, includedId])
 }
 
 /// A domain ending we sell, with what the registrar charges us.
 model Tld {
   /// ".co.za"
-  tld               String   @id
+  tld               String    @id
   costRegisterMinor BigInt
   costRenewMinor    BigInt
   costCurrency      String
@@ -720,7 +742,7 @@ model Tld {
   costSyncedAt      DateTime?
   /// Market codes it is offered in.
   markets           String[]
-  sortOrder         Int      @default(0)
+  sortOrder         Int       @default(0)
 }
 
 /// Single row: settings that apply to every product.
@@ -730,6 +752,8 @@ model PricingSettings {
   currencyBufferBps Int
   /// The monthly price book is approved on its own when no price moves by more than this.
   autoApproveBps    Int       @default(300)
+  /// The plan margin report warns about any plan whose margin is below this (STRATEGY_ROLLOUT U3).
+  marginFloorBps    Int       @default(1500)
   /// When the Bank of Botswana rates were last fetched, and why the last try failed.
   ratesCheckedAt    DateTime?
   ratesError        String?
@@ -1004,27 +1028,27 @@ enum TaskStatus {
 
 /// Work for staff, made by a connector that can't do the job itself yet.
 model ProvisioningTask {
-  id             String          @id @default(cuid())
-  organisationId String
-  orderId        String?
-  family         ConnectorFamily
+  id               String          @id @default(cuid())
+  organisationId   String
+  orderId          String?
+  family           ConnectorFamily
   /// "provision", "change_quantity", "cancel".
-  kind           String
-  title          String
+  kind             String
+  title            String
   /// What staff need to do, in steps.
-  instructions   String
-  status         TaskStatus      @default(OPEN)
-  expectedBy     DateTime
+  instructions     String
+  status           TaskStatus      @default(OPEN)
+  expectedBy       DateTime
   /// The service in the billing engine, for work on one already running (hosted elsewhere).
   billingServiceId String?
   /// The last reminder sent about it being late.
-  remindedAt     DateTime?
-  assigneeId     String?
-  notes          String?
-  completedById  String?
-  completedAt    DateTime?
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
+  remindedAt       DateTime?
+  assigneeId       String?
+  notes            String?
+  completedById    String?
+  completedAt      DateTime?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
 
   organisation   Organisation    @relation(fields: [organisationId], references: [id], onDelete: Restrict)
   order          Order?          @relation(fields: [orderId], references: [id], onDelete: Restrict)
@@ -2360,4 +2384,78 @@ model InvoiceEmail {
   invoiceId      String   @id
   organisationId String
   sentAt         DateTime @default(now())
+}
+
+enum BackupHealth {
+  /// Ordered; being set up.
+  PENDING
+  OK
+  /// The last backup had problems but some data was saved.
+  WARNING
+  FAILED
+}
+
+/// A customer's off-site backup, delivered by the white-label backup
+/// provider set up in Admin > Partners (STRATEGY_ROLLOUT U3). One per
+/// backup service on the customer's account. The provider's name is never
+/// shown to customers.
+model BackupProtection {
+  id               String       @id @default(cuid())
+  organisationId   String
+  /// The backup service in the billing engine.
+  billingServiceId String
+  /// What is protected, in the customer's words, e.g. "Microsoft 365 mailboxes".
+  label            String
+  health           BackupHealth @default(PENDING)
+  lastSuccessAt    DateTime?
+  lastAttemptAt    DateTime?
+  retentionDays    Int?
+  /// How much is protected, in plain words, e.g. "12 mailboxes, 84 GB".
+  coverage         String?
+  /// The provider's own reference for this backup; staff only.
+  providerRef      String?
+  /// Staff notes, never shown to the customer.
+  notes            String?
+  updatedById      String?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  organisation Organisation           @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  restores     BackupRestoreRequest[]
+
+  @@unique([organisationId, billingServiceId])
+  @@index([health])
+}
+
+enum RestoreStatus {
+  REQUESTED
+  IN_PROGRESS
+  DONE
+  CANCELLED
+}
+
+/// A customer's request to restore something from a backup. Carried out by
+/// the provider's API when it has one, otherwise as a staff task.
+model BackupRestoreRequest {
+  id             String        @id @default(cuid())
+  organisationId String
+  protectionId   String
+  /// What to restore, in the customer's words.
+  what           String
+  /// The day to restore from.
+  fromDay        DateTime      @db.Date
+  /// Where it goes back: "original" or "alongside".
+  destination    String
+  status         RestoreStatus @default(REQUESTED)
+  requestedById  String
+  taskId         String?
+  providerRef    String?
+  completedAt    DateTime?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  organisation Organisation     @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  protection   BackupProtection @relation(fields: [protectionId], references: [id], onDelete: Restrict)
+
+  @@index([organisationId, status])
 }

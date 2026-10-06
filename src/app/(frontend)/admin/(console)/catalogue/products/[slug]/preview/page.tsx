@@ -13,6 +13,7 @@ import { nextPriceChange, priceDay } from "@/lib/domain/pricing";
 import { requireStaffCan } from "@/server/admin/context";
 import { anyProductBySlug } from "@/server/catalogue/catalogue";
 import { approvedPrice, productItem } from "@/server/catalogue/price-book";
+import { shownInclusionsBySlug, withIncluded } from "@/server/catalogue/inclusions";
 import { DOMAIN_PRODUCT_SLUG } from "@/server/catalogue/seed-data";
 import { effectiveStatus } from "@/server/catalogue/visibility";
 import { prisma } from "@/server/db";
@@ -35,7 +36,7 @@ export default async function ProductPreviewPage({ params, searchParams }: { par
   const price = (await approvedPrice(prisma, market, productItem(product.slug), month)) ?? (await approvedPrice(prisma, market, productItem(product.slug), nextPriceChange(month)));
   const shown = effectiveStatus(product, product.category.family);
 
-  const botswanaData = await featureOn(prisma, "botswana-data-claim");
+  const [botswanaData, included] = await Promise.all([featureOn(prisma, "botswana-data-claim"), shownInclusionsBySlug(prisma, [product.slug])]);
   return (
     <>
       <Link href={`/admin/catalogue/products/${product.slug}`} className="mb-4 inline-flex items-center gap-1 text-callout text-link hover:underline">
@@ -76,7 +77,7 @@ export default async function ProductPreviewPage({ params, searchParams }: { par
         </h2>
         <PageHeader eyebrow={product.category.name} title={product.name} description={product.summary} />
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_var(--layout-aside-wide)] [&>*]:min-w-0">
-          <ProductDetails product={product} botswanaData={botswanaData} />
+          <ProductDetails product={{ ...product, includes: withIncluded(product.includes, included.get(product.slug) ?? []) }} botswanaData={botswanaData} />
           <Card aria-label="Order">
             <CardBody className="flex flex-col gap-3">
               {product.fulfilment === "QUOTE" ? (
