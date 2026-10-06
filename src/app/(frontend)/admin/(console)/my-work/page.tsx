@@ -2,13 +2,15 @@ import { ArrowRight, Inbox } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardBody } from "@/components/ui/card";
+import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
 import { requireStaff } from "@/server/admin/context";
 import { prisma } from "@/server/db";
 import { staffCan } from "@/server/staff/access";
 import { myQueues, UNITS } from "@/server/units/units";
+import { featureOn } from "@/server/features/features";
+import { ContactCardForm } from "./forms";
 
 export const metadata: Metadata = { title: "My work" };
 
@@ -17,6 +19,12 @@ export default async function MyWorkPage() {
   const { staff } = await requireStaff();
   const { units, queues } = await myQueues(prisma, staff.userId, new Date());
   const waiting = queues.reduce((n, q) => n + q.waiting, 0);
+  // STRATEGY_ROLLOUT U11: the card customers see when this colleague is their account contact.
+  const [contactsOn, card, looksAfter] = await Promise.all([
+    featureOn(prisma, "account-contacts"),
+    prisma.staffContactCard.findUnique({ where: { userId: staff.userId } }),
+    prisma.accountContact.count({ where: { userId: staff.userId } }),
+  ]);
   return (
     <>
       <PageHeader
@@ -61,6 +69,14 @@ export default async function MyWorkPage() {
           </CardBody>
         </Card>
       )}
+      {contactsOn ? (
+        <Card aria-labelledby="card-title" className="mt-6">
+          <CardHeader id="card-title" title="Your contact card" description={looksAfter ? `You look after ${looksAfter} ${looksAfter === 1 ? "customer" : "customers"}. They see your name, email and what you enter here.` : "If an Admin names you as a customer's account contact, they see your name, email and what you enter here."} />
+          <CardBody>
+            <ContactCardForm current={{ jobTitle: card?.jobTitle ?? "", phone: card?.phone ?? "" }} />
+          </CardBody>
+        </Card>
+      ) : null}
     </>
   );
 }

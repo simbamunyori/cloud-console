@@ -1,4 +1,5 @@
-import { PackageOpen, Search } from "lucide-react";
+import { ArrowRight, PackageOpen, Search, Sparkles } from "lucide-react";
+import Link from "next/link";
 import type { Metadata } from "next";
 import { ProductCard } from "@/components/app/product-view";
 import { Button } from "@/components/ui/button";
@@ -10,12 +11,13 @@ import { requireBilling } from "@/server/billing/context";
 import { marketplace } from "@/server/catalogue/price-book";
 import { audienceFor } from "@/server/catalogue/visibility";
 import { prisma } from "@/server/db";
+import { featureOn } from "@/server/features/features";
 
 export const metadata: Metadata = { title: "Marketplace" };
 
 export default async function MarketplacePage() {
   const { today, market, locale, organisation } = await requireBilling();
-  const categories = await marketplace(prisma, market, priceDay(today), audienceFor(organisation));
+  const [categories, recommender] = await Promise.all([marketplace(prisma, market, priceDay(today), audienceFor(organisation)), featureOn(prisma, "plan-recommender")]);
 
   return (
     <>
@@ -36,6 +38,17 @@ export default async function MarketplacePage() {
             <Search aria-hidden /> Search
           </Button>
         </form>
+
+        {recommender && categories.some((c) => c.category.key === "productivity") ? (
+          <Link href="/app/marketplace/recommend" className="group flex items-center gap-4 rounded-lg border border-border bg-surface-1 p-5 hover:bg-surface-2 sm:p-6">
+            <Sparkles aria-hidden className="size-6 shrink-0 text-link" />
+            <span className="flex min-w-0 flex-1 flex-col">
+              <span className="text-headline text-ink">Not sure which Microsoft 365 or Google Workspace plan?</span>
+              <span className="text-callout text-ink-muted">Answer two questions and we&apos;ll show the plan that fits, at your prices.</span>
+            </span>
+            <ArrowRight aria-hidden className="size-5 shrink-0 text-link transition-transform group-hover:translate-x-0.5" />
+          </Link>
+        ) : null}
 
         {categories.length ? null : (
           <EmptyState icon={PackageOpen} title="Nothing to order here yet">

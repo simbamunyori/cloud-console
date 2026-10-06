@@ -28,6 +28,10 @@ export interface HomeViewProps {
   fullScore?: number;
   /** The public site's picture of the console: links drawn as plain text. */
   demo?: boolean;
+  /** Shown above the totals: the first-week checklist (STRATEGY_ROLLOUT U11). */
+  intro?: React.ReactNode;
+  /** Shown under the security score: the named account contact (U11). */
+  contact?: React.ReactNode;
 }
 
 /**
@@ -36,7 +40,7 @@ export interface HomeViewProps {
  * console draws it with the organisation's own data; the public site
  * draws the same component with demo data.
  */
-export function HomeView({ organisationName, firstName, today, currency, locale, services, domains, invoices, attention, checks, fullScore, demo = false }: HomeViewProps) {
+export function HomeView({ organisationName, firstName, today, currency, locale, services, domains, invoices, attention, checks, fullScore, demo = false, intro, contact }: HomeViewProps) {
   const live = services.filter((s) => s.status !== "cancelled" && s.status !== "terminated");
   const monthly = monthlyTotal(services, currency);
   const next = nextInvoice(services, domains, currency);
@@ -49,6 +53,7 @@ export function HomeView({ organisationName, firstName, today, currency, locale,
     <>
       <PageHeader eyebrow={organisationName} title={`Welcome, ${firstName}`} />
       <div className="flex flex-col gap-6">
+        {intro}
         {/* The totals: a compact row on phones, cards from tablet width up.
             Amounts are always in full; on a very narrow phone the row scrolls
             sideways rather than shortening or cutting a figure. */}
@@ -130,7 +135,14 @@ export function HomeView({ organisationName, firstName, today, currency, locale,
               </ul>
             )}
           </Card>
-          <SecurityScoreCard checks={checks} demo={demo} {...(fullScore !== undefined ? { score: fullScore, href: "/app/security/score" } : {})} />
+          {contact ? (
+            <div className="flex flex-col gap-6">
+              <SecurityScoreCard checks={checks} demo={demo} {...(fullScore !== undefined ? { score: fullScore, href: "/app/security/score" } : {})} />
+              {contact}
+            </div>
+          ) : (
+            <SecurityScoreCard checks={checks} demo={demo} {...(fullScore !== undefined ? { score: fullScore, href: "/app/security/score" } : {})} />
+          )}
         </div>
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[3fr_2fr] [&>*]:min-w-0">

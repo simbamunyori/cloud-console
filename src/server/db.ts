@@ -56,6 +56,8 @@ export const TENANT_MODELS = new Set<string>([
   "SecurityIncidentEvent",
   "SocReport",
   "ThebeAccount",
+  "AccountContact",
+  "WelcomeChecklist",
 ]);
 
 const WHERE_OPS = new Set([

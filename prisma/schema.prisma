@@ -163,6 +163,8 @@ model Organisation {
   invitations        Invitation[]
   billingAccount     BillingAccount?
   thebeAccount       ThebeAccount?
+  accountContact     AccountContact?
+  welcomeChecklist   WelcomeChecklist?
   orders             Order[]
   quotes             Quote[]
   tasks              ProvisioningTask[]
@@ -254,6 +256,8 @@ model User {
   presales             PresalesEngineer?
   staffInvitationsSent StaffInvitation[]  @relation("staffInvitedBy")
   staffInvitation      StaffInvitation?   @relation("staffInvitationAccepted")
+  accountsLookedAfter  AccountContact[]   @relation("accountContact")
+  contactCard          StaffContactCard?
 }
 
 /// An invitation for a colleague to set up their own staff account.
@@ -2986,6 +2990,39 @@ model ThebeAccount {
   error          String?
   createdAt      DateTime           @default(now())
   updatedAt      DateTime           @updatedAt
+
+  organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+}
+
+/// The named person at Fourth Generation Technologies who looks after a customer, shown on their home page (U11).
+model AccountContact {
+  organisationId String   @id
+  userId         String
+  assignedById   String?
+  assignedAt     DateTime @default(now())
+
+  organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  user         User         @relation("accountContact", fields: [userId], references: [id], onDelete: Restrict)
+
+  @@index([userId])
+}
+
+/// What customers see about a colleague who is their account contact. Each colleague keeps their own (U11).
+model StaffContactCard {
+  userId    String   @id
+  jobTitle  String?
+  phone     String?
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+/// A new customer's first-week checklist on their home page, once hidden by them (U11).
+model WelcomeChecklist {
+  organisationId String    @id
+  dismissedAt    DateTime?
+  dismissedById  String?
+  createdAt      DateTime  @default(now())
 
   organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Restrict)
 }

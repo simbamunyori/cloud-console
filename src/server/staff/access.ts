@@ -50,7 +50,9 @@ export type StaffPermission =
   /** Work the SOC incident queue, customers' security tenants, devices and reports. */
   | "workSoc"
   /** The success dashboard, its targets and the directors' monthly email (Admin > Success). */
-  | "viewSuccess";
+  | "viewSuccess"
+  /** Choose the colleague who looks after each customer (U11). */
+  | "assignAccountContacts";
 
 const ALLOWED: Record<StaffPermission, StaffRole[]> = {
   viewCustomers: ["SUPPORT", "PROVISIONING", "FINANCE", "ADMIN"],
@@ -72,6 +74,7 @@ const ALLOWED: Record<StaffPermission, StaffRole[]> = {
   manageCompany: ["ADMIN"],
   workSoc: ["SUPPORT", "PROVISIONING", "ADMIN"],
   viewSuccess: ["ADMIN"],
+  assignAccountContacts: ["ADMIN"],
 };
 
 export function staffCan(actor: Pick<StaffActor, "staffRole">, permission: StaffPermission): boolean {

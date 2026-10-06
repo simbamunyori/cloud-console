@@ -9,6 +9,7 @@ import { prisma } from "@/server/db";
 import { moveToOurServers, setHosting, setLegacyReview } from "@/server/migration/services";
 import { DomainError } from "@/server/org/access";
 import { recordThebeOrganisation } from "@/server/thebe/thebe";
+import { setAccountContact } from "@/server/experience/experience";
 
 async function serviceOf(organisationId: string, serviceId: string) {
   const billing = await scopedBilling(prisma, billingAdapter(), organisationId);
@@ -58,4 +59,15 @@ export async function recordThebeAction(_prev: ActionState, form: FormData): Pro
     revalidatePath(`/admin/customers/${organisationId}`);
     return "Recorded. The customer's Open Thebe button now goes there.";
   }, values);
+}
+
+export async function setAccountContactAction(_prev: ActionState, form: FormData): Promise<ActionState> {
+  const { staff } = await requireStaff();
+  const organisationId = field(form, "organisationId");
+  const userId = field(form, "userId");
+  return run(async () => {
+    await setAccountContact({ db: prisma, staff }, organisationId, userId);
+    revalidatePath(`/admin/customers/${organisationId}`);
+    return userId ? "Saved. The customer sees their contact on their home page." : "Removed. The customer no longer sees a named contact.";
+  });
 }
