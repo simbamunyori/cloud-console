@@ -148,6 +148,24 @@ export const FEATURES = {
       return p?.enabled ? null : "Set up Thebe in Partners and switch it on first.";
     },
   },
+  "first-week-checklist": {
+    label: "First-week checklist",
+    description:
+      "New customers see a short checklist on their home page for their first two weeks: company details, two-step sign-in, inviting their team, their first service and, with the security score on, their score. Each item ticks itself when done, and they can hide it.",
+    milestone: "U11",
+  },
+  "account-contacts": {
+    label: "Named account contacts",
+    description:
+      "Customers see the colleague who looks after them on their home page, with their job title, email and phone. Admins choose the colleague on each customer's page; each colleague keeps their own title and phone under My work.",
+    milestone: "U11",
+  },
+  "plan-recommender": {
+    label: "Plan recommender in the console",
+    description:
+      "Customers answer two questions in the Marketplace (how many people, and what they need) and see the Microsoft 365 or Google Workspace plan that fits, at their market's prices, with a button to order it. The same logic as the website's cost calculator and Thapelo.",
+    milestone: "U11",
+  },
 } satisfies Record<string, FeatureDefinition>;
 
 export type FeatureKey = keyof typeof FEATURES;

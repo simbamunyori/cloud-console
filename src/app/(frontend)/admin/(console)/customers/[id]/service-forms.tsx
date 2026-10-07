@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { TextField } from "@/components/ui/field";
 import { DateField, SelectField, TextareaField } from "@/components/ui/inputs";
 import type { ActionState } from "@/server/action-state";
-import { moveToOurServersAction, recordThebeAction, setHostingAction, setReviewAction } from "./service-actions";
+import { moveToOurServersAction, recordThebeAction, setAccountContactAction, setHostingAction, setReviewAction } from "./service-actions";
 
 function Messages({ state }: { state: ActionState }) {
   return (
@@ -89,6 +89,22 @@ export function ThebeForm({ organisationId, current }: { organisationId: string;
       <Button type="submit" variant="secondary" disabled={pending} className="self-start">
         {pending ? "Saving…" : "Record the Thebe organisation"}
       </Button>
+    </form>
+  );
+}
+
+export function AccountContactForm({ organisationId, current, colleagues }: { organisationId: string; current: string; colleagues: { value: string; label: string }[] }) {
+  const [state, action, pending] = useActionState<ActionState, FormData>(setAccountContactAction, {});
+  return (
+    <form action={action} className="flex flex-col gap-4" noValidate>
+      <Messages state={state} />
+      <input type="hidden" name="organisationId" value={organisationId} />
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
+        <SelectField id="userId" name="userId" label="Looked after by" className="sm:min-w-72" defaultValue={current} options={[{ value: "", label: "Nobody named" }, ...colleagues]} error={state.fieldErrors?.userId} />
+        <Button type="submit" variant="secondary" disabled={pending} className="self-start sm:self-end">
+          {pending ? "Saving…" : "Save"}
+        </Button>
+      </div>
     </form>
   );
 }

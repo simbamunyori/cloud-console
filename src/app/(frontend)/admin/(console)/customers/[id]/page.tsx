@@ -22,9 +22,10 @@ import { countryName } from "@/lib/countries";
 import { listMarkets } from "@/server/markets/markets";
 import { staffCan } from "@/server/staff/access";
 import { PLAN_LABEL } from "@/server/thebe/thebe";
+import { contactChoices } from "@/server/experience/experience";
 import { InternalOrganisationSwitch } from "../../catalogue/forms";
 import { ChangeMarketForm } from "../../markets/forms";
-import { HostingForm, MoveForm, ReviewForm, ThebeForm } from "./service-forms";
+import { AccountContactForm, HostingForm, MoveForm, ReviewForm, ThebeForm } from "./service-forms";
 
 export const metadata: Metadata = { title: "Customer" };
 
@@ -45,6 +46,9 @@ export default async function CustomerPage({ params }: { params: Promise<{ id: s
   const tenants = await tenantOverview(prisma, org.id);
   const profiles = await prisma.serviceProfile.findMany({ where: { organisationId: org.id } });
   const thebe = await prisma.thebeAccount.findUnique({ where: { organisationId: org.id } });
+  // STRATEGY_ROLLOUT U11: the named account contact.
+  const contact = await prisma.accountContact.findUnique({ where: { organisationId: org.id }, include: { user: { select: { name: true } } } });
+  const colleagues = staffCan(staff, "assignAccountContacts") ? await contactChoices(prisma) : null;
   const [cloudSubs, openTips] = await Promise.all([prisma.cloudSubscription.findMany({ where: { organisationId: org.id }, select: { name: true }, orderBy: { name: "asc" } }), prisma.savingTip.count({ where: { organisationId: org.id, status: "OPEN" } })]);
 
   return (
@@ -171,6 +175,19 @@ export default async function CustomerPage({ params }: { params: Promise<{ id: s
             </p>
           </CardBody>
         </Card>
+
+        {colleagues || contact ? (
+          <Card aria-labelledby="contact-title">
+            <CardHeader id="contact-title" title="Account contact" description="Shown on the customer's home page once Named account contacts is on in Features." />
+            <CardBody>
+              {colleagues ? (
+                <AccountContactForm organisationId={org.id} current={contact?.userId ?? ""} colleagues={colleagues.map((c) => ({ value: c.id, label: c.contactCard?.jobTitle ? `${c.name}, ${c.contactCard.jobTitle}` : c.name }))} />
+              ) : (
+                <p className="text-ink">{contact ? contact.user.name : "Nobody named yet."}</p>
+              )}
+            </CardBody>
+          </Card>
+        ) : null}
 
         {thebe ? (
           <Card aria-labelledby="thebe-title">

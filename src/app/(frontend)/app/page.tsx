@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
 import { ArrowRight, ShoppingCart } from "lucide-react";
 import Link from "next/link";
+import { AccountContactCard } from "@/components/app/account-contact";
 import { HomeView } from "@/components/app/home-view";
+import { WelcomeChecklist } from "@/components/app/welcome-checklist";
+import { accountContact, welcomeChecklist } from "@/server/experience/experience";
 import { money } from "@/lib/domain/money";
 import { requireBilling } from "@/server/billing/context";
 import { tenantOverview, unusedLicences } from "@/server/licences/licences";
@@ -62,6 +65,11 @@ export default async function HomePage() {
     full?.checks ??
     securityChecks(await securityFacts(db, actor.userId, live, today));
   const cart = await readCart();
+  // STRATEGY_ROLLOUT U11: the first-week checklist and the named account contact, each behind its switch.
+  const [welcome, contact] = await Promise.all([
+    welcomeChecklist(prisma, db, { organisationId: organisation.id, actor, liveServices: live.length }),
+    accountContact(prisma, organisation.id),
+  ]);
 
   return (
     <>
@@ -93,6 +101,8 @@ export default async function HomePage() {
         attention={attention}
         checks={checks}
         fullScore={full?.score}
+        intro={welcome ? <WelcomeChecklist items={welcome.items} done={welcome.done} /> : undefined}
+        contact={contact ? <AccountContactCard contact={contact} /> : undefined}
       />
     </>
   );
