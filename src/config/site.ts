@@ -1,4 +1,4 @@
-import { OUTCOMES, PROMISE } from "./positioning";
+import { OUTCOMES, PROMISE, SUPPORTING_LINE } from "./positioning";
 
 /**
  * The public website's words, from Change Request 01, section 4. Market
@@ -11,6 +11,7 @@ import { OUTCOMES, PROMISE } from "./positioning";
 export const HERO = {
   kicker: "Managed cloud for business",
   headline: PROMISE,
+  supportingLine: SUPPORTING_LINE,
   sub: "Microsoft 365, Google Workspace, servers, hosting and security, managed for you and billed on one monthly invoice in your currency.",
   supporting: ["One team for everything.", "Support that answers.", "Two-step login on every account."],
 };

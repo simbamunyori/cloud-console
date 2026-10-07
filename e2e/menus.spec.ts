@@ -1,6 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
-import { settled } from "./support/pages";
+import { chooseTheme, settled } from "./support/pages";
 import { signIn } from "./support/signed-in";
 
 /**
@@ -18,6 +18,7 @@ async function axe(page: import("@playwright/test").Page) {
 for (const scheme of ["light", "dark"] as const) {
   test.describe(`${scheme} theme`, () => {
     test.use({ colorScheme: scheme });
+    test.beforeEach(async ({ context, baseURL }) => chooseTheme(context, scheme, baseURL!));
 
     test("the Domains menu opens from the keyboard and closes on Escape", async ({ page }) => {
       await page.setViewportSize({ width: 1440, height: 900 });

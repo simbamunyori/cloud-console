@@ -1,5 +1,5 @@
 /* eslint-disable @next/next/no-img-element -- fixed-size brand SVGs. */
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Briefcase, Building2, GraduationCap, HardHat } from "lucide-react";
 import Link from "next/link";
 import type {
   ClosingBannerBlock,
@@ -14,6 +14,7 @@ import type {
   TeamSectionBlock,
   ThebeSectionBlock,
   WebsitesShowcaseBlock,
+  WhoWeHelpBlock,
 } from "@/cms/payload-types";
 import { cn } from "@/lib/cn";
 import { todayIn } from "@/lib/dates";
@@ -119,6 +120,7 @@ export async function HomeHero({ block: b, ctx }: { block: HomeHeroBlock; ctx: B
       <h1 id={`${ctx.id}-title`} className="max-w-260 text-site-hero-sm text-ink lg:text-site-hero">
         {b.heading}
       </h1>
+      {b.supporting ? <p className="max-w-205 text-title-2 text-ink lg:text-title-1">{b.supporting}</p> : null}
       {b.sub ? (
         <p className="max-w-170 text-body text-ink-muted lg:text-site-lead">
           <Words main={b.sub} phone={b.subPhone} />
@@ -214,12 +216,41 @@ export function NumberedServices({ block: b, ctx }: { block: NumberedServicesBlo
   );
 }
 
+const WHO_ICONS = [Building2, Briefcase, GraduationCap, HardHat];
+
+/** Who we help: the main customer drawn larger, then the other segments. Hidden until a Publisher approves it. */
+export function WhoWeHelp({ block: b, ctx }: { block: WhoWeHelpBlock; ctx: BlockContext }) {
+  const items = b.items ?? [];
+  if (!b.approved || !items.length) return null;
+  return (
+    <HomeSection id={b.anchor} labelledBy={`${ctx.id}-title`}>
+      <Title id={`${ctx.id}-title`} b={b} />
+      <ul className="grid gap-4 lg:grid-cols-3 lg:gap-6">
+        {items.map((it, i) => {
+          const Icon = WHO_ICONS[i] ?? Building2;
+          return (
+            <li key={it.id ?? it.title} className={cn("flex flex-col gap-3 rounded-lg border p-5 lg:p-7", i === 0 ? "border-brand bg-brand-soft lg:col-span-3" : "border-border")}>
+              <Icon aria-hidden className="size-6 text-link" />
+              <h3 className={cn("text-ink", i === 0 ? "text-title-2 lg:text-title-1" : "text-headline lg:text-title-2")}>{it.title}</h3>
+              {it.body ? (
+                <p className={cn("text-callout text-ink-muted lg:text-body", i === 0 && "max-w-205")}>
+                  <Words main={it.body} phone={it.bodyPhone} />
+                </p>
+              ) : null}
+            </li>
+          );
+        })}
+      </ul>
+    </HomeSection>
+  );
+}
+
 const MESSAGE = "Please find this month's invoice attached. Thank you for your business.";
 
 export async function EmailShowcase({ block: b, ctx }: { block: EmailShowcaseBlock; ctx: BlockContext }) {
   const partner = await emailPartner(ctx.market.code);
   const phone = (
-    <div className="flex flex-col gap-3 rounded-device border-8 border-device-frame bg-surface-1 px-3.5 py-4.5 text-ink lg:h-105 lg:px-4 lg:py-5">
+    <div data-surface="light" className="flex flex-col gap-3 rounded-device border-8 border-device-frame bg-surface-1 px-3.5 py-4.5 text-ink lg:h-105 lg:px-4 lg:py-5">
       <p className="text-caption text-ink-muted">Phone · Outlook</p>
       <p className="text-callout">{MESSAGE}</p>
       <KgaleSignature compact />
@@ -237,7 +268,7 @@ export async function EmailShowcase({ block: b, ctx }: { block: EmailShowcaseBlo
         <Title id={`${ctx.id}-title`} b={b} dark />
       )}
       <figure className="m-0 grid items-end gap-8 lg:grid-cols-[1fr_var(--layout-phone-mock)]">
-        <div inert aria-hidden className="hidden overflow-hidden rounded-lg border border-footer-field-line bg-surface-1 text-ink lg:block">
+        <div inert aria-hidden data-surface="light" className="hidden overflow-hidden rounded-lg border border-footer-field-line bg-surface-1 text-ink lg:block">
           <p className="flex h-9 items-center border-b border-border px-4 text-caption text-ink-muted">Laptop · Outlook</p>
           <div className="flex flex-col gap-3.5 p-7 text-body">
             <p className="text-callout text-ink-muted">To: finance@client.co.bw · Subject: October invoice</p>

@@ -1,5 +1,6 @@
 import type { Block, Field } from "payload";
 import { link, text, textarea } from "../fields";
+import { isPublisher } from "../publishing";
 
 /**
  * The home page's sections, as designed (docs/design/home-desktop.html and
@@ -50,9 +51,43 @@ export const HomeHero: Block = {
     text("heading", { required: true, maxLength: 80 }),
     textarea("sub", { label: "Introduction", maxLength: 300 }),
     phone("subPhone", 300, true),
+    text("supporting", {
+      label: "Supporting line",
+      maxLength: 140,
+      description: "Under the headline, and the start of the page's search description unless one is set under Search and sharing.",
+    }),
     link("primary", "Main button"),
     link("secondary", "Second link"),
     { name: "showConsole", label: "Show the console with demo data under the hero", type: "checkbox", defaultValue: true },
+  ],
+};
+
+/**
+ * Who we help (docs/STRATEGY_ROLLOUT.md, U2): the primary customer and
+ * the secondary segments. Hidden until a Publisher ticks the approval.
+ */
+export const WhoWeHelp: Block = {
+  slug: "whoWeHelp",
+  labels: { singular: "Home: who we help", plural: "Home: who we help" },
+  interfaceName: "WhoWeHelpBlock",
+  fields: [
+    ...sectionHeading(),
+    {
+      name: "items",
+      type: "array",
+      minRows: 1,
+      maxRows: 4,
+      admin: { description: "The first is the main customer and is drawn larger." },
+      fields: [text("title", { required: true, maxLength: 60 }), textarea("body", { maxLength: 240 }), phone("bodyPhone", 160, true)],
+    },
+    {
+      name: "approved",
+      label: "Approved to show",
+      type: "checkbox",
+      defaultValue: false,
+      access: { create: ({ req }) => isPublisher(req), update: ({ req }) => isPublisher(req) },
+      admin: { description: "The section stays hidden until this is ticked. Only Publishers can change this." },
+    },
   ],
 };
 
@@ -228,4 +263,4 @@ export const ClosingBanner: Block = {
   fields: [text("heading", { required: true, maxLength: 120 }), link("primary", "Button")],
 };
 
-export const HOME_BLOCKS: Block[] = [HomeHero, DomainStore, ProofStrip, NumberedServices, EmailShowcase, WebsitesShowcase, SecurityPanel, ThebeSection, PlansTable, CompareTable, TeamSection, ClosingBanner];
+export const HOME_BLOCKS: Block[] = [HomeHero, DomainStore, ProofStrip, NumberedServices, WhoWeHelp, EmailShowcase, WebsitesShowcase, SecurityPanel, ThebeSection, PlansTable, CompareTable, TeamSection, ClosingBanner];
