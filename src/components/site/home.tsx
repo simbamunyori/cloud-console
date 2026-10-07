@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import { AUDIENCES, BUILDERS, CLOSING, CONSOLE, domainQuickPicks, HERO, marketCopy, PLATE, withDataCentre } from "@/config/site";
 import { formatMoney, money } from "@/lib/domain/money";
 import type { ServiceFrom } from "@/server/site/site";
-import { currentTheme } from "@/server/theme";
 import { SiteHero } from "./hero";
 
 const PLATE_ICONS = [Users, CreditCard, LifeBuoy, ShieldCheck];
@@ -27,37 +26,21 @@ const HERO_ALT = "The Cloud Console home page, showing this month's total, the n
 const WIDE_SIZES = "(min-width: 1536px) 840px, (min-width: 1024px) 56vw, 100vw";
 // Phones and tablets: a close-up of the page's top, so its numbers are readable at phone width.
 const CROP_SIZES = "(min-width: 640px) 576px, calc(100vw - 32px)";
-const wideSet = (scheme: "light" | "dark") => [960, 1280, 1920, 2560].map((w) => `/site/console-home-${scheme}-${w}.webp ${w}w`).join(", ");
-const cropSet = (scheme: "light" | "dark") => [640, 960, 1280].map((w) => `/site/console-home-${scheme}-crop-${w}.webp ${w}w`).join(", ");
+const wideSet = (scheme: "light") => [960, 1280, 1920, 2560].map((w) => `/site/console-home-${scheme}-${w}.webp ${w}w`).join(", ");
+const cropSet = (scheme: "light") => [640, 960, 1280].map((w) => `/site/console-home-${scheme}-crop-${w}.webp ${w}w`).join(", ");
 const NARROW = "(max-width: 1023px)";
 
 /**
- * The console screenshot in the visitor's theme. Only one picture is
- * fetched: the close-up on phones and tablets, the whole page on wide
- * screens, in the chosen theme (for "match device", the browser picks by
- * prefers-color-scheme).
+ * The console screenshot. Product screens keep a white panel in both
+ * themes (docs/STRATEGY_ROLLOUT.md, U2), so this is always the light
+ * capture: the close-up on phones and tablets, the whole page on wide
+ * screens.
  */
-export async function HeroShot() {
-  const theme = await currentTheme();
-  const schemes = theme === "system" ? (["dark", "light"] as const) : ([theme] as const);
-  const fallback = theme === "dark" ? "dark" : "light";
-  const when = (scheme: "light" | "dark", media: string) => (theme === "system" && scheme === "dark" ? `${media} and (prefers-color-scheme: dark)` : media);
+export function HeroShot() {
   return (
-    <picture>
-      {schemes.map((scheme) => (
-        <source key={`crop-${scheme}`} media={when(scheme, NARROW)} srcSet={cropSet(scheme)} sizes={CROP_SIZES} width={1280} height={960} />
-      ))}
-      {theme === "system" ? <source media="(prefers-color-scheme: dark)" srcSet={wideSet("dark")} sizes={WIDE_SIZES} width={2560} height={1600} /> : null}
-      <img
-        src={`/site/console-home-${fallback}-1280.webp`}
-        srcSet={wideSet(fallback)}
-        sizes={WIDE_SIZES}
-        alt={HERO_ALT}
-        width={2560}
-        height={1600}
-        fetchPriority="high"
-        className="block h-auto w-full"
-      />
+    <picture data-surface="light">
+      <source media={NARROW} srcSet={cropSet("light")} sizes={CROP_SIZES} width={1280} height={960} />
+      <img src="/site/console-home-light-1280.webp" srcSet={wideSet("light")} sizes={WIDE_SIZES} alt={HERO_ALT} width={2560} height={1600} fetchPriority="high" className="block h-auto w-full" />
     </picture>
   );
 }
@@ -103,16 +86,13 @@ export function DomainSearch({ tlds, heading = "Find your domain", intro = "Sear
   );
 }
 
-/** A lower-page screenshot in the visitor's theme, loaded lazily. */
-export async function ThemedShot({ name, alt, width, height }: { name: string; alt: string; width: number; height: number }) {
-  const theme = await currentTheme();
-  const set = (scheme: "light" | "dark") => [640, 960, 1280].map((w) => `/site/${name}-${scheme}-${w}.webp ${w}w`).join(", ");
+/** A lower-page screenshot, loaded lazily: the light capture in both themes, like every product screen. */
+export function ThemedShot({ name, alt, width, height }: { name: string; alt: string; width: number; height: number }) {
+  const set = [640, 960, 1280].map((w) => `/site/${name}-light-${w}.webp ${w}w`).join(", ");
   const sizes = "(min-width: 1024px) 560px, calc(100vw - 32px)";
-  const fallback = theme === "dark" ? "dark" : "light";
   return (
-    <picture>
-      {theme === "system" ? <source media="(prefers-color-scheme: dark)" srcSet={set("dark")} sizes={sizes} width={width} height={height} /> : null}
-      <img src={`/site/${name}-${fallback}-960.webp`} srcSet={set(fallback)} sizes={sizes} alt={alt} width={width} height={height} loading="lazy" decoding="async" className="block h-auto w-full" />
+    <picture data-surface="light">
+      <img src={`/site/${name}-light-960.webp`} srcSet={set} sizes={sizes} alt={alt} width={width} height={height} loading="lazy" decoding="async" className="block h-auto w-full" />
     </picture>
   );
 }
@@ -129,7 +109,7 @@ export function ThebeIllustration({ currency, locale }: { currency: string; loca
     { what: "Fuel cards", who: "Kgale Hill Logistics", amount: 650_000n, signed: 0, tone: "warning" },
   ];
   return (
-    <div aria-hidden className="flex flex-col gap-3 bg-surface-0 p-4 sm:p-5">
+    <div aria-hidden data-surface="light" className="flex flex-col gap-3 bg-surface-0 p-4 sm:p-5">
       <div className="flex items-center justify-between">
         <span className="text-headline text-ink">Payments to approve</span>
         <span className="rounded-full bg-brand-soft px-3 py-1 text-caption font-semibold text-link">2 waiting</span>
@@ -176,7 +156,7 @@ export function HomeContent({ market, services, taxNote }: { market: HomeMarket;
         id="hero-title"
         kicker={HERO.kicker}
         heading={HERO.headline}
-        sub={HERO.sub}
+        sub={`${HERO.supportingLine} ${HERO.sub}`}
         search={domainQuickPicks(market.highlightedTlds)}
         actions={
           <>

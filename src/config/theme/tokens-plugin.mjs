@@ -63,5 +63,8 @@ export default plugin(({ addBase }) => {
     "@media (prefers-color-scheme: dark)": {
       ":root:not([data-theme='light'])": { ...dark, "color-scheme": "dark" },
     },
+    // A white panel in both themes, for pictures of real screens: product
+    // screens, emails, signatures, websites and documents (STRATEGY_ROLLOUT U2).
+    "[data-surface='light']": { ...light, "color-scheme": "light", color: "var(--text-body)" },
   });
 });

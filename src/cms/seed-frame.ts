@@ -1,4 +1,5 @@
 import type { Footer, Header } from "./payload-types";
+import { inPillarOrder } from "./pillars";
 
 /**
  * The header and footer as designed (docs/design/home-desktop.html): the
@@ -19,7 +20,8 @@ const M365 = ["microsoft-365-business-basic", "microsoft-365-business-standard",
 const GWS = ["google-workspace-business-starter", "google-workspace-business-standard", "google-workspace-business-plus"];
 
 export const DEFAULT_HEADER = {
-  menus: [
+  // In the pillar order (src/cms/pillars.ts); Support stays on the right.
+  menus: inPillarOrder([
     {
       label: "Domains",
       right: false,
@@ -166,7 +168,7 @@ export const DEFAULT_HEADER = {
       ],
       feature: { kind: "support", heading: "Talk to our team" },
     },
-  ],
+  ], (m) => m.label),
   links: [item(market("Plans", "/#plans"), "", ["plan-start", "plan-grow", "plan-protect"])],
 } satisfies Omit<Header, "id" | "updatedAt" | "createdAt" | "_status">;
 
@@ -176,14 +178,14 @@ export const DEFAULT_FOOTER = {
   columns: [
     {
       heading: "What we look after",
-      links: [
+      links: inPillarOrder([
         market("Domains", "/#domains"),
         market("Email and Microsoft 365", "/#email"),
         market("Websites and stores", "/#websites"),
         market("Security", "/#security"),
         market("Cloud hosting and backup", "/#services"),
         market("Expense management", "/#thebe"),
-      ],
+      ], (row) => row.link.label),
     },
     { heading: "Company", links: [market("Pricing", "/pricing"), market("Insights", "/insights"), market("Free tools", "/tools"), market("Ask for a quote", "/quote")] },
     { heading: "Trust", links: [market("Service status", "/status"), market("Security", "/security"), market("Service providers", "/legal/service-providers"), market("Legal", "/legal/terms")] },
