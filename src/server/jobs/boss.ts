@@ -54,6 +54,26 @@ const JOBS: Job[] = [
       return writeResponseReport(prisma);
     },
   },
+  // The success dashboard's figures for the month so far (STRATEGY_ROLLOUT U8), after the scores at 04:15.
+  {
+    name: "success-snapshot",
+    cron: "0 5 * * *",
+    run: async () => {
+      const { takeSnapshot } = await import("@/server/success/success");
+      await takeSnapshot(prisma, billingAdapter());
+    },
+  },
+  // Last month's figures to the directors on the 1st (U8), while the switch is on.
+  {
+    name: "success-report",
+    cron: "0 7 1 * *",
+    run: async () => {
+      const { sendDirectorsReport } = await import("@/server/success/success");
+      const result = await sendDirectorsReport(prisma, billingAdapter());
+      if (result.sent) await runSoon("email-deliver").catch(() => undefined);
+      return result;
+    },
+  },
   // Admins hear about partner agreements before their notice period starts (U7).
   {
     name: "partner-renewals",

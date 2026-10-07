@@ -2819,3 +2819,26 @@ model PartnerRecord {
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
 }
+
+/// The success dashboard's figures for a month (STRATEGY_ROLLOUT U8), refreshed
+/// every night; the month's last refresh is its month-end figure.
+model SuccessSnapshot {
+  /// "2026-10".
+  month      String    @id
+  /// Customers, revenue by pillar, leads, response times and the security score.
+  data       Json
+  takenAt    DateTime
+  /// When the month's email went to the directors.
+  reportedAt DateTime?
+  createdAt  DateTime  @default(now())
+}
+
+/// Targets for each figure and who gets the monthly email (Admin > Success).
+model SuccessSettings {
+  id             String   @id @default("success")
+  directorEmails String[] @default([])
+  /// Figure key to target, e.g. { "managedCustomers": 40 }.
+  targets        Json     @default("{}")
+  updatedById    String?
+  updatedAt      DateTime @updatedAt
+}

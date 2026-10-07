@@ -6,6 +6,7 @@ import {
   Inbox,
   Network,
   NotebookTabs,
+  TrendingUp,
   DatabaseBackup,
   ShieldAlert,
   Landmark,
@@ -84,6 +85,7 @@ const ICONS = {
   mywork: Inbox,
   units: Network,
   register: NotebookTabs,
+  success: TrendingUp,
 };
 
 export interface NavItem {

@@ -17,6 +17,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const counts = await staffOverview(prisma);
   const all: (NavItem & { needs: StaffPermission })[] = [
     { href: "/admin", label: "Overview", icon: "overview", exact: true, needs: "viewCustomers" },
+    { href: "/admin/success", label: "Success", icon: "success", needs: "viewSuccess" },
     { href: "/admin/my-work", label: "My work", icon: "mywork", needs: "viewCustomers" },
     { href: "/admin/customers", label: "Customers", icon: "customers", needs: "viewCustomers" },
     { href: "/admin/tasks", label: "Setup queue", icon: "tasks", needs: "viewCustomers", badge: counts.openTasks || undefined },
