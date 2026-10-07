@@ -2,7 +2,7 @@ import { mkdirSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { chromium, type Browser } from "@playwright/test";
 import sharp from "sharp";
-import { PAGES, resolvePath, settled, type Audience, type PageSpec } from "../e2e/support/pages";
+import { chooseTheme, PAGES, resolvePath, settled, type Audience, type PageSpec } from "../e2e/support/pages";
 import { signIn } from "../e2e/support/signed-in";
 
 /**
@@ -58,6 +58,7 @@ async function main() {
         for (const audience of ["public", "customer", "staff"] as Audience[]) {
           const context = await browser.newContext({ viewport: { width, height: 900 }, colorScheme: scheme, reducedMotion: "reduce", deviceScaleFactor: 1 });
           await signIn(context, audience, BASE);
+          await chooseTheme(context, scheme, BASE);
           const page = await context.newPage();
           for (const spec of PAGES.filter((p) => p.audience === audience)) {
             const path = paths.get(spec);
