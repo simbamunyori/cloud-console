@@ -1,5 +1,7 @@
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, FileDown } from "lucide-react";
 import type { Metadata } from "next";
+import { Button } from "@/components/ui/button";
+import { featureOn } from "@/server/features/features";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { QuoteLines, QuoteStateBadge, validityText } from "@/components/quotes/quote-view";
@@ -23,6 +25,7 @@ export default async function QuotePage({ params }: { params: Promise<{ referenc
   const quote = await organisationQuote(db, reference);
   if (!quote) notFound();
   const market = await prisma.market.findUniqueOrThrow({ where: { code: quote.market } });
+  const pdfs = await featureOn(prisma, "branded-pdfs");
   const state = quoteState(quote, todayForMarket(market));
   const order = quote.orderId ? await db.order.findFirst({ where: { id: quote.orderId }, select: { reference: true } }) : null;
   const refunds = state === "sent" && (await hasLegalText(organisation.billingMarket, "refunds"));
@@ -34,7 +37,19 @@ export default async function QuotePage({ params }: { params: Promise<{ referenc
       <Link href="/app/quotes" className="mb-4 inline-flex items-center gap-1 text-callout text-link hover:underline">
         <ArrowLeft aria-hidden className="size-4" /> Quotes
       </Link>
-      <PageHeader eyebrow={`Quote ${quote.reference}`} title={quote.product?.name ?? "Your quote"} description={state === "new" ? undefined : validityText(quote.validUntil, state)} actions={<QuoteStateBadge state={state} />} />
+      <PageHeader eyebrow={`Quote ${quote.reference}`} title={quote.product?.name ?? "Your quote"} description={state === "new" ? undefined : validityText(quote.validUntil, state)} actions={
+          <span className="flex flex-wrap items-center gap-3">
+            {pdfs && quote.status !== "NEW" ? (
+              <Button asChild variant="secondary" size="sm">
+                <a href={`/app/quotes/${encodeURIComponent(quote.reference)}/pdf`} download>
+                  <FileDown aria-hidden /> Download PDF
+                </a>
+              </Button>
+            ) : null}
+            <QuoteStateBadge state={state} />
+          </span>
+        }
+      />
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_var(--layout-aside-wide)] [&>*]:min-w-0">
         <div className="flex flex-col gap-6">
           {state === "new" ? (

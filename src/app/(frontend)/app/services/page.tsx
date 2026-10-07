@@ -10,6 +10,8 @@ import { PageHeader } from "@/components/ui/page-header";
 import { formatDay } from "@/lib/dates";
 import type { Service } from "@/server/billing/adapter";
 import { requireBilling } from "@/server/billing/context";
+import { prisma } from "@/server/db";
+import { featureSwitches } from "@/server/features/features";
 import { monthlyPrice } from "@/server/billing/views";
 
 export const metadata: Metadata = { title: "Services" };
@@ -22,6 +24,8 @@ export default async function ServicesPage() {
   const groups = new Map<string, Service[]>();
   for (const s of current) groups.set(s.groupName, [...(groups.get(s.groupName) ?? []), s]);
   const liveDomains = domains.filter((d) => d.status !== "cancelled" && d.status !== "transferred_away");
+  const features = await featureSwitches(prisma);
+  const manageDomains = features["openprovider-domains"] || features["bw-registry-domains"];
 
   return (
     <>
@@ -94,7 +98,13 @@ export default async function ServicesPage() {
                 {liveDomains.map((d) => (
                   <li key={d.domainId} className="flex flex-col gap-2 px-5 py-4 sm:flex-row sm:items-center sm:gap-4 sm:px-6">
                     <span className="flex min-w-0 flex-1 flex-col">
-                      <span className="font-semibold text-ink">{d.name}</span>
+                      {manageDomains ? (
+                        <Link href={`/app/services/domains/${encodeURIComponent(d.domainId)}`} className="font-semibold text-link hover:underline">
+                          {d.name}
+                        </Link>
+                      ) : (
+                        <span className="font-semibold text-ink">{d.name}</span>
+                      )}
                       <span className="text-callout text-ink-muted">
                         Expires {formatDay(d.expiresOn, true)}, {d.autoRenew ? "renews on its own" : "doesn't renew on its own"}
                       </span>

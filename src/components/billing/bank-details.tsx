@@ -1,5 +1,7 @@
 import { DetailList } from "@/components/ui/card";
-import type { EftDetails as BankDetails } from "@/server/markets/markets";
+import type { EftDetails } from "@/server/markets/markets";
+
+type BankDetails = EftDetails & { branchName?: string };
 
 /** Where to pay by EFT. The invoice number is the reference, so we can match the payment. */
 export function BankDetailsList({ bank, reference }: { bank: BankDetails; reference?: string }) {
@@ -7,6 +9,7 @@ export function BankDetailsList({ bank, reference }: { bank: BankDetails; refere
     <DetailList
       items={[
         ["Bank", bank.bankName],
+        ...(bank.branchName ? ([["Branch", bank.branchName]] as [string, string][]) : []),
         ["Account name", bank.accountName],
         ["Account number", <span key="n" className="tabular-nums">{bank.accountNumber}</span>],
         ...(bank.branchCode ? ([["Branch code", bank.branchCode]] as [string, string][]) : []),

@@ -3,12 +3,14 @@
 /**
  * Fourth Generation Console Sync: lets the Cloud Console keep WHMCS's
  * product groups, products and prices the same as its approved price
- * books, so nobody sets them up by hand. The endpoint is sync.php; this
- * file only registers the addon, creates its two tables, and shows recent
- * syncs to administrators.
+ * books, so nobody sets them up by hand (sync.php), and replace WHMCS's
+ * own company details, invoice look and invoice emails with Admin >
+ * Company's (company.php). This file only registers the addon, creates
+ * its tables, and shows recent syncs to administrators.
  */
 
 use FourthGen\ConsoleSync\WhmcsCatalogue;
+use FourthGen\ConsoleSync\WhmcsSettings;
 use WHMCS\Database\Capsule;
 
 if (!defined('WHMCS')) {
@@ -19,15 +21,18 @@ require_once __DIR__ . '/lib/Guard.php';
 require_once __DIR__ . '/lib/Catalogue.php';
 require_once __DIR__ . '/lib/SyncHandler.php';
 require_once __DIR__ . '/lib/WhmcsCatalogue.php';
+require_once __DIR__ . '/lib/CompanySettings.php';
+require_once __DIR__ . '/lib/CompanyHandler.php';
+require_once __DIR__ . '/lib/WhmcsSettings.php';
 
 function fourthgen_console_config()
 {
     return [
         'name' => 'Fourth Generation Console Sync',
-        'description' => 'Keeps product groups, products and prices the same as the Cloud Console\'s approved price books. It can change nothing else.',
+        'description' => 'Keeps product groups, products and prices the same as the Cloud Console\'s approved price books, and our company details, invoice look and invoice emails the same as its Admin > Company settings. It can change nothing else.',
         'author' => 'Fourth Generation Technologies',
         'language' => 'english',
-        'version' => '1.0.0',
+        'version' => '1.1.0',
         'fields' => [
             'shared_secret' => [
                 'FriendlyName' => 'Shared secret',
@@ -64,13 +69,20 @@ function fourthgen_console_activate()
                 $table->string('summary', 255);
             });
         }
+        WhmcsSettings::ensureTable();
         return ['status' => 'success', 'description' => 'Activated. Set the shared secret and allowed IPs under Configure.'];
     } catch (\Throwable $e) {
         return ['status' => 'error', 'description' => 'Could not create the addon\'s tables: ' . $e->getMessage()];
     }
 }
 
-/** Keeps both tables: the sync history stays for the record. */
+/** WHMCS runs this when the files of a newer version are copied over an active addon. */
+function fourthgen_console_upgrade($vars)
+{
+    WhmcsSettings::ensureTable();
+}
+
+/** Keeps its tables: the sync history stays for the record. */
 function fourthgen_console_deactivate()
 {
     return ['status' => 'success', 'description' => 'Deactivated. The sync endpoint now refuses every request.'];
@@ -87,6 +99,7 @@ function fourthgen_console_output($vars)
     echo '<li>Shared secret: ' . ($secretSet ? 'set' : '<strong>not set, so every request is refused</strong>') . '</li>';
     echo '<li>Allowed IPs: ' . ($ips ? $e(implode(', ', $ips)) : '<strong>none, so every request is refused</strong>') . '</li>';
     echo '</ul>';
+    echo '<p>Company details, the invoice logo and bank details, and the invoice emails come from the console\'s Admin &gt; Company, through <code>company.php</code>. Change them there.</p>';
 
     $rows = Capsule::table(WhmcsCatalogue::SYNC_TABLE)->orderBy('id', 'desc')->limit(20)->get();
     echo '<h3>Last 20 syncs</h3>';

@@ -13,7 +13,8 @@ import type { InvoiceStatus } from "@/server/billing/adapter";
 import { requireBilling } from "@/server/billing/context";
 import { poNumbers } from "@/server/billing/po";
 import { amountOwed, isOverdue, nextInvoice } from "@/server/billing/views";
-import { eftDetails } from "@/server/markets/markets";
+import { bankFor } from "@/server/company/company";
+import { prisma } from "@/server/db";
 
 export const metadata: Metadata = { title: "Billing" };
 
@@ -32,7 +33,7 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
   const pos = await poNumbers(db, shown.map((i) => i.invoiceId));
   const owed = amountOwed(invoices, currency);
   const next = nextInvoice(services, domains, currency);
-  const bank = eftDetails(market);
+  const bank = await bankFor(prisma, market, currency);
 
   return (
     <>

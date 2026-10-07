@@ -43,6 +43,8 @@ import {
   type TldPrice,
   type Transaction,
   type UpgradePreview,
+  type AcceptOptions,
+  type DomainPatch,
 } from "../adapter";
 
 /**
@@ -349,7 +351,7 @@ export class StubBillingAdapter implements BillingAdapter {
     });
   }
 
-  async acceptOrder(orderId: string) {
+  async acceptOrder(orderId: string, _options?: AcceptOptions) {
     await this.db.$transaction(async (tx) => {
       const order = await tx.stubOrder.findUnique({ where: { id: id(orderId, "order") } });
       if (!order) throw new BillingError("not-found", `No order ${orderId}.`);
@@ -745,6 +747,14 @@ export class StubBillingAdapter implements BillingAdapter {
       await tx.stubOrder.update({ where: { id: order.id }, data: { invoiceId } });
       return { orderId: String(order.id), invoiceId: String(invoiceId) };
     });
+  }
+
+  async updateDomain(domainId: string, patch: DomainPatch) {
+    const updated = await this.db.stubDomain.updateMany({
+      where: { id: id(domainId, "domain") },
+      data: { ...(patch.status ? { status: "Active" } : {}), ...(patch.expiresOn ? { expiryDate: patch.expiresOn } : {}), ...(patch.nextDueOn ? { nextDueDate: patch.nextDueOn } : {}) },
+    });
+    if (!updated.count) throw new BillingError("not-found", `No domain ${domainId}.`);
   }
 
   async getTldPricing(currency: string): Promise<TldPrice[]> {

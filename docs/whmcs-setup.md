@@ -167,7 +167,8 @@ To install it:
 
 The console calls
 `https://billing.fourthgeneration.technology/modules/addons/fourthgen_console/sync.php`.
-Nothing else in the addon folder answers web requests.
+`company.php` beside it takes the company push (section 10). Nothing else in
+the addon folder answers web requests.
 
 To change the shared secret, change it in WHMCS and in the console at the
 same time. Requests signed with the old one are refused.
@@ -219,8 +220,9 @@ DPO change (pull request #3) is live.
   payments, set-up), so WHMCS doesn't need to. Under **Configuration >
   System Settings > Email Templates**, disable the client emails for new
   accounts, orders, invoices, payment confirmations and reminders.
-- **Registrar:** no registrar module is connected on the test install, so
-  no domain order can reach a real registry. Keep it that way until launch.
+- **Registrar:** international domains go through the Openprovider
+  registrar module (section 10). .bw stays a staff task until BOCRA
+  accredits us; the console then talks to the .bw registry itself.
 - **Cron:** make sure the WHMCS cron runs every 5 minutes (**Configuration
   > System Settings > Automation Settings** shows the command and the last
   run). WHMCS raises the monthly invoices from it.
@@ -251,6 +253,80 @@ Before launch:
 4. Replace the access key with the production server's IP address (step 5).
 5. Run the price sync once to create the product groups, products and
    prices from the approved price books.
+
+## 10. Company details, invoices and Openprovider (strategy U1)
+
+Admin > Company in the console holds our legal name, registration, address,
+contacts, logo and bank details. **Send to WHMCS** on that page puts them
+into WHMCS through the same addon as the price sync (`company.php`, signed
+and checked the same way). It may change only:
+
+- the general settings `CompanyName`, `Email`, `Domain`, `InvoicePayTo`,
+  `LogoURL`, `SystemEmailsFromName`, `SystemEmailsFromEmail`, `Signature`,
+  `EmailGlobalHeader`, `EmailGlobalFooter`, `EmailCSS`, `MaintenanceMode`,
+  `MaintenanceModeMessage`, `MaintenanceModeURL`,
+  `AutoRenewDomainsonPayment`, `DefaultNameserver1` to `4` and `Template`
+  (only `fourthgen` or `twenty-one`);
+- the invoice emails: Invoice Created, Credit Card Invoice Created,
+  Invoice Payment Reminder, the three overdue notices and Invoice Payment
+  Confirmation (default language only);
+- the addon's own table of company details, bank details per currency and
+  the logo, which the `fourthgen` theme's invoice PDF reads;
+- the Openprovider registrar module's username, password and test mode,
+  while Openprovider is switched on in Admin > Partners.
+
+Email templates can't carry Smarty tags that run code (`{php}`,
+`{include}`, `{fetch}` and the like) or scripts. Every change is in the
+WHMCS activity log (lines starting `Console company push:`, never with the
+password) and in the console's staff audit log. **Check what would change**
+runs it as a dry run.
+
+What it leaves WHMCS like:
+- maintenance mode on, sending anyone who opens the client area to
+  `https://console.fourthgeneration.technology/app`;
+- the `fourthgen` theme (Twenty-One with our invoice PDF): logo, company
+  details, registration, the customer, lines and totals, and the bank
+  details for the invoice's currency with the invoice number as the
+  reference;
+- invoice emails in our words and frame, linking to the invoice in the
+  console. WHMCS's client emails stay disabled (section 8): the console
+  sends its own branded invoice emails once Admin > Features > Invoice
+  emails is on. These are for an email staff send from WHMCS by hand;
+- "Auto Renew on Payment" on, so a paid renewal invoice renews the domain
+  at Openprovider.
+
+### Installing (one command on the server)
+
+On the server, as a user who can use sudo, from the current console
+release:
+
+```
+r=/opt/console/current/whmcs; w=/var/www/billing; t=$(mktemp -d) && \
+sudo cp -r $r/modules/addons/fourthgen_console $w/modules/addons/ && \
+sudo cp -r $r/templates/fourthgen $w/templates/ && \
+(curl -fsSL https://github.com/openprovider/Openprovider-WHMCS-domains/archive/refs/heads/master.tar.gz || \
+ curl -fsSL https://github.com/openprovider/Openprovider-WHMCS-domains/archive/refs/heads/main.tar.gz) | tar -xz -C $t && \
+sudo cp -r $t/*/modules/registrars/openprovider $w/modules/registrars/ && \
+sudo cp -r $t/*/includes/hooks/. $w/includes/hooks/ && \
+sudo chown -R --reference=$w/modules $w/modules/addons/fourthgen_console $w/modules/registrars/openprovider $w/templates/fourthgen $w/includes/hooks
+```
+
+Copying the addon over the old one upgrades it to 1.1.0 in place; WHMCS
+runs its upgrade on the next admin page and keeps the secret and allowed
+IPs.
+
+### Then, in the admin areas
+
+1. WHMCS: **Configuration > System Settings > Domain Registrars**, find
+   Openprovider and select **Activate**. Leave its settings empty: the
+   console fills them.
+2. Console: **Admin > Partners > Openprovider.** Enter the API username
+   and password, choose Live, **Save settings**, **Test connection**, then
+   **Switch on**.
+3. Console: **Admin > Company.** Check the details, logos and bank
+   accounts, then **Check what would change** and **Send to WHMCS**.
+4. Console: **Admin > Features.** Turn on Domains through Openprovider,
+   Invoice and quote PDFs and Invoice emails when ready.
 
 ## Checking it works
 

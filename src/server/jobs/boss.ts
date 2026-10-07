@@ -126,6 +126,33 @@ const JOBS: Job[] = [
       return deliverDue(prisma, emailAdapter());
     },
   },
+  // Paid domain registrations, transfers and renewals go to the registrar on their own (docs/STRATEGY_ROLLOUT.md, U1).
+  {
+    name: "domain-operations",
+    cron: "*/5 * * * *",
+    run: async () => {
+      const { runDomainOperations } = await import("@/server/domains/operations");
+      if (await runDomainOperations({ db: prisma, adapter: billingAdapter() })) await deliverDue(prisma, emailAdapter());
+    },
+  },
+  // Our domain costs from Openprovider, ahead of each morning's price work.
+  {
+    name: "domain-costs",
+    cron: "0 5 * * *",
+    run: async () => {
+      const { syncDomainCosts } = await import("@/server/domains/costs");
+      return syncDomainCosts({ db: prisma });
+    },
+  },
+  // Each new invoice by email with its PDF, once Admin > Features > Invoice emails is on.
+  {
+    name: "invoice-emails",
+    cron: "*/30 * * * *",
+    run: async () => {
+      const { emailNewInvoices } = await import("@/server/billing/invoice-emails");
+      if (await emailNewInvoices({ db: prisma, adapter: billingAdapter() })) await deliverDue(prisma, emailAdapter());
+    },
+  },
 ];
 
 /** Later milestones add their jobs here (billing sync, purges). */

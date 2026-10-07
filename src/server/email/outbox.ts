@@ -1,7 +1,7 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
 import { env } from "@/server/env";
 import type { EmailAdapter } from "./adapter";
-import { renderEmail } from "./layout";
+import { emailBrand, renderEmail, type EmailBrand } from "./layout";
 import { TEMPLATES } from "./templates";
 
 /**
@@ -63,6 +63,7 @@ export async function deliverDue(
   });
   const e = env();
   let sent = 0;
+  let brand: EmailBrand | undefined;
   for (const row of due) {
     const claim = await db.outboundEmail.updateMany({
       where: { id: row.id, status: "QUEUED", attempts: row.attempts },
@@ -83,7 +84,8 @@ export async function deliverDue(
         await db.outboundEmail.update({ where: { id: row.id }, data: { status: "FAILED", lastError: "No longer needed." } });
         continue;
       }
-      const { text, html } = renderEmail(rendered.body, e.APP_URL);
+      brand ??= await emailBrand(db, e.APP_URL);
+      const { text, html } = renderEmail(rendered.body, e.APP_URL, brand);
       await adapter.send({
         to: row.toAddress,
         subject: rendered.subject,
@@ -91,6 +93,7 @@ export async function deliverDue(
         html,
         ...(rendered.headers ? { headers: rendered.headers } : {}),
         ...(rendered.calendar ? { calendar: rendered.calendar } : {}),
+        ...(rendered.attachments?.length ? { attachments: rendered.attachments } : {}),
       });
       await db.outboundEmail.update({ where: { id: row.id }, data: { status: "SENT", sentAt: now, subject: rendered.subject, lastError: null } });
       sent++;

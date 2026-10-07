@@ -178,6 +178,7 @@ model Organisation {
   tenants            Tenant[]
   tenantLicences     TenantLicence[]
   tenantUsers        TenantUser[]
+  domainOperations   DomainOperation[]
   licenceAssignments LicenceAssignment[]
   licenceChanges     LicenceChange[]
   tenantOnboardings  TenantOnboarding[]
@@ -714,6 +715,9 @@ model Tld {
   costRegisterMinor BigInt
   costRenewMinor    BigInt
   costCurrency      String
+  /// Where the cost came from: null when typed or seeded, "openprovider" when synced.
+  costSource        String?
+  costSyncedAt      DateTime?
   /// Market codes it is offered in.
   markets           String[]
   sortOrder         Int      @default(0)
@@ -2222,4 +2226,138 @@ model SiteRedirect {
   createdAt   DateTime  @default(now())
   createdById String?
   createdBy   String?
+}
+
+// ─── Strategy upgrade (docs/STRATEGY_ROLLOUT.md) ─────────────────────
+
+/// A switch in Admin > Features. A feature is off until an Admin turns it
+/// on: no row means off. The list of features is in src/server/features.
+model FeatureSwitch {
+  key         String   @id
+  enabled     Boolean  @default(false)
+  updatedById String?
+  updatedBy   String?
+  updatedAt   DateTime @updatedAt
+}
+
+/// A partner set up in Admin > Partners (Openprovider, the .bw registry,
+/// later backup and security providers). Credentials and custom fields are
+/// sealed with a key derived from TOTP_ENCRYPTION_KEY and never shown back.
+model PartnerSetting {
+  /// "openprovider", "bw-registry".
+  key             String    @id
+  /// Admins turn a partner on once its test connection works.
+  enabled         Boolean   @default(false)
+  /// Settings that aren't secret (endpoint, test mode, nameservers), as entered.
+  settings        Json      @default("{}")
+  /// Secret settings (passwords, keys), sealed JSON.
+  secrets         String?
+  lastTestAt      DateTime?
+  lastTestOk      Boolean?
+  lastTestMessage String?
+  updatedById     String?
+  updatedAt       DateTime  @updatedAt
+}
+
+/// Single row (id "company"): Admin > Company. Used on invoices, quotes,
+/// emails, the website footer and WHMCS. Empty fields fall back to the
+/// values the platform had before (src/config/app.ts and the default market).
+model CompanyProfile {
+  id                 String   @id @default("company")
+  legalName          String
+  tradingName        String
+  registrationNumber String
+  /// One part per line, as on a letterhead.
+  address            String
+  phone              String?
+  email              String
+  website            String?
+  /// Printed at the foot of every invoice and quote.
+  invoiceFooter      String?
+  /// e.g. "Payment is due within 7 days of the invoice date."
+  paymentTerms       String?
+  /// The terms printed on quotes.
+  quoteTerms         String?
+  /// PNG logos, light (for white paper) and dark (for navy).
+  logoLight          Bytes?
+  logoDark           Bytes?
+  updatedById        String?
+  updatedAt          DateTime @updatedAt
+}
+
+/// Bank details for EFT, per market and currency (Admin > Company > Banking).
+/// The market's own currency row is kept the same as the market settings.
+model BankAccount {
+  id            String   @id @default(cuid())
+  marketCode    String
+  currency      String
+  bankName      String
+  branchName    String?
+  accountName   String
+  accountNumber String
+  branchCode    String?
+  swiftCode     String?
+  updatedById   String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([marketCode, currency])
+}
+
+enum DomainOperationKind {
+  REGISTER
+  TRANSFER
+  RENEW
+}
+
+enum DomainOperationStatus {
+  /// Waiting for the order's invoice to be paid.
+  WAITING_PAYMENT
+  /// Paid; sent to the registrar and waiting for it to confirm.
+  SUBMITTED
+  DONE
+  /// Gave up; a staff task carries it on.
+  FAILED
+  CANCELLED
+}
+
+/// A domain registration, transfer or renewal carried out automatically
+/// once it is paid, through the registrar for its ending (Openprovider,
+/// or the .bw registry once switched on).
+model DomainOperation {
+  id               String                @id @default(cuid())
+  organisationId   String
+  orderId          String?
+  kind             DomainOperationKind
+  domain           String
+  years            Int
+  /// "openprovider" or "bw-registry".
+  registrar        String
+  billingOrderId   String?
+  billingInvoiceId String?
+  billingDomainId  String?
+  status           DomainOperationStatus @default(WAITING_PAYMENT)
+  /// Transfers only: the code from the current registrar, sealed, cleared once used.
+  authCodeSealed   String?
+  /// Renewals: the expiry date before, to see the registrar moved it.
+  previousExpiry   DateTime?
+  submittedAt      DateTime?
+  completedAt      DateTime?
+  attempts         Int                   @default(0)
+  lastError        String?
+  taskId           String?
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+
+  organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+
+  @@index([status])
+  @@index([organisationId])
+}
+
+/// Invoices the console has emailed, so each is emailed once.
+model InvoiceEmail {
+  invoiceId      String   @id
+  organisationId String
+  sentAt         DateTime @default(now())
 }

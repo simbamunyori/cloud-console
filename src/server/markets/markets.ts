@@ -183,6 +183,11 @@ export async function updateMarketSettings(deps: MarketDeps, code: string, input
     await tx.marketChange.createMany({
       data: changed.map((f) => ({ marketCode: code, userId: deps.staff.userId, field: f, fromValue: show(current[f]), toValue: show(next[f]) })),
     });
+    // Company > Banking holds the same account for the market's own currency; keep the two the same.
+    if (changed.some((f) => f.startsWith("eft")) && next.eftBankName && next.eftAccountName && next.eftAccountNumber) {
+      const account = { bankName: next.eftBankName, accountName: next.eftAccountName, accountNumber: next.eftAccountNumber, branchCode: next.eftBranchCode, swiftCode: next.eftSwiftCode, updatedById: deps.staff.userId };
+      await tx.bankAccount.upsert({ where: { marketCode_currency: { marketCode: code, currency: next.currency } }, create: { marketCode: code, currency: next.currency, ...account }, update: account });
+    }
     return changed;
   });
 }
