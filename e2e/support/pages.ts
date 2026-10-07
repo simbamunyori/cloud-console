@@ -1,4 +1,4 @@
-import type { Page } from "@playwright/test";
+import type { BrowserContext, Page } from "@playwright/test";
 import { PrismaClient } from "@prisma/client";
 import { hashToken, newToken } from "../../src/server/auth/tokens";
 import { answersOf, readinessScore } from "../../src/server/tools/readiness";
@@ -168,4 +168,13 @@ export async function resolvePath(page: Page, spec: PageSpec, base: string): Pro
 export async function settled(page: Page) {
   await page.locator("[data-loading]").first().waitFor({ state: "detached", timeout: 30_000 });
   await page.evaluate(() => document.fonts.ready);
+}
+
+/**
+ * Picks a theme the way a visitor does, with the switcher's cookie. The
+ * navy theme is the default (STRATEGY_ROLLOUT U2), so the device's
+ * colour scheme alone no longer gives the light theme.
+ */
+export async function chooseTheme(context: BrowserContext, scheme: "light" | "dark", base: string) {
+  await context.addCookies([{ name: "theme", value: scheme, url: base }]);
 }

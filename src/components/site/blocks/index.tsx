@@ -29,7 +29,7 @@ import { InsightsStripSection } from "../insights";
 import { AssistantNotice as AssistantNoticeText, PageIntro as PageIntroHeader, ProseSection } from "../prose";
 import { fill, SiteRichText, type TextMarket } from "../rich-text";
 import { BlockIcon, captionFor, cardSurface, CmsButton, CmsTextLink, Heading, hasPicture, MediaImage, PictureBody, Section, type BlockContext, type PictureValue } from "./parts";
-import { ClosingBanner, CompareTable, DomainStoreSection, EmailShowcase, HomeHero, NumberedServices, PlansTable, ProofStripSection, SecurityPanel, TeamSection, ThebeSection, WebsitesShowcase } from "./home";
+import { ClosingBanner, CompareTable, DomainStoreSection, EmailShowcase, HomeHero, NumberedServices, PlansTable, ProofStripSection, SecurityPanel, TeamSection, ThebeSection, WebsitesShowcase, WhoWeHelp } from "./home";
 
 /**
  * Draws a page's sections from the website editor, with the brand's own
@@ -444,6 +444,8 @@ function Block({ block, ctx }: { block: AnyBlock; ctx: BlockContext }) {
       return <DomainStoreSection block={block} ctx={ctx} />;
     case "numberedServices":
       return <NumberedServices block={block} ctx={ctx} />;
+    case "whoWeHelp":
+      return <WhoWeHelp block={block} ctx={ctx} />;
     case "emailShowcase":
       return <EmailShowcase block={block} ctx={ctx} />;
     case "websitesShowcase":

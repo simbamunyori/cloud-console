@@ -99,7 +99,7 @@ function MothibiLockup({ size = "md" }: { size?: "sm" | "md" }) {
 /** The Mothibi Attorneys example site in a browser frame. `compact` is the phone's shorter version and the menu's. */
 export function MothibiSite({ compact = false }: { compact?: boolean }) {
   return (
-    <div inert aria-hidden className="overflow-hidden rounded-lg border border-site-frame bg-surface-1">
+    <div inert aria-hidden data-surface="light" className="overflow-hidden rounded-lg border border-site-frame bg-surface-1">
       <div className={cn("flex items-center border-b border-border px-4 text-caption text-ink-muted", compact ? "h-7.5" : "h-9")}>mothibi-attorneys.co.bw</div>
       {compact ? (
         <div className="flex flex-col gap-3 bg-mothibi-paper px-4.5 py-5">

@@ -1,6 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
-import { PAGES, resolvePath, settled } from "./support/pages";
+import { chooseTheme, PAGES, resolvePath, settled } from "./support/pages";
 import { signIn } from "./support/signed-in";
 
 /**
@@ -12,6 +12,7 @@ const TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"];
 for (const scheme of ["light", "dark"] as const) {
   test.describe(`${scheme} theme`, () => {
     test.use({ colorScheme: scheme });
+    test.beforeEach(async ({ context, baseURL }) => chooseTheme(context, scheme, baseURL!));
 
     for (const spec of PAGES) {
       test(`${spec.name} has no accessibility problems`, async ({ page, context, baseURL }) => {
