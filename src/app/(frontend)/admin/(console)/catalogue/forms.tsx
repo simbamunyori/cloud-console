@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { TextField } from "@/components/ui/field";
 import { SelectField, TextareaField } from "@/components/ui/inputs";
 import type { ActionState } from "@/server/action-state";
-import { saveCategoryAction, saveFamilyAction, saveProductAction, setInternalOrganisationAction } from "./actions";
+import { removeInclusionAction, saveCategoryAction, saveFamilyAction, saveProductAction, setInclusionAction, setInternalOrganisationAction } from "./actions";
 
 type Option = { value: string; label: string };
 
@@ -235,6 +235,58 @@ export function InternalOrganisationSwitch({ organisationId, internal }: { organ
       <Button type="submit" variant="secondary" disabled={pending}>
         {internal ? "Make it an ordinary customer" : "Make it a test organisation"}
       </Button>
+    </form>
+  );
+}
+
+/** One product a plan includes (STRATEGY_ROLLOUT U3): how many come with each unit, or take it out. */
+export function InclusionRow({ plan, included, name, quantity, unit }: { plan: string; included: string; name: string; quantity: number; unit: string }) {
+  const [state, action, pending] = useActionState<ActionState, FormData>(setInclusionAction, {});
+  const [removed, remove, removing] = useActionState<ActionState, FormData>(removeInclusionAction, {});
+  const id = `quantity-${included}`;
+  return (
+    <div className="flex flex-col gap-3 px-5 py-4 sm:px-6">
+      <Result state={state} />
+      {removed.error ? <Alert>{removed.error}</Alert> : null}
+      <div className="flex flex-wrap items-end gap-3">
+        <form action={action} className="flex flex-wrap items-end gap-3" noValidate>
+          <input type="hidden" name="plan" value={plan} />
+          <input type="hidden" name="included" value={included} />
+          <input type="hidden" name="quantityField" value={id} />
+          <TextField id={id} label={`${name}, ${unit}`} inputMode="numeric" defaultValue={state.values?.[id] ?? String(quantity)} error={state.fieldErrors?.[id]} className="w-56" />
+          <Button type="submit" variant="secondary" disabled={pending}>
+            {pending ? "Saving…" : "Save"}
+          </Button>
+        </form>
+        <form action={remove}>
+          <input type="hidden" name="plan" value={plan} />
+          <input type="hidden" name="included" value={included} />
+          <Button type="submit" variant="ghost" disabled={removing}>
+            {removing ? "Removing…" : `Remove ${name}`}
+          </Button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+/** Adds a product to what a plan includes. */
+export function AddInclusionForm({ plan, products }: { plan: string; products: Option[] }) {
+  const [state, action, pending] = useActionState<ActionState, FormData>(setInclusionAction, {});
+  const fe = state.fieldErrors ?? {};
+  return (
+    <form action={action} className="flex flex-col gap-4" noValidate>
+      <input type="hidden" name="plan" value={plan} />
+      <Result state={state} />
+      <div className="grid gap-4 sm:grid-cols-2">
+        <SelectField id="included" label="Include" options={products} placeholder="Choose a product" defaultValue={state.values?.included ?? ""} error={fe.included} />
+        <TextField id="quantity" label="How many with each unit" inputMode="numeric" defaultValue={state.values?.quantity ?? "1"} error={fe.quantity} />
+      </div>
+      <div>
+        <Button type="submit" variant="secondary" disabled={pending}>
+          {pending ? "Adding…" : "Add to this product"}
+        </Button>
+      </div>
     </form>
   );
 }

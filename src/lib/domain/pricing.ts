@@ -30,6 +30,8 @@ export interface PriceBreakdown {
   afterMargin: string;
   price: string;
   fixed: boolean;
+  /** What the plan includes, whose cost is in `cost` (STRATEGY_ROLLOUT U3). */
+  included?: { name: string; quantity: number; cost: string; costCurrency: string }[];
 }
 
 export class PricingError extends Error {
@@ -52,6 +54,9 @@ function convert(amount: Money, currency: string, rateMicros: bigint | null | un
   const scaled = amount.amountMinor * rateMicros * 10n ** BigInt(Math.max(0, shift));
   return divCeil(scaled, 1_000_000n * 10n ** BigInt(Math.max(0, -shift)));
 }
+
+/** An amount in another currency at a rate (times 1,000,000), rounded up to the minor unit, with no buffer or margin. */
+export const convertAt = (amount: Money, currency: string, rateMicros: bigint | null | undefined): bigint => convert(amount, currency, rateMicros);
 
 export function customerPrice(input: PriceInputs, currency: string): { price: Money; breakdown: PriceBreakdown } {
   if (input.marginBps < 0 || input.bufferBps < 0) throw new PricingError("Margin and buffer can't be negative.");

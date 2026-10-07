@@ -14,6 +14,7 @@ import { prisma } from "@/server/db";
 import { runSoon } from "@/server/jobs/boss";
 import { confirmEftPayment, rejectEftPayment } from "@/server/payments/eft";
 import { approveRun } from "@/server/pricing/periods";
+import { setMarginFloor } from "@/server/pricing/margins";
 import { acceptTable } from "@/server/pricing/official-rates";
 import { staffReply } from "@/server/support/tickets";
 
@@ -113,6 +114,17 @@ export async function setAutoApproveAction(_prev: ActionState, form: FormData): 
   const result = await run(async () => {
     await setAutoApprove(await pricingDeps(), values.threshold);
     return "Saved. It applies from the next price book.";
+  }, values);
+  revalidatePath("/admin/pricing");
+  return result;
+}
+
+export async function setMarginFloorAction(_prev: ActionState, form: FormData): Promise<ActionState> {
+  const values = { floor: field(form, "floor") };
+  const result = await run(async () => {
+    const { staff } = await requireStaff();
+    await setMarginFloor({ db: prisma, staff }, values.floor);
+    return "Saved.";
   }, values);
   revalidatePath("/admin/pricing");
   return result;

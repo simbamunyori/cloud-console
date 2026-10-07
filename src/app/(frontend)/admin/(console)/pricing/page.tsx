@@ -16,8 +16,9 @@ import { prisma } from "@/server/db";
 import { listMarkets } from "@/server/markets/markets";
 import { ratesAutomatic } from "@/server/pricing/jobs";
 import { recentRuns } from "@/server/pricing/periods";
+import { planMargins, type MarketMargins } from "@/server/pricing/margins";
 import { CHECK_TIMES } from "@/server/pricing/official-rates";
-import { setAutoApproveAction, setBufferAction, setMarginAction, setRateAction } from "../actions";
+import { setAutoApproveAction, setBufferAction, setMarginAction, setMarginFloorAction, setRateAction } from "../actions";
 import { SettingForm } from "../forms";
 import { AcceptRatesForm, ApproveAllForm, ApproveForm, OfferedSwitch } from "./forms";
 
@@ -34,6 +35,7 @@ function describeChange(field: string, from: string | null, to: string, currenci
   };
   if (kind === "margin") return `Margin on ${key}: ${from === null ? "none" : `${bpsToPercent(Number(from))}%`} to ${bpsToPercent(Number(to))}%`;
   if (kind === "auto-approve") return `Automatic approval up to: ${from === null ? "none" : `${bpsToPercent(Number(from))}%`} to ${bpsToPercent(Number(to))}%`;
+  if (kind === "margin-floor") return `Margin floor: ${from === null ? "none" : `${bpsToPercent(Number(from))}%`} to ${bpsToPercent(Number(to))}%`;
   if (kind === "buffer") return `Currency buffer: ${from === null ? "none" : `${bpsToPercent(Number(from))}%`} to ${bpsToPercent(Number(to))}%`;
   if (kind === "rate") return `${key} rate for ${rest[0]}: ${from === null ? "none" : microsToRate(BigInt(from))} to ${microsToRate(BigInt(to))}`;
   const itemName = (parts: string[]) => names.get(parts.join(":")) ?? parts.at(-1);
@@ -49,6 +51,64 @@ function PriceCell({ money, renew, note }: { money: Money | null; renew?: Money 
       {show(money)}
       {renew ? <span className="block text-caption text-ink-muted">renews {show(renew)}</span> : null}
     </span>
+  );
+}
+
+/** The plan margin report (STRATEGY_ROLLOUT U3): each plan's true cost, price and margin in the chosen market. */
+function MarginReport({ report, floorBps, featureOn }: { report: MarketMargins; floorBps: number; featureOn: boolean }) {
+  const below = report.rows.filter((r) => r.belowFloor).length;
+  return (
+    <Card aria-labelledby="plan-margins-title">
+      <CardHeader
+        id="plan-margins-title"
+        title={`Plan margins in ${report.name}`}
+        description={`Each plan's true cost (its own plus the email security and backup it includes) at today's rates, without the buffer, against today's price. ${featureOn ? "Included products are on: customers see them and new suggestions cover their cost." : "Included products are off: customers don't see them yet, and the price book doesn't count their cost until Admin > Features turns them on."}`}
+        action={below ? <Badge tone="warning">{below === 1 ? "1 plan" : `${below} plans`} below {bpsToPercent(floorBps)}%</Badge> : undefined}
+      />
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-200 text-left text-callout">
+          <thead className="text-ink-muted">
+            <tr className="border-b border-border">
+              <th scope="col" className="px-5 py-3 font-semibold sm:px-6">Plan</th>
+              <th scope="col" className="px-3 py-3 text-right font-semibold">True cost</th>
+              <th scope="col" className="px-3 py-3 text-right font-semibold">Price now</th>
+              <th scope="col" className="px-5 py-3 text-right font-semibold sm:px-6">Margin</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border">
+            {report.rows.map((r) => (
+              <tr key={r.slug}>
+                <td className="px-5 py-3 sm:px-6">
+                  <Link href={`/admin/catalogue/products/${r.slug}`} className="text-ink underline-offset-2 hover:underline">
+                    {r.name}
+                  </Link>
+                  <span className="block text-caption text-ink-muted">
+                    {r.unitLabel}
+                    {r.included.length ? `. Includes ${r.included.join(", ")}` : ""}
+                    {r.status === "LIVE" ? "" : `. ${STATUS_LABEL[r.status as keyof typeof STATUS_LABEL]}`}
+                  </span>
+                  {r.problem ? <span className="block text-caption text-warning">{r.problem}</span> : null}
+                </td>
+                <td className="px-3 py-3 text-right whitespace-nowrap tabular-nums">{show(r.cost) ?? <span className="text-ink-muted">Unknown</span>}</td>
+                <td className="px-3 py-3 text-right whitespace-nowrap tabular-nums">{show(r.price) ?? <span className="text-ink-muted">Not priced</span>}</td>
+                <td className="px-5 py-3 text-right whitespace-nowrap tabular-nums sm:px-6">
+                  {r.marginBps === null ? (
+                    <span className="text-ink-muted">None</span>
+                  ) : r.belowFloor ? (
+                    <Badge tone="warning">{bpsToPercent(r.marginBps)}%, below the floor</Badge>
+                  ) : (
+                    `${bpsToPercent(r.marginBps)}%`
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <CardBody className="border-t border-border">
+        <SettingForm action={setMarginFloorAction} name="floor" label="Warn below a margin of, every market" suffix="%" defaultValue={bpsToPercent(floorBps)} />
+      </CardBody>
+    </Card>
   );
 }
 
@@ -99,7 +159,8 @@ export default async function PricingPage({ searchParams }: { searchParams: Prom
   const selected = markets.find((m) => m.code === requested) ?? markets.find((m) => m.isDefault) ?? markets[0];
   const today = todayIn(DEFAULT_TIME_ZONE);
   const month = priceDay(today);
-  const [o, book, runs] = await Promise.all([pricingOverview(prisma, month, selected.currency), bookRows(prisma, selected.code, month), recentRuns(prisma)]);
+  const [o, book, runs, margins] = await Promise.all([pricingOverview(prisma, month, selected.currency), bookRows(prisma, selected.code, month), recentRuns(prisma), planMargins(prisma, month)]);
+  const marketMargins = margins.markets.find((m) => m.code === selected.code);
   const automatic = ratesAutomatic();
   const history = await rateHistory(prisma, o.rates.map((r) => r.base), selected.currency);
   const nextLabel = formatPriceStart(o.next);
@@ -156,6 +217,8 @@ export default async function PricingPage({ searchParams }: { searchParams: Prom
             </table>
           </div>
         </Card>
+
+        {marketMargins?.rows.length ? <MarginReport report={marketMargins} floorBps={margins.floorBps} featureOn={margins.featureOn} /> : null}
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 [&>*]:min-w-0">
           <Card aria-labelledby="fx-title">

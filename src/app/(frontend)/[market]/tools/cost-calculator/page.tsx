@@ -4,6 +4,7 @@ import { SitePage } from "@/components/site/site-page";
 import { Button } from "@/components/ui/button";
 import { company } from "@/config/app";
 import { formatMoney } from "@/lib/domain/money";
+import { includedWords } from "@/server/catalogue/inclusions";
 import { partnerLinks } from "@/server/site/partner-links";
 import { siteMarket, siteMetadata, taxNote } from "@/server/site/site";
 import { estimate, MAX_USERS, NEEDS, parseNeeds, parseUsers, PROVIDER_LABEL, type PricedPlan, type Provider } from "@/server/tools/calculator";
@@ -135,6 +136,7 @@ export default async function CostCalculatorPage({ params, searchParams }: Props
                   <div className="flex flex-col gap-1">
                     <p className="text-title-2 text-ink">{result.plan.name}</p>
                     <p className="text-callout text-ink-muted">{result.why}</p>
+                    {result.plan.included.length ? <p className="text-callout text-ink">Includes {includedWords(result.plan.included)} at no extra charge.</p> : null}
                   </div>
                   <p className="flex flex-col text-callout text-ink-muted">
                     <span className="text-display text-ink tabular-nums">{formatMoney(result.plan.total, m.locale)}</span>a month for {result.users} {result.users === 1 ? "person" : "people"},{" "}

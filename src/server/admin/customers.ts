@@ -51,7 +51,7 @@ export async function recentOrders(db: PrismaClient) {
 
 /** Counts for the staff overview. */
 export async function staffOverview(db: PrismaClient, now = new Date()) {
-  const [openTasks, lateTasks, eft, settingUp, tickets, waitlist, quotes, leads, launchKits, newsletter, bookings] = await Promise.all([
+  const [openTasks, lateTasks, eft, settingUp, tickets, waitlist, quotes, leads, launchKits, newsletter, bookings, restores] = await Promise.all([
     db.provisioningTask.count({ where: { status: { in: ["OPEN", "IN_PROGRESS"] } } }),
     db.provisioningTask.count({ where: { status: { in: ["OPEN", "IN_PROGRESS"] }, expectedBy: { lt: now } } }),
     db.eftPayment.count({ where: { status: "AWAITING_CONFIRMATION" } }),
@@ -66,6 +66,8 @@ export async function staffOverview(db: PrismaClient, now = new Date()) {
     db.newsletterIssue.count({ where: { status: "DRAFT" } }),
     // Pre-sales calls in the next 7 days.
     db.presalesBooking.count({ where: { status: "BOOKED", startsAt: { gte: now, lt: new Date(now.getTime() + 7 * 86_400_000) } } }),
+    // Restores from backup waiting on our team (STRATEGY_ROLLOUT U3).
+    db.backupRestoreRequest.count({ where: { status: "REQUESTED" } }),
   ]);
-  return { openTasks, lateTasks, eft, settingUp, tickets, waitlist, quotes, leads, launchKits, newsletter, bookings };
+  return { openTasks, lateTasks, eft, settingUp, tickets, waitlist, quotes, leads, launchKits, newsletter, bookings, restores };
 }

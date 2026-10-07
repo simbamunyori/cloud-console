@@ -44,6 +44,8 @@ export interface PricedPlan {
   unit: Money;
   total: Money;
   provider: "microsoft" | "google";
+  /** Products the plan includes at no extra charge (STRATEGY_ROLLOUT U3). */
+  included: string[];
 }
 
 export interface Estimate {
@@ -66,10 +68,10 @@ export function parseNeeds(values: unknown[]): Need[] {
   return [...new Set(values.filter((v): v is Need => typeof v === "string" && keys.has(v as Need)))];
 }
 
-export function estimate(input: { users: number; provider: Provider; needs: Need[] }, prices: { slug: string; name: string; price: Money }[]): Estimate {
+export function estimate(input: { users: number; provider: Provider; needs: Need[] }, prices: { slug: string; name: string; price: Money; included?: string[] }[]): Estimate {
   const priced = (spec: PlanSpec): PricedPlan | null => {
     const p = prices.find((x) => x.slug === spec.slug);
-    return p ? { slug: p.slug, name: p.name, unit: p.price, total: times(p.price, input.users), provider: spec.provider } : null;
+    return p ? { slug: p.slug, name: p.name, unit: p.price, total: times(p.price, input.users), provider: spec.provider, included: p.included ?? [] } : null;
   };
   const fits = (spec: PlanSpec) => input.needs.every((n) => spec.meets.includes(n));
   const best = (provider: "microsoft" | "google") => {

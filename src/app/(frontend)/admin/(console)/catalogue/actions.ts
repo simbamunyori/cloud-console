@@ -13,6 +13,8 @@ import { StubBillingAdapter } from "@/server/billing/stub/stub-adapter";
 import { DEFAULT_TIME_ZONE } from "@/config/app";
 import { prisma } from "@/server/db";
 import { runSoon } from "@/server/jobs/boss";
+import { removeInclusion, setInclusion } from "@/server/catalogue/inclusions";
+import { DomainError } from "@/server/org/access";
 
 async function deps() {
   const { staff } = await requireStaff();
@@ -111,5 +113,39 @@ export async function setInternalOrganisationAction(_prev: ActionState, form: Fo
     return internal ? "Now one of our test organisations. Its team sees internal products." : "Now an ordinary customer. Internal products are hidden from it.";
   });
   revalidatePath(`/admin/customers/${organisationId}`);
+  return result;
+}
+
+/** What a plan includes (STRATEGY_ROLLOUT U3): add a product, or change how many come with each unit. */
+export async function setInclusionAction(_prev: ActionState, form: FormData): Promise<ActionState> {
+  const plan = field(form, "plan");
+  const included = field(form, "included");
+  const key = field(form, "quantityField") || "quantity";
+  const v = { included, [key]: field(form, key) };
+  const result = await run(async () => {
+    const { staff } = await requireStaff();
+    try {
+      await setInclusion({ db: prisma, staff }, plan, included, v[key]);
+    } catch (e) {
+      // The quantity field has its own name on each row.
+      if (e instanceof DomainError && e.field === "quantity") throw new DomainError(e.code, e.message, key);
+      throw e;
+    }
+    return "Saved.";
+  }, v);
+  revalidatePath(`/admin/catalogue/products/${plan}`);
+  revalidatePath("/admin/pricing");
+  return result;
+}
+
+export async function removeInclusionAction(_prev: ActionState, form: FormData): Promise<ActionState> {
+  const plan = field(form, "plan");
+  const result = await run(async () => {
+    const { staff } = await requireStaff();
+    await removeInclusion({ db: prisma, staff }, plan, field(form, "included"));
+    return "Removed.";
+  });
+  revalidatePath(`/admin/catalogue/products/${plan}`);
+  revalidatePath("/admin/pricing");
   return result;
 }

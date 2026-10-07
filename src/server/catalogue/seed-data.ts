@@ -336,6 +336,22 @@ export const PRODUCTS: ProductSeed[] = [
     fulfilment: "MANUAL",
   },
   {
+    slug: "email-security",
+    // Included in Microsoft 365, Google Workspace and email plans (STRATEGY_ROLLOUT U3); its cost is set by staff.
+    status: "DRAFT",
+    category: "protection",
+    name: "Email security",
+    summary: "Spam, phishing and malware filtering for every mailbox, with links checked when clicked.",
+    includes: ["Spam, phishing and malware filtering", "Links and attachments checked before they open", "Quarantine you can review in the console"],
+    excludes: ["Advanced threat hunting (see Managed detection and response)"],
+    unitLabel: "per user",
+    quantityAllowed: true,
+    cost: [100n, "USD"],
+    setupHours: 4,
+    commitmentNote: SEAT_TERMS,
+    billing: "email-security",
+  },
+  {
     slug: "compliance-archiving",
     // Sold by us from a partner's cloud service: draft until the partner is signed (Milestone 9).
     status: "DRAFT",
@@ -537,6 +553,7 @@ export async function seedCatalogue(db: PrismaClient, billingIds: Partial<Record
       },
     });
   }
+  if (!partial) await seedInclusions(db);
   // Adding a few products (the plans) leaves the domain endings as staff keep them.
   for (const [i, t] of partial ? [] : TLDS.entries()) {
     await db.tld.upsert({
@@ -615,7 +632,41 @@ async function addPlans(db: PrismaClient): Promise<boolean> {
 }
 
 /** Products added to the catalogue after launch (final build, Milestone 9), each off sale until staff set it up. */
-export const LATER_PRODUCTS = ["compliance-archiving", "fourth-generation-signatures", "website-builder"];
+export const LATER_PRODUCTS = ["compliance-archiving", "fourth-generation-signatures", "website-builder", "email-security"];
+
+/**
+ * What each plan includes to start with (STRATEGY_ROLLOUT U3): email
+ * security and backup in every Microsoft 365, Google Workspace and email
+ * plan, server backup in hosting. Staff change it in the catalogue; the
+ * migration that added inclusions loads the same list on a live server.
+ */
+export const DEFAULT_INCLUSIONS: [plan: string, included: string][] = [
+  ...["microsoft-365-business-basic", "microsoft-365-business-standard", "microsoft-365-business-premium"].flatMap((p): [string, string][] => [
+    [p, "email-security"],
+    [p, "backup-microsoft-365"],
+  ]),
+  ...["google-workspace-business-starter", "google-workspace-business-standard", "google-workspace-business-plus"].flatMap((p): [string, string][] => [
+    [p, "email-security"],
+    [p, "backup-google-workspace"],
+  ]),
+  ["business-email", "email-security"],
+  ...["web-hosting", "wordpress-hosting", "managed-vps-small", "managed-vps-medium", "managed-vps-large"].map((p): [string, string] => [p, "server-backup"]),
+];
+
+/** Loads the starting inclusions into an empty catalogue's plans, once: never while any exist. */
+export async function seedInclusions(db: PrismaClient) {
+  if (await db.productInclusion.count()) return;
+  const products = new Map((await db.product.findMany({ select: { id: true, slug: true } })).map((p) => [p.slug, p.id]));
+  const order = new Map<string, number>();
+  for (const [plan, included] of DEFAULT_INCLUSIONS) {
+    const planId = products.get(plan);
+    const includedId = products.get(included);
+    if (!planId || !includedId) continue;
+    const n = order.get(plan) ?? 0;
+    order.set(plan, n + 1);
+    await db.productInclusion.create({ data: { planId, includedId, quantity: 1, sortOrder: n } });
+  }
+}
 
 /**
  * A server that loaded the catalogue before these products existed gets

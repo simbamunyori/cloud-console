@@ -10,6 +10,7 @@ import { ThemeSwitch } from "@/components/theme/theme-switch";
 import { Logo, LogoMark } from "@/components/ui/logo";
 import { organisationsFor } from "@/server/auth/service";
 import { prisma } from "@/server/db";
+import { featureOn } from "@/server/features/features";
 import { ROLE_LABEL } from "@/server/org/access";
 import { requireMember } from "@/server/org/context";
 import { currentTheme } from "@/server/theme";
@@ -28,12 +29,14 @@ const NAV: NavItem[] = [
 ];
 
 const QUOTES: NavItem = { href: "/app/quotes", label: "Quotes", icon: "quotes" };
+const BACKUP: NavItem = { href: "/app/backup", label: "Backup", icon: "backup" };
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const { actor, organisation, db } = await requireMember();
-  const [memberships, quotes] = await Promise.all([organisationsFor(prisma, actor.userId), db.quote.count()]);
-  // Quotes shows once the account has asked for or taken one.
-  const nav = quotes ? [...NAV.slice(0, 2), QUOTES, ...NAV.slice(2)] : NAV;
+  const [memberships, quotes, backup] = await Promise.all([organisationsFor(prisma, actor.userId), db.quote.count(), featureOn(prisma, "customer-backup")]);
+  // Quotes shows once the account has asked for or taken one; Backup once Admin > Features turns it on (STRATEGY_ROLLOUT U3).
+  const services = backup ? [...NAV.slice(0, 4), BACKUP, ...NAV.slice(4)] : NAV;
+  const nav = quotes ? [...services.slice(0, 2), QUOTES, ...services.slice(2)] : services;
   const org = (up?: boolean) => (
     <OrgSwitcher
       up={up}

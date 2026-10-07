@@ -14,6 +14,7 @@ import { priceDay } from "@/lib/domain/pricing";
 import { requireBilling } from "@/server/billing/context";
 import { productBySlug, productOptions } from "@/server/catalogue/catalogue";
 import { offeredIn, productPrice } from "@/server/catalogue/price-book";
+import { shownInclusionsBySlug, withIncluded } from "@/server/catalogue/inclusions";
 import { DOMAIN_PRODUCT_SLUG } from "@/server/catalogue/seed-data";
 import { audienceFor } from "@/server/catalogue/visibility";
 import { prisma } from "@/server/db";
@@ -38,7 +39,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
   // Not offered in this account's market.
   if (byQuote ? !offeredIn(product, market.code, audience) : !price) notFound();
 
-  const botswanaData = await featureOn(prisma, "botswana-data-claim");
+  const [botswanaData, included] = await Promise.all([featureOn(prisma, "botswana-data-claim"), shownInclusionsBySlug(prisma, [product.slug])]);
   return (
     <>
       <Link href="/app/marketplace" className="mb-4 inline-flex items-center gap-1 text-callout text-link hover:underline">
@@ -46,7 +47,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
       </Link>
       <PageHeader eyebrow={product.category.name} title={product.name} description={product.summary} />
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_var(--layout-aside-wide)] [&>*]:min-w-0">
-        <ProductDetails product={product} botswanaData={botswanaData} />
+        <ProductDetails product={{ ...product, includes: withIncluded(product.includes, included.get(product.slug) ?? []) }} botswanaData={botswanaData} />
 
         <Card aria-label="Order">
           <CardBody className="flex flex-col gap-5">

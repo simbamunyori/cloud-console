@@ -5,6 +5,7 @@ import { prisma } from "@/server/db";
 import { DomainError } from "@/server/org/access";
 import { enforce, LIMITS, RateLimitedError } from "@/server/security/rate-limit";
 import { sitePrices } from "@/server/site/site";
+import { shownInclusionsBySlug } from "@/server/catalogue/inclusions";
 import { PLANS } from "./calculator";
 import { checkEmailSecurity, cleanDomain, type EmailReport } from "./email-check";
 import { emailCheckLookup } from "./lookup";
@@ -29,5 +30,8 @@ export async function runEmailCheck(input: string): Promise<EmailReport> {
 /** The Microsoft 365 and Google Workspace plans on sale in a market, at the prices it shows. */
 export async function calculatorPrices(code: string) {
   const slugs = new Set(PLANS.map((p) => p.slug));
-  return (await sitePrices(code)).filter((p) => slugs.has(p.slug));
+  const prices = (await sitePrices(code)).filter((p) => slugs.has(p.slug));
+  // STRATEGY_ROLLOUT U3: what each plan includes at no extra charge, once that feature is on.
+  const included = await shownInclusionsBySlug(prisma, prices.map((p) => p.slug));
+  return prices.map((p) => ({ ...p, included: included.get(p.slug) ?? [] }));
 }

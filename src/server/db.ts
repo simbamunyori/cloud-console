@@ -46,6 +46,8 @@ export const TENANT_MODELS = new Set<string>([
   "ServiceProfile",
   "DomainOperation",
   "InvoiceEmail",
+  "BackupProtection",
+  "BackupRestoreRequest",
 ]);
 
 const WHERE_OPS = new Set([

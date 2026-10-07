@@ -9,6 +9,7 @@ import { formatMoney } from "@/lib/domain/money";
 import { withDataClaims } from "@/lib/data-claims";
 import { prisma } from "@/server/db";
 import { featureOn } from "@/server/features/features";
+import { shownInclusionsBySlug, withIncluded } from "@/server/catalogue/inclusions";
 import { partnerLinks } from "@/server/site/partner-links";
 import { productPage, siteMarket, siteMetadata, taxNote } from "@/server/site/site";
 
@@ -40,7 +41,8 @@ const months = (n: number) => (n === 1 ? "1 month" : `${n} months`);
 export default async function ProductPage(props: Props) {
   const { m, product: p, price, audience, faq } = await load(props);
   const { bookingHref } = await partnerLinks(m.code);
-  const includes = withDataClaims(p.includes, await featureOn(prisma, "botswana-data-claim"));
+  const [botswanaData, included] = await Promise.all([featureOn(prisma, "botswana-data-claim"), shownInclusionsBySlug(prisma, [p.slug])]);
+  const includes = withDataClaims(withIncluded(p.includes, included.get(p.slug) ?? []), botswanaData);
   const note = taxNote(m);
   const quote = p.fulfilment === "QUOTE";
   const order = `/sign-in?next=${encodeURIComponent(`/app/marketplace/${p.slug}`)}`;

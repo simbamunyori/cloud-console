@@ -30,6 +30,7 @@ export const STUB_PRODUCTS = [
   { key: "local-data-copy", gid: 5, groupName: "Protection", name: "Local data copy", type: "other", monthly: 30000n },
   { key: "mdr", gid: 5, groupName: "Protection", name: "Managed detection and response", type: "other", monthly: 12000n },
   { key: "compliance-archiving", gid: 5, groupName: "Protection", name: "Compliance archiving", type: "other", monthly: 9000n },
+  { key: "email-security", gid: 5, groupName: "Protection", name: "Email security", type: "other", monthly: 2000n },
   { key: "thebe", gid: 6, groupName: "Our software", name: "Thebe", type: "other", monthly: 65000n },
   { key: "signatures", gid: 6, groupName: "Our software", name: "Fourth Generation Signatures", type: "other", monthly: 2500n },
   { key: "migration-pack", gid: 7, groupName: "Services", name: "Setup and migration pack", type: "other", monthly: 0n, setup: 250000n },

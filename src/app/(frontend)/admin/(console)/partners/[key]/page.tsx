@@ -10,7 +10,7 @@ import { formatMoment } from "@/lib/dates";
 import { requireStaffCan } from "@/server/admin/context";
 import { prisma } from "@/server/db";
 import { FEATURES } from "@/server/features/features";
-import { isPartnerKey, partnerSummary } from "@/server/partners/partners";
+import { FEATURE_OF, isPartnerKey, partnerSummary } from "@/server/partners/partners";
 import { FetchCostsButton, PartnerSettingsForm, PartnerSwitch, TestPartnerButton } from "../forms";
 
 export const metadata: Metadata = { title: "Partner" };
@@ -20,7 +20,7 @@ export default async function PartnerPage({ params }: { params: Promise<{ key: s
   const { key } = await params;
   if (!isPartnerKey(key)) notFound();
   const p = await partnerSummary(prisma, key);
-  const feature = FEATURES[key === "openprovider" ? "openprovider-domains" : "bw-registry-domains"];
+  const feature = FEATURES[FEATURE_OF[key]];
   const synced = key === "openprovider" ? await prisma.tld.findFirst({ where: { costSource: "openprovider" }, orderBy: { costSyncedAt: "desc" }, select: { costSyncedAt: true } }) : null;
 
   return (
@@ -45,7 +45,9 @@ export default async function PartnerPage({ params }: { params: Promise<{ key: s
               description={
                 p.lastTestAt
                   ? `Last test ${formatMoment(p.lastTestAt, DEFAULT_TIME_ZONE)}: ${p.lastTestOk ? "worked" : "failed"}. ${p.lastTestMessage ?? ""}`
-                  : "Signs in and reads something harmless. Nothing is registered or changed."
+                  : key === "backup-provider"
+                    ? "In API mode, signs in and reads the account. In manual mode there is nothing to sign in to, so it passes."
+                    : "Signs in and reads something harmless. Nothing is registered or changed."
               }
             />
             <CardBody>
