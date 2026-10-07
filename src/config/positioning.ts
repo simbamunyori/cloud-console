@@ -6,6 +6,9 @@
  */
 export const PROMISE = "Your cloud, handled.";
 
+/** The supporting line under the site's headline (docs/STRATEGY_ROLLOUT.md, section 1). Editable per page in the website editor. */
+export const SUPPORTING_LINE = "One account. One team. Cloud, security, resilience and connectivity, handled.";
+
 export const OUTCOMES: [string, string][] = [
   ["One team instead of five suppliers", "Microsoft 365, Google Workspace, servers, hosting and security from one team."],
   ["One invoice in your currency", "Every line explained, with what changed since last month."],
