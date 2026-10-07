@@ -184,6 +184,7 @@ export interface Page {
         | DomainStoreBlock
         | ProofStripBlock
         | NumberedServicesBlock
+        | WhoWeHelpBlock
         | EmailShowcaseBlock
         | WebsitesShowcaseBlock
         | SecurityPanelBlock
@@ -230,6 +231,10 @@ export interface HomeHeroBlock {
    * Optional. Phones show these instead.
    */
   subPhone?: string | null;
+  /**
+   * Under the headline, and the start of the page's search description unless one is set under Search and sharing.
+   */
+  supporting?: string | null;
   primary?: {
     label?: string | null;
     to?: ('market' | 'site' | 'email' | 'thebe') | null;
@@ -332,6 +337,48 @@ export interface NumberedServicesBlock {
   id?: string | null;
   blockName?: string | null;
   blockType: 'numberedServices';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "WhoWeHelpBlock".
+ */
+export interface WhoWeHelpBlock {
+  /**
+   * Optional. Lets a link jump here, e.g. domains for /bw#domains.
+   */
+  anchor?: string | null;
+  kicker?: string | null;
+  heading: string;
+  /**
+   * Optional. Phones show these instead.
+   */
+  headingPhone?: string | null;
+  intro?: string | null;
+  /**
+   * Optional. Phones show these instead; left empty, phones show no introduction, as designed.
+   */
+  introPhone?: string | null;
+  /**
+   * The first is the main customer and is drawn larger.
+   */
+  items?:
+    | {
+        title: string;
+        body?: string | null;
+        /**
+         * Optional. Phones show these instead.
+         */
+        bodyPhone?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * The section stays hidden until this is ticked. Only Publishers can change this.
+   */
+  approved?: boolean | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'whoWeHelp';
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -1765,6 +1812,7 @@ export interface PagesSelect<T extends boolean = true> {
         domainStore?: T | DomainStoreBlockSelect<T>;
         proofStrip?: T | ProofStripBlockSelect<T>;
         numberedServices?: T | NumberedServicesBlockSelect<T>;
+        whoWeHelp?: T | WhoWeHelpBlockSelect<T>;
         emailShowcase?: T | EmailShowcaseBlockSelect<T>;
         websitesShowcase?: T | WebsitesShowcaseBlockSelect<T>;
         securityPanel?: T | SecurityPanelBlockSelect<T>;
@@ -1809,6 +1857,7 @@ export interface HomeHeroBlockSelect<T extends boolean = true> {
   heading?: T;
   sub?: T;
   subPhone?: T;
+  supporting?: T;
   primary?:
     | T
     | {
@@ -1881,6 +1930,29 @@ export interface NumberedServicesBlockSelect<T extends boolean = true> {
             };
         id?: T;
       };
+  id?: T;
+  blockName?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "WhoWeHelpBlock_select".
+ */
+export interface WhoWeHelpBlockSelect<T extends boolean = true> {
+  anchor?: T;
+  kicker?: T;
+  heading?: T;
+  headingPhone?: T;
+  intro?: T;
+  introPhone?: T;
+  items?:
+    | T
+    | {
+        title?: T;
+        body?: T;
+        bodyPhone?: T;
+        id?: T;
+      };
+  approved?: T;
   id?: T;
   blockName?: T;
 }

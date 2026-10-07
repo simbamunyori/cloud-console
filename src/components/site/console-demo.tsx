@@ -56,10 +56,10 @@ function demoAccount({ currency, today }: DemoMarket) {
 
 const NAV = ["Home", "Services", "Marketplace", "Billing", "Security", "Support", "Team"];
 
-/** The console window's frame: the top bar and, on wide screens, the side menu. */
+/** The console window's frame: the top bar and, on wide screens, the side menu. White in both themes, like every product screen. */
 function Chrome({ title, children, nav = false }: { title: string; children: React.ReactNode; nav?: boolean }) {
   return (
-    <div className="overflow-hidden rounded-lg border border-site-frame bg-surface-0 text-left">
+    <div data-surface="light" className="overflow-hidden rounded-lg border border-site-frame bg-surface-0 text-left">
       <div className="flex h-10 items-center gap-3 border-b border-border bg-surface-1 px-4 text-caption text-ink-muted">
         <Logo height={20} />
         <span className="ml-auto truncate">{title}</span>

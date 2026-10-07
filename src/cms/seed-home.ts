@@ -1,4 +1,6 @@
 import type { Page } from "./payload-types";
+import { SUPPORTING_LINE } from "@/config/positioning";
+import { inPillarOrder } from "./pillars";
 import { richFromMarkdown } from "./seed/legal-markdown";
 
 /**
@@ -43,6 +45,40 @@ const row = (label: string, labelPhone: string, start: Cell, grow: Cell, protect
 const yes = (text: string, phone = "✓"): Cell => [text, phone, true];
 const no = (text: string, phone = text): Cell => [text, phone, false];
 
+/** Who we help (STRATEGY_ROLLOUT U2): the primary customer, then the three secondary segments. Hidden until a Publisher approves it. */
+export const WHO_WE_HELP = () =>
+  ({
+    blockType: "whoWeHelp",
+    anchor: "who-we-help",
+    kicker: "Who we help",
+    heading: "Built for businesses of 10 to 150 people.",
+    intro: "Big enough to need proper IT, too small to run an IT department. We are that department: one account, one team, one invoice.",
+    introPhone: "Big enough to need proper IT, too small to run an IT department. We are that department.",
+    items: [
+      {
+        title: "Businesses of 10 to 150 people",
+        body: "Email, devices, security and backup run by one team you can call by name, so your people get on with their work and you see every cost on one invoice.",
+        bodyPhone: "Email, devices, security and backup run by one team, on one invoice.",
+      },
+      {
+        title: "Professional services",
+        body: "Law, accounting and consulting firms that hold client data: secure email, tested backups and records kept the way data protection law expects.",
+        bodyPhone: "Secure email, tested backups and client records kept properly.",
+      },
+      {
+        title: "Schools and colleges",
+        body: "Accounts for staff and learners, protected devices and a website parents can rely on, looked after through the whole school year.",
+        bodyPhone: "Staff and learner accounts, protected devices and a reliable website.",
+      },
+      {
+        title: "Contractors",
+        body: "Mid-tier construction, engineering and logistics firms: email and files that work on site, protected laptops and every approval on record.",
+        bodyPhone: "Email and files that work on site, and every approval on record.",
+      },
+    ],
+    approved: false,
+  }) as Layout[number];
+
 /** The proof section as designed, for home pages made before it existed. */
 export const PROOF_STRIP = (): Layout[number] => homeLayout(DEFAULT_MARKET).find((b) => b.blockType === "proofStrip")!;
 const DEFAULT_MARKET = "bw";
@@ -55,6 +91,7 @@ export function homeLayout(_market: string): Layout {
       heading: "Everything your business needs online. Handled.",
       sub: "Domains, email, websites, security, cloud hosting, backup and disaster recovery. Set up by our team, looked after every day, and billed on one invoice in your currency.",
       subPhone: "Domains, email, websites, security, cloud hosting, backup and disaster recovery, set up and looked after by our team, on one invoice in your currency.",
+      supporting: SUPPORTING_LINE,
       primary: site("Get started", "/sign-up"),
       secondary: market("Talk to our team", "/#team"),
       showConsole: true,
@@ -80,7 +117,7 @@ export function homeLayout(_market: string): Layout {
       kicker: "What we look after",
       heading: "The essentials your business runs on, in one place.",
       headingPhone: "The essentials your business runs on.",
-      items: [
+      items: inPillarOrder([
         { title: "Domains", body: "Your name online, in .bw, .co.za, .com and hundreds more, renewed for you.", bodyPhone: "Your name online, in .bw, .co.za, .com and more, renewed for you.", link: market("Learn more", "/#domains") },
         { title: "Email and Microsoft 365", body: "Professional email, Teams and Office, or Google Workspace, set up and moved over.", bodyPhone: "Professional email, Teams and Office, or Google Workspace.", link: market("Learn more", "/#email") },
         { title: "Websites and stores", body: "Build it yourself in minutes or let our designers build it for you.", bodyPhone: "Build it yourself or let our designers build it for you.", link: market("Learn more", "/#websites") },
@@ -92,8 +129,9 @@ export function homeLayout(_market: string): Layout {
           link: market("Learn more", "/pricing#cat-servers"),
         },
         { title: "Expense management", body: "Thebe: staff requests, approval workflows and live spending, connected to your accounting.", bodyPhone: "Thebe: staff requests, approval workflows and live spending.", link: market("Learn more", "/#thebe") },
-      ],
+      ], (item) => item.title),
     },
+    WHO_WE_HELP(),
     {
       blockType: "emailShowcase",
       anchor: "email",

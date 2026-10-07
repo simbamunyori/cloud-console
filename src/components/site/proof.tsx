@@ -111,7 +111,7 @@ export function ShowcaseCard({ site }: { site: { client: string; industry?: stri
   const host = site.url ? new URL(site.url).host : null;
   return (
     <figure className="m-0 flex flex-col gap-3">
-      <div className="overflow-hidden rounded-lg border border-border">
+      <div data-surface="light" className="overflow-hidden rounded-lg border border-border">
         <p className="flex h-7 items-center border-b border-border bg-surface-0 px-3 text-caption text-ink-muted">{host ?? site.client}</p>
         <img src={shot.sizes?.medium?.url ?? shot.url!} alt={shot.alt} loading="lazy" decoding="async" className="block aspect-video w-full object-cover object-top" />
       </div>
