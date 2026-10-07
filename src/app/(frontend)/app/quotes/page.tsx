@@ -8,6 +8,8 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
 import { formatDay } from "@/lib/dates";
 import { formatMoney } from "@/lib/domain/money";
+import { connectivityOffered } from "@/server/connectivity/connectivity";
+import { prisma } from "@/server/db";
 import { requireMember } from "@/server/org/context";
 import { organisationQuotes, quoteState, quoteTotals, todayForMarket } from "@/server/quotes/quotes";
 
@@ -15,7 +17,7 @@ export const metadata: Metadata = { title: "Quotes" };
 
 export default async function QuotesPage() {
   const { db, market, locale } = await requireMember();
-  const quotes = await organisationQuotes(db);
+  const [quotes, connect] = await Promise.all([organisationQuotes(db), connectivityOffered(prisma, market.code)]);
   const today = todayForMarket(market);
   return (
     <>
@@ -23,9 +25,16 @@ export default async function QuotesPage() {
         title="Quotes"
         description="Quotes you've asked for and quotes we've sent. Accepting one places the order at the quoted price."
         actions={
-          <Button asChild>
-            <Link href="/app/quotes/new">Ask for a quote</Link>
-          </Button>
+          <>
+            {connect ? (
+              <Button asChild variant="secondary">
+                <Link href="/app/quotes/new?for=connect">Connect your offices</Link>
+              </Button>
+            ) : null}
+            <Button asChild>
+              <Link href="/app/quotes/new">Ask for a quote</Link>
+            </Button>
+          </>
         }
       />
       <Card>

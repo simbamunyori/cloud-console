@@ -120,6 +120,7 @@ export default async function StaffQuotePage({ params }: { params: Promise<{ ref
                   ["Phone", quote.phone ?? "None"],
                   ["Country", countryName(quote.country)],
                   ...(quote.product ? ([["Asked about", quote.product.name]] as [string, string][]) : []),
+                  ...(quote.connectivity ? ([["Connectivity", `${(quote.connectivity.sites as unknown[]).length} ${(quote.connectivity.sites as unknown[]).length === 1 ? "site" : "sites"}, see the request`]] as [string, string][]) : []),
                   ["Asked", formatMoment(quote.createdAt, tz)],
                 ]}
               />

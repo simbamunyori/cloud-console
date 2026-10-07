@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  Cable,
   ArrowRightLeft,
   Handshake,
   Inbox,
@@ -88,6 +89,7 @@ const ICONS = {
   register: NotebookTabs,
   success: TrendingUp,
   referrals: UserPlus,
+  connectivity: Cable,
 };
 
 export interface NavItem {

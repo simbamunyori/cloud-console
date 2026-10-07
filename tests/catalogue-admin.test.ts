@@ -147,13 +147,16 @@ describe.skipIf(!hasDb)("the staff catalogue", () => {
   it("has a draft Connectivity family that sells only by quote", async () => {
     const family = await db.productFamily.findUniqueOrThrow({ where: { key: "connectivity" } });
     expect(family).toMatchObject({ name: "Connectivity", status: "DRAFT", fulfilment: "QUOTE", connector: "CONNECTIVITY" });
-    expect(await db.product.count({ where: { category: { familyKey: "connectivity" } } })).toBe(0);
+    // STRATEGY_ROLLOUT U12: the Connect products and bundles wait in it as drafts.
+    expect(await db.product.count({ where: { category: { familyKey: "connectivity" }, status: { not: "DRAFT" } } })).toBe(0);
 
     const key = `conn-${id()}`;
     await saveCategory(deps, { key, name: "Site links", description: "Links between your sites.", familyKey: "connectivity", sortOrder: "1", margin: "30" });
     await expect(saveProduct(deps, productInput({ categoryKey: key, fulfilment: "MANUAL" }))).rejects.toMatchObject({ fieldErrors: { fulfilment: "Everything in Connectivity is sold by quote." } });
-    const { slug } = await saveProduct(deps, productInput({ categoryKey: key, fulfilment: "QUOTE", status: "LIVE" }));
-    // Live itself, but hidden while the family is a draft.
+    // Nothing in it goes live before the licence is recorded and Connectivity is on (U12); internal is fine for trying it.
+    await expect(saveProduct(deps, productInput({ categoryKey: key, fulfilment: "QUOTE", status: "LIVE" }))).rejects.toMatchObject({ fieldErrors: { status: expect.stringContaining("licence") } });
+    const { slug } = await saveProduct(deps, productInput({ categoryKey: key, fulfilment: "QUOTE", status: "INTERNAL" }));
+    // Hidden from the public while the family is a draft.
     expect(await productBySlug(db, slug)).toBeNull();
     expect((await marketplace(db, bw, month)).some((c) => c.category.key === key)).toBe(false);
     await db.product.delete({ where: { slug } });

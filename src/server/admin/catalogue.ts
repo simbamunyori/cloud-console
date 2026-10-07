@@ -6,6 +6,7 @@ import { productItem } from "@/server/catalogue/price-book";
 import { DOMAIN_PRODUCT_SLUG } from "@/server/catalogue/seed-data";
 import { effectiveStatus, STATUS_LABEL } from "@/server/catalogue/visibility";
 import { connectorFor } from "@/server/connectors/registry";
+import { featureOn } from "@/server/features/features";
 import { DomainError } from "@/server/org/access";
 import { isLegacyCategory, LEGACY_FAMILY } from "@/server/catalogue/legacy";
 import { assertStaffCan, staffLabel, type StaffActor } from "@/server/staff/access";
@@ -44,6 +45,8 @@ export const FULFILMENT_LABEL: Record<Fulfilment, string> = { AUTOMATIC: "Automa
 const KEY = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 const STATUSES: CatalogueStatus[] = ["DRAFT", "INTERNAL", "LIVE"];
 const FULFILMENTS: Fulfilment[] = ["AUTOMATIC", "MANUAL", "QUOTE"];
+/** STRATEGY_ROLLOUT U12: no connectivity goes on sale before the licence is recorded and the feature is on. Internal stays possible, for testing. */
+const CONNECTIVITY_OFF = "Connectivity can only go live once its licence is recorded and Connectivity is on in Features. Make it internal to try it.";
 
 // ─── Reading ─────────────────────────────────────────────────────────
 
@@ -154,6 +157,7 @@ export async function saveFamily(deps: CatalogueDeps, input: FamilyInput, existi
   }
   if (!STATUSES.includes(data.status)) errors.status = "Choose a status.";
   else if (key === LEGACY_FAMILY && data.status !== "DRAFT") errors.status = "Legacy services are never offered, so they stay a draft.";
+  else if (data.connector === "CONNECTIVITY" && data.status === "LIVE" && !(await featureOn(deps.db, "connectivity"))) errors.status = CONNECTIVITY_OFF;
   check(errors);
 
   return deps.db.$transaction(async (tx) => {
@@ -337,6 +341,7 @@ export async function saveProduct(deps: CatalogueDeps, input: ProductInput, exis
   if (!FULFILMENTS.includes(fields.fulfilment)) errors.fulfilment = "Choose how it is fulfilled.";
   if (!STATUSES.includes(fields.status)) errors.status = "Choose a status.";
   else if (category && isLegacyCategory(category.key) && fields.status !== "DRAFT") errors.status = "Legacy services are never offered, so they stay a draft.";
+  else if (category?.family.connector === "CONNECTIVITY" && fields.status === "LIVE" && !(await featureOn(deps.db, "connectivity"))) errors.status = CONNECTIVITY_OFF;
   if (!fields.quantityAllowed) fields.minQuantity = 1;
   if (category?.family.fulfilment && fields.fulfilment !== category.family.fulfilment) {
     errors.fulfilment = `Everything in ${category.family.name} is sold ${FULFILMENT_WORDS[category.family.fulfilment]}.`;

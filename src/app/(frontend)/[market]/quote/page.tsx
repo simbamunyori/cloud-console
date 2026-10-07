@@ -9,6 +9,7 @@ import { prisma } from "@/server/db";
 import { requestCountry } from "@/server/markets/geo";
 import { cmsPage } from "@/server/site/cms";
 import { referralOf } from "@/server/quotes/quotes";
+import { connectivityOffered, isConnectProduct, SPEEDS } from "@/server/connectivity/connectivity";
 import { cmsMetadata } from "@/server/site/cms-metadata";
 import { siteMarket, siteMetadata } from "@/server/site/site";
 import { requestQuoteAction } from "./actions";
@@ -45,6 +46,8 @@ export default async function QuotePage({ params, searchParams }: Props) {
   const product = slug
     ? await prisma.product.findFirst({ where: { slug, status: "LIVE", markets: { has: m.code }, category: { family: { status: "LIVE" } } }, select: { slug: true, name: true } })
     : null;
+  // STRATEGY_ROLLOUT U12: connectivity questions only where it is offered; elsewhere ?for=connect is the ordinary form.
+  const connect = (asked.for === "connect" || (await isConnectProduct(prisma, product?.slug))) && (await connectivityOffered(prisma, m.code));
   const [detected, page] = await Promise.all([requestCountry(), cmsPage(m.code, "quote")]);
   const layout = page?.layout ?? [];
   const intro = first(layout, "pageIntro");
@@ -54,7 +57,13 @@ export default async function QuotePage({ params, searchParams }: Props) {
     <SitePage code={m.code} path="/quote">
       <div className="page-container grid gap-10 py-12 lg:grid-cols-[1fr_var(--layout-aside-wide)] lg:py-16">
         <div className="flex max-w-2xl flex-col gap-8">
-          {referral ? (
+          {connect ? (
+            <div className="flex flex-col gap-3">
+              <p className="label-kicker text-link">Connectivity</p>
+              <h1 className="text-title-1 text-ink sm:text-display">Connect your offices.</h1>
+              <p className="text-body text-ink-muted">Tell us where your sites are and what they need. We&apos;ll survey them, design the links and email you a quote in {m.currency}.</p>
+            </div>
+          ) : referral ? (
             <div className="flex flex-col gap-3">
               <p className="label-kicker text-link">With {referral.partner}</p>
               <h1 className="text-title-1 text-ink sm:text-display">{referral.heading}</h1>
@@ -78,6 +87,7 @@ export default async function QuotePage({ params, searchParams }: Props) {
             after={referral ? `${referral.partner} will contact you about it.` : "We'll email you the quote. To accept it you'll sign in, or open an account if you don't have one."}
             notice={referral?.notice}
             button={referral ? "Send my request" : undefined}
+            connect={connect ? { speeds: SPEEDS } : undefined}
           />
         </div>
         {referral ? (

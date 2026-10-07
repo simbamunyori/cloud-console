@@ -45,6 +45,13 @@ export const STUB_PRODUCTS = [
   { key: "plan-grow-users", gid: 8, groupName: "Plans", name: "Grow plan users", type: "other", monthly: 35000n },
   { key: "plan-protect", gid: 8, groupName: "Plans", name: "Protect plan", type: "other", monthly: 240000n },
   { key: "plan-protect-users", gid: 8, groupName: "Plans", name: "Protect plan users", type: "other", monthly: 52000n },
+  // STRATEGY_ROLLOUT U12: drafts sold by quote; the stub only needs them to exist.
+  { key: "connect-office", gid: 9, groupName: "Connectivity", name: "Connect Office", type: "other", monthly: 0n },
+  { key: "connect-sites", gid: 9, groupName: "Connectivity", name: "Connect Sites", type: "other", monthly: 0n },
+  { key: "connect-cloud", gid: 9, groupName: "Connectivity", name: "Connect Cloud", type: "other", monthly: 0n },
+  { key: "connect-standby", gid: 9, groupName: "Connectivity", name: "Connect Standby", type: "other", monthly: 0n },
+  { key: "connected-secure-office", gid: 9, groupName: "Connectivity", name: "Secure Connected Office", type: "other", monthly: 0n },
+  { key: "connected-branch-network", gid: 9, groupName: "Connectivity", name: "Managed Branch Network", type: "other", monthly: 0n },
 ] as const;
 
 export type StubProductKey = (typeof STUB_PRODUCTS)[number]["key"];

@@ -1,6 +1,6 @@
 import { afterAll, describe, expect, it } from "vitest";
 import { verifyPassword } from "../src/server/auth/password";
-import { LATER_PRODUCTS, loadLaunchCatalogue, PRODUCTS } from "../src/server/catalogue/seed-data";
+import { CONNECT_PRODUCTS, LATER_PRODUCTS, loadLaunchCatalogue, PRODUCTS } from "../src/server/catalogue/seed-data";
 import { createAdmin, fillSupportEmail } from "../src/server/ops/setup";
 import { cardPaymentsOn } from "../src/server/payments/live";
 import { db, hasDb, uniqueEmail } from "./helpers";
@@ -111,12 +111,13 @@ describe("the launch catalogue on a new production server", () => {
     expect(writes.some((w) => w.model === "tld" || w.model === "priceBookEntry")).toBe(false);
   });
 
-  it("adds the products that came later (Milestone 9, U3, U10) as drafts, leaving those it has", async () => {
+  it("adds the products that came later (Milestone 9, U3, U10, U12) as drafts, leaving those it has", async () => {
     const { db, writes } = fakeDb(3, true, ["website-builder"]);
     expect(await loadLaunchCatalogue(db)).toBe(true);
     const products = writes.filter((w) => w.model === "product");
-    expect(products.map((p) => p.create.slug).sort()).toEqual(["compliance-archiving", "email-security", "fourth-generation-signatures", "thebe-founders", "thebe-organisation", "thebe-team"]);
-    expect(products.every((p) => p.create.status === "DRAFT" && p.create.fulfilment === "MANUAL" && p.create.billingProductId === null)).toBe(true);
+    expect(products.map((p) => p.create.slug).sort()).toEqual([...["compliance-archiving", "email-security", "fourth-generation-signatures", "thebe-founders", "thebe-organisation", "thebe-team"], ...CONNECT_PRODUCTS].sort());
+    expect(products.every((p) => p.create.status === "DRAFT" && p.create.billingProductId === null)).toBe(true);
+    expect(products.every((p) => p.create.fulfilment === (CONNECT_PRODUCTS.includes(p.create.slug as string) ? "QUOTE" : "MANUAL"))).toBe(true);
     expect(writes.some((w) => w.model === "tld" || w.model === "priceBookEntry")).toBe(false);
   });
 });
