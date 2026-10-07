@@ -101,6 +101,8 @@ export const CATEGORIES: CategorySeed[] = [
   { key: "our-software", name: "Our software", description: "Software we build and run on our own platform.", familyKey: "our-software", marginBps: 0, sortOrder: 6 },
   { key: "services", name: "Services", description: "Help from our team, every month.", familyKey: "services", marginBps: 0, sortOrder: 7 },
   { key: "plans", name: "Plans", description: "One price for the whole business: a monthly price per business plus a price per user.", familyKey: "services", marginBps: 0, sortOrder: 8 },
+  // STRATEGY_ROLLOUT U10: Thebe keeps its own brand, sold under this heading.
+  { key: "expense-management", name: "Expense management", description: "Thebe: company ledgers where every payment waits for your signatories to approve it.", familyKey: "our-software", marginBps: 0, sortOrder: 9 },
 ];
 
 /** The three plans, each a price per business and a price per user. Their words are the home page's comparison table. */
@@ -425,6 +427,54 @@ export const PRODUCTS: ProductSeed[] = [
     setupHours: 4,
     billing: "thebe",
   },
+  // Thebe's plans (STRATEGY_ROLLOUT U10). Prices are placeholders: staff set them in Pricing before putting the plans live.
+  {
+    slug: "thebe-founders",
+    status: "DRAFT",
+    category: "expense-management",
+    name: "Thebe Founders",
+    summary: "Thebe for a founder-led business: one ledger, with every payment approved before it leaves the bank.",
+    includes: ["One company ledger", "Up to 3 people", "Approvals in one tap from email", "Support by email"],
+    excludes: ["Moving your old records in (ask about a migration)"],
+    unitLabel: "per organisation",
+    cost: [0n, "BWP"],
+    fixedPrice: [45000n, "BWP"],
+    setupHours: 4,
+    commitmentNote: "Billed monthly. Change plan at any time.",
+    billing: "thebe-founders",
+  },
+  {
+    slug: "thebe-team",
+    status: "DRAFT",
+    category: "expense-management",
+    name: "Thebe Team",
+    summary: "Thebe for a growing team: several ledgers and signatories, with approvals and a full history.",
+    includes: ["Up to 3 company ledgers", "Up to 15 people", "Approvals in one tap from email", "Support by email and phone"],
+    excludes: ["Moving your old records in (ask about a migration)"],
+    unitLabel: "per organisation",
+    cost: [0n, "BWP"],
+    fixedPrice: [120000n, "BWP"],
+    setupHours: 4,
+    commitmentNote: "Billed monthly. Change plan at any time.",
+    billing: "thebe-team",
+  },
+  {
+    slug: "thebe-organisation",
+    status: "DRAFT",
+    category: "expense-management",
+    name: "Thebe Organisation",
+    summary: "Thebe for a larger organisation: unlimited ledgers, priced per person.",
+    includes: ["Unlimited company ledgers", "Approval rules by amount and ledger", "A named contact for onboarding", "Support by email and phone"],
+    excludes: ["Moving your old records in (ask about a migration)"],
+    unitLabel: "per user",
+    quantityAllowed: true,
+    minQuantity: 10,
+    cost: [0n, "BWP"],
+    fixedPrice: [9500n, "BWP"],
+    setupHours: 8,
+    commitmentNote: SEAT_TERMS,
+    billing: "thebe-organisation",
+  },
   {
     slug: "fourth-generation-signatures",
     // Our own software: draft until it is built (Milestone 9).
@@ -632,7 +682,7 @@ async function addPlans(db: PrismaClient): Promise<boolean> {
 }
 
 /** Products added to the catalogue after launch (final build, Milestone 9), each off sale until staff set it up. */
-export const LATER_PRODUCTS = ["compliance-archiving", "fourth-generation-signatures", "website-builder", "email-security"];
+export const LATER_PRODUCTS = ["compliance-archiving", "fourth-generation-signatures", "website-builder", "email-security", "thebe-founders", "thebe-team", "thebe-organisation"];
 
 /**
  * What each plan includes to start with (STRATEGY_ROLLOUT U3): email

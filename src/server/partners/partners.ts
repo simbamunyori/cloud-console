@@ -6,6 +6,7 @@ import { OPENPROVIDER_NAMESERVERS, OpenproviderRegistrar } from "@/server/domain
 import { RegistrarError, parseNameservers, type Registrar } from "@/server/domains/registrar";
 import { ApiBackupProvider, BackupProviderError, ManualBackupProvider, parseCustomFields, type BackupProvider } from "@/server/backup/provider";
 import { LicensingVendorError, licensingVendorFrom, type LicensingVendor } from "@/server/licences/vendor";
+import { ThebeError, thebeFrom } from "@/server/thebe/client";
 import { openSecrets, sealSecrets } from "./vault";
 
 /**
@@ -15,7 +16,7 @@ import { openSecrets, sealSecrets } from "./vault";
  * and an Admin switches it on.
  */
 
-export type PartnerKey = "openprovider" | "bw-registry" | "backup-provider" | "microsoft-csp" | "google-reseller";
+export type PartnerKey = "openprovider" | "bw-registry" | "backup-provider" | "microsoft-csp" | "google-reseller" | "thebe";
 
 export interface PartnerField {
   name: string;
@@ -128,6 +129,25 @@ export const PARTNERS: Record<PartnerKey, PartnerDefinition> = {
       "Google Workspace licences through Digicloud (STRATEGY_ROLLOUT U6): licence counts and user changes made straight away, a daily licence sync, and the customer's reseller admin access feeding the security score. In manual mode, or when the API refuses, our team does it from a setup task.",
     fields: licensingFields("The reseller access link customers accept, from the reseller console. {domain} is replaced with the customer's domain. In API mode the partner's own link is used when it gives one."),
   },
+  thebe: {
+    label: "Thebe",
+    description:
+      "Our own expense management product (STRATEGY_ROLLOUT U10). In API mode, a customer subscribing to a Thebe plan gets their Thebe organisation straight away. In manual mode, or when Thebe's API refuses, our team creates it from the setup task.",
+    fields: [
+      {
+        name: "mode",
+        label: "How we create organisations",
+        kind: "select",
+        options: [
+          { value: "manual", label: "Manual: our team creates each organisation in Thebe's admin" },
+          { value: "api", label: "API: created through Thebe's provisioning API" },
+        ],
+        initial: "manual",
+      },
+      { name: "endpoint", label: "API endpoint", kind: "text", hint: "Thebe's provisioning address, e.g. https://api.thebe.africa. Only for API mode." },
+      { name: "apiKey", label: "API key", kind: "password", secret: true },
+    ],
+  },
 };
 
 export const isPartnerKey = (k: string): k is PartnerKey => k in PARTNERS;
@@ -142,6 +162,7 @@ export const FEATURE_OF = {
   "backup-provider": "customer-backup",
   "microsoft-csp": "microsoft-licensing",
   "google-reseller": "google-licensing",
+  thebe: "thebe-automation",
 } as const;
 
 export interface PartnerConfig {
@@ -210,7 +231,7 @@ export async function savePartner(deps: { db: PrismaClient; staff: StaffActor },
     settings[f.name] = value;
   }
   if (isLicensingPartner(key) && settings.consentLink && !/^https:\/\/\S+$/.test(settings.consentLink)) fieldErrors.consentLink = "Enter an address starting with https://.";
-  if ((key === "backup-provider" || key === "microsoft-csp" || key === "google-reseller") && settings.mode === "api") {
+  if ((key === "backup-provider" || key === "microsoft-csp" || key === "google-reseller" || key === "thebe") && settings.mode === "api") {
     if (!settings.endpoint) fieldErrors.endpoint = "Enter the API endpoint.";
     if (!secrets.apiKey) fieldErrors.apiKey = "Enter the API key.";
   }
@@ -273,7 +294,7 @@ export function licensingFrom(config: PartnerConfig, fetcher?: typeof fetch): Li
 
 
 const testerFrom = (config: PartnerConfig): { test(): Promise<string> } =>
-  config.key === "backup-provider" ? backupProviderFrom(config) : isLicensingPartner(config.key) ? licensingFrom(config) : registrarFrom(config);
+  config.key === "backup-provider" ? backupProviderFrom(config) : isLicensingPartner(config.key) ? licensingFrom(config) : config.key === "thebe" ? thebeFrom(config.settings, config.secrets) : registrarFrom(config);
 
 /** Test connection: signs in and reads something harmless. The result is kept and audited. */
 export async function testPartner(deps: { db: PrismaClient; staff: StaffActor; build?: (c: PartnerConfig) => { test(): Promise<string> }; now?: Date }, key: string) {
@@ -288,7 +309,7 @@ export async function testPartner(deps: { db: PrismaClient; staff: StaffActor; b
     message = await registrar.test();
   } catch (e) {
     ok = false;
-    message = e instanceof RegistrarError || e instanceof BackupProviderError || e instanceof LicensingVendorError ? e.message : `The test failed: ${(e as Error).message}`;
+    message = e instanceof RegistrarError || e instanceof BackupProviderError || e instanceof LicensingVendorError || e instanceof ThebeError ? e.message : `The test failed: ${(e as Error).message}`;
   }
   await deps.db.$transaction(async (tx) => {
     await tx.partnerSetting.update({ where: { key }, data: { lastTestAt: deps.now ?? new Date(), lastTestOk: ok, lastTestMessage: message.slice(0, 500), ...(ok ? {} : { enabled: false }) } });

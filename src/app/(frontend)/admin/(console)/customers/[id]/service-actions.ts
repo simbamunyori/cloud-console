@@ -8,6 +8,7 @@ import { scopedBilling } from "@/server/billing/scoped";
 import { prisma } from "@/server/db";
 import { moveToOurServers, setHosting, setLegacyReview } from "@/server/migration/services";
 import { DomainError } from "@/server/org/access";
+import { recordThebeOrganisation } from "@/server/thebe/thebe";
 
 async function serviceOf(organisationId: string, serviceId: string) {
   const billing = await scopedBilling(prisma, billingAdapter(), organisationId);
@@ -46,4 +47,15 @@ export async function setReviewAction(_prev: ActionState, form: FormData): Promi
     revalidatePath(`/admin/customers/${organisationId}`);
     return "Saved.";
   });
+}
+
+export async function recordThebeAction(_prev: ActionState, form: FormData): Promise<ActionState> {
+  const { staff } = await requireStaff();
+  const organisationId = field(form, "organisationId");
+  const values = { thebeId: field(form, "thebeId"), url: field(form, "url") };
+  return run(async () => {
+    await recordThebeOrganisation({ db: prisma, staff }, organisationId, values);
+    revalidatePath(`/admin/customers/${organisationId}`);
+    return "Recorded. The customer's Open Thebe button now goes there.";
+  }, values);
 }

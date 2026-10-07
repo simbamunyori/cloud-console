@@ -74,7 +74,38 @@ const JOBS: Job[] = [
       return result;
     },
   },
+  // Referral partners' statements for last month (STRATEGY_ROLLOUT U9), once payments have settled.
+  {
+    name: "referral-statements",
+    cron: "30 6 3 * *",
+    run: async () => {
+      const { writeStatements } = await import("@/server/referrals/referrals");
+      const written = await writeStatements(prisma, billingAdapter());
+      if (written) await runSoon("email-deliver").catch(() => undefined);
+      return written;
+    },
+  },
+  // Shared free-tool reports past their 90 days (U9).
+  {
+    name: "shared-results-purge",
+    cron: "15 2 * * *",
+    run: async () => {
+      const { purgeSharedResults } = await import("@/server/tools/results");
+      return purgeSharedResults(prisma);
+    },
+  },
   // Admins hear about partner agreements before their notice period starts (U7).
+  // Thebe organisations Thebe refused are tried again, up to three times in all (U10).
+  {
+    name: "thebe-retry",
+    cron: "45 4 * * *",
+    run: async () => {
+      const { retryThebe } = await import("@/server/thebe/thebe");
+      const done = await retryThebe(prisma, billingAdapter());
+      if (done) await runSoon("email-deliver").catch(() => undefined);
+      return done;
+    },
+  },
   {
     name: "partner-renewals",
     cron: "0 8 * * *",

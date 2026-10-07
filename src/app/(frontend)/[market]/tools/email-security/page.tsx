@@ -10,9 +10,12 @@ import { DomainError } from "@/server/org/access";
 import { partnerLinks } from "@/server/site/partner-links";
 import { productHref, siteMarket, siteMetadata, sitePrices } from "@/server/site/site";
 import { matchingProducts, STATUS_WORD, type CheckStatus, type EmailReport } from "@/server/tools/email-check";
+import { prisma } from "@/server/db";
+import { resultsOn, SHARE_CONSENT } from "@/server/tools/results";
 import { runEmailCheck, TOOL_CONSENT } from "@/server/tools/site-tools";
 import { emailReportAction } from "../actions";
 import { ToolLeadForm } from "../lead-form";
+import { ShareReportForm } from "../share-form";
 
 type Props = { params: Promise<{ market: string }>; searchParams: Promise<{ domain?: string }> };
 
@@ -42,7 +45,7 @@ export default async function EmailSecurityPage({ params, searchParams }: Props)
       else throw e;
     }
   }
-  const [{ bookingHref }, prices] = await Promise.all([partnerLinks(m.code), report ? sitePrices(m.code) : []]);
+  const [{ bookingHref }, prices, sharing] = await Promise.all([partnerLinks(m.code), report ? sitePrices(m.code) : [], report ? resultsOn(prisma) : false]);
   const wanted = report ? matchingProducts(report) : [];
   const products = await Promise.all(prices.filter((p) => wanted.includes(p.slug)).map(async (p) => ({ ...p, href: await productHref(m.code, p) })));
   const open = report?.checks.filter((c) => c.status === "fail" || c.status === "warn") ?? [];
@@ -190,6 +193,7 @@ export default async function EmailSecurityPage({ params, searchParams }: Props)
               consent={TOOL_CONSENT}
               privacyHref={`/${m.code}/legal/privacy`}
             />
+            {sharing ? <ShareReportForm market={m.code} domain={report.domain} consent={SHARE_CONSENT} /> : null}
           </section>
         ) : null}
       </div>

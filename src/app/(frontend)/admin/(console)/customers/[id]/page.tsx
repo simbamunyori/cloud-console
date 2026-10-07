@@ -21,9 +21,10 @@ import { ROLE_LABEL } from "@/server/org/access";
 import { countryName } from "@/lib/countries";
 import { listMarkets } from "@/server/markets/markets";
 import { staffCan } from "@/server/staff/access";
+import { PLAN_LABEL } from "@/server/thebe/thebe";
 import { InternalOrganisationSwitch } from "../../catalogue/forms";
 import { ChangeMarketForm } from "../../markets/forms";
-import { HostingForm, MoveForm, ReviewForm } from "./service-forms";
+import { HostingForm, MoveForm, ReviewForm, ThebeForm } from "./service-forms";
 
 export const metadata: Metadata = { title: "Customer" };
 
@@ -43,6 +44,7 @@ export default async function CustomerPage({ params }: { params: Promise<{ id: s
   const market = await prisma.market.findUniqueOrThrow({ where: { code: org.billingMarket } });
   const tenants = await tenantOverview(prisma, org.id);
   const profiles = await prisma.serviceProfile.findMany({ where: { organisationId: org.id } });
+  const thebe = await prisma.thebeAccount.findUnique({ where: { organisationId: org.id } });
   const [cloudSubs, openTips] = await Promise.all([prisma.cloudSubscription.findMany({ where: { organisationId: org.id }, select: { name: true }, orderBy: { name: "asc" } }), prisma.savingTip.count({ where: { organisationId: org.id, status: "OPEN" } })]);
 
   return (
@@ -169,6 +171,30 @@ export default async function CustomerPage({ params }: { params: Promise<{ id: s
             </p>
           </CardBody>
         </Card>
+
+        {thebe ? (
+          <Card aria-labelledby="thebe-title">
+            <CardHeader id="thebe-title" title="Thebe" description={`${PLAN_LABEL[thebe.plan] ?? thebe.plan} plan for ${thebe.users} ${thebe.users === 1 ? "user" : "users"}.`} />
+            <CardBody className="flex flex-col gap-4">
+              <p className="text-ink-muted">
+                {thebe.url ? (
+                  <>
+                    Ready at{" "}
+                    <a href={thebe.url} className="text-link hover:underline" rel="noreferrer" target="_blank">
+                      {thebe.url}
+                    </a>{" "}
+                    (Thebe id {thebe.thebeId}).
+                  </>
+                ) : thebe.status === "FAILED" ? (
+                  `Thebe refused it ${thebe.attempts} ${thebe.attempts === 1 ? "time" : "times"}: ${thebe.error ?? "no reason given"}. Create it in Thebe, then record it here.`
+                ) : (
+                  "Waiting to be created. With Thebe automation off, create it in Thebe and record it here."
+                )}
+              </p>
+              {staffCan(staff, "workTasks") ? <ThebeForm organisationId={org.id} current={{ thebeId: thebe.thebeId ?? "", url: thebe.url ?? "" }} /> : null}
+            </CardBody>
+          </Card>
+        ) : null}
 
         <Card aria-labelledby="services-title">
           <CardHeader id="services-title" title="Services" description="As billing holds them. Kept prices and services that run with another provider came over from Odoo." />

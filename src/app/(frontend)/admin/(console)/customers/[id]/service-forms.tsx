@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { TextField } from "@/components/ui/field";
 import { DateField, SelectField, TextareaField } from "@/components/ui/inputs";
 import type { ActionState } from "@/server/action-state";
-import { moveToOurServersAction, setHostingAction, setReviewAction } from "./service-actions";
+import { moveToOurServersAction, recordThebeAction, setHostingAction, setReviewAction } from "./service-actions";
 
 function Messages({ state }: { state: ActionState }) {
   return (
@@ -70,6 +70,24 @@ export function ReviewForm({ organisationId, serviceId, current }: { organisatio
       <DateField id={`reviewOn-${serviceId}`} name="reviewOn" label="Review the kept price on" hint="Optional. Nothing changes by itself on the day." defaultValue={current} error={fe.reviewOn} className="max-w-xs" />
       <Button type="submit" variant="secondary" disabled={pending} className="self-start">
         {pending ? "Saving…" : "Save the review date"}
+      </Button>
+    </form>
+  );
+}
+
+export function ThebeForm({ organisationId, current }: { organisationId: string; current: { thebeId: string; url: string } }) {
+  const [state, action, pending] = useActionState<ActionState, FormData>(recordThebeAction, {});
+  const fe = state.fieldErrors ?? {};
+  return (
+    <form action={action} className="flex flex-col gap-4" noValidate>
+      <Messages state={state} />
+      <input type="hidden" name="organisationId" value={organisationId} />
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <TextField id="thebeId" name="thebeId" label="Thebe's id for the organisation" defaultValue={state.values?.thebeId ?? current.thebeId} error={fe.thebeId} />
+        <TextField id="thebeUrl" name="url" label="Sign-in address" type="url" defaultValue={state.values?.url ?? current.url} error={fe.url} />
+      </div>
+      <Button type="submit" variant="secondary" disabled={pending} className="self-start">
+        {pending ? "Saving…" : "Record the Thebe organisation"}
       </Button>
     </form>
   );

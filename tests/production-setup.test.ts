@@ -111,11 +111,11 @@ describe("the launch catalogue on a new production server", () => {
     expect(writes.some((w) => w.model === "tld" || w.model === "priceBookEntry")).toBe(false);
   });
 
-  it("adds the products that came later (Milestone 9, U3) as drafts, leaving those it has", async () => {
+  it("adds the products that came later (Milestone 9, U3, U10) as drafts, leaving those it has", async () => {
     const { db, writes } = fakeDb(3, true, ["website-builder"]);
     expect(await loadLaunchCatalogue(db)).toBe(true);
     const products = writes.filter((w) => w.model === "product");
-    expect(products.map((p) => p.create.slug).sort()).toEqual(["compliance-archiving", "email-security", "fourth-generation-signatures"]);
+    expect(products.map((p) => p.create.slug).sort()).toEqual(["compliance-archiving", "email-security", "fourth-generation-signatures", "thebe-founders", "thebe-organisation", "thebe-team"]);
     expect(products.every((p) => p.create.status === "DRAFT" && p.create.fulfilment === "MANUAL" && p.create.billingProductId === null)).toBe(true);
     expect(writes.some((w) => w.model === "tld" || w.model === "priceBookEntry")).toBe(false);
   });

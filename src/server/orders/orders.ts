@@ -14,6 +14,7 @@ import { includedToSetUp } from "@/server/catalogue/inclusions";
 import { DOMAIN_PRODUCT_SLUG } from "@/server/catalogue/seed-data";
 import { audienceFor } from "@/server/catalogue/visibility";
 import { connectorFor } from "@/server/connectors/registry";
+import { isThebePlan, recordThebeOrder } from "@/server/thebe/thebe";
 import { AUTOMATIC_DOMAIN_HOURS } from "@/server/domains/registrar";
 import { prisma, type TenantDb } from "@/server/db";
 import { pushQuantity } from "@/server/licences/automation";
@@ -188,6 +189,8 @@ export async function placeOrder(deps: OrderDeps, input: { slug: string; quantit
       await startProtection(tx, { organisationId: deps.organisation.id, productSlug: i.included.slug, productName: i.included.name, reference: `included:${order.reference}:${i.included.slug}` });
     }
     await startTenant(tx, { organisationId: deps.organisation.id, productSlug: product.slug, providerId: securityProvider?.id ?? null });
+    // STRATEGY_ROLLOUT U10: a Thebe plan creates the customer's Thebe organisation once the order is in.
+    if (isThebePlan(product.slug)) await recordThebeOrder(tx, { organisationId: deps.organisation.id, plan: product.slug, users: quantity, orderId: order.id, taskId: result.taskId ?? null });
     // An off-site backup shows on the customer's Backup page from the order on.
     await startProtection(tx, { organisationId: deps.organisation.id, productSlug: product.slug, productName: product.name, reference: placed.serviceIds[0] ?? `order:${order.reference}` });
     const updated = await tx.order.update({ where: { id: order.id }, data: { expectedBy: result.expectedBy } });

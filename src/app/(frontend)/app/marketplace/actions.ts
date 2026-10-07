@@ -2,10 +2,13 @@
 
 import { redirect } from "next/navigation";
 import { field, run, type ActionState } from "@/server/action-state";
+import { billingAdapter } from "@/server/billing";
 import { requireBilling } from "@/server/billing/context";
 import { transferDomainIn } from "@/server/domains/manage";
+import { prisma } from "@/server/db";
 import { runSoon } from "@/server/jobs/boss";
 import { placeOrder, registerDomain } from "@/server/orders/orders";
+import { createThebeOrganisation } from "@/server/thebe/thebe";
 
 async function deps() {
   const { db, billing, organisation, actor } = await requireBilling();
@@ -18,8 +21,11 @@ export async function placeOrderAction(_prev: ActionState, form: FormData): Prom
   const values = { quantity: field(form, "quantity"), ...Object.fromEntries(Object.entries(options).map(([k, v]) => [`option_${k}`, v])) };
   let reference = "";
   const result = await run(async () => {
-    const order = await placeOrder(await deps(), { slug: field(form, "slug"), quantity: values.quantity || "1", options, startNow: form.get("startNow") === "on" });
+    const d = await deps();
+    const order = await placeOrder(d, { slug: field(form, "slug"), quantity: values.quantity || "1", options, startNow: form.get("startNow") === "on" });
     reference = order.reference;
+    // STRATEGY_ROLLOUT U10: a Thebe plan's organisation is created straight away when automation is on. The setup task covers any failure.
+    await createThebeOrganisation(prisma, billingAdapter(), d.organisation.id).catch((e) => console.error("thebe", e));
   }, values);
   if (!result.ok) return result;
   await runSoon("email-deliver").catch(() => undefined);

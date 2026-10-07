@@ -162,6 +162,7 @@ model Organisation {
   memberships        Membership[]
   invitations        Invitation[]
   billingAccount     BillingAccount?
+  thebeAccount       ThebeAccount?
   orders             Order[]
   quotes             Quote[]
   tasks              ProvisioningTask[]
@@ -2526,6 +2527,8 @@ model SecurityProfile {
   /// Every check, as shown on the score page.
   checks         Json?
   scoredAt       DateTime?
+  /// Where the first email report came from, e.g. "email-check:L-7K2M" (U9).
+  startedFrom    String?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
@@ -2841,4 +2844,148 @@ model SuccessSettings {
   targets        Json     @default("{}")
   updatedById    String?
   updatedAt      DateTime @updatedAt
+}
+
+/// A free tool's result the visitor chose to share with a link (U9).
+model SharedResult {
+  /// The secret in the link.
+  token       String    @id
+  /// "email-check".
+  tool        String
+  /// What the result is about, e.g. the domain.
+  subject     String
+  result      Json
+  consentText String
+  consentAt   DateTime
+  expiresAt   DateTime
+  views       Int       @default(0)
+  createdAt   DateTime  @default(now())
+
+  @@index([expiresAt])
+}
+
+enum ReferralPartnerKind {
+  ACCOUNTANT
+  CONSULTANT
+  IT_RESELLER
+  OTHER
+}
+
+enum ReferralPartnerStatus {
+  APPLIED
+  ACTIVE
+  PAUSED
+  DECLINED
+}
+
+/// Accountants, consultants and IT resellers who send us customers (U9).
+model ReferralPartner {
+  id             String                @id @default(cuid())
+  /// In their referral link, e.g. "kgosi-accounting".
+  code           String?               @unique
+  name           String
+  company        String
+  email          String
+  phone          String?
+  kind           ReferralPartnerKind
+  market         String
+  status         ReferralPartnerStatus @default(APPLIED)
+  /// Their own commission in basis points; null uses the default in settings.
+  commissionBps  Int?
+  /// The secret in their dashboard link.
+  dashboardToken String?               @unique
+  /// Where we pay them, sealed like partner secrets.
+  payoutDetails  String?
+  consentText    String
+  consentAt      DateTime
+  notes          String?
+  decidedAt      DateTime?
+  decidedById    String?
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+
+  referrals  Referral[]
+  statements ReferralStatement[]
+
+  @@index([status])
+}
+
+/// A customer who signed up through a referral partner's link.
+model Referral {
+  id             String          @id @default(cuid())
+  partnerId      String
+  organisationId String          @unique
+  createdAt      DateTime        @default(now())
+
+  partner ReferralPartner @relation(fields: [partnerId], references: [id], onDelete: Restrict)
+
+  @@index([partnerId])
+}
+
+enum ReferralStatementStatus {
+  /// Nothing earned that month.
+  NIL
+  DUE
+  PAID
+}
+
+/// A partner's commission for a month: what their customers paid us, and their share.
+model ReferralStatement {
+  id              String                  @id @default(cuid())
+  partnerId       String
+  /// "2026-10".
+  month           String
+  currency        String
+  paidInMinor     BigInt
+  rateBps         Int
+  commissionMinor BigInt
+  /// Per customer: name and amount.
+  lines           Json
+  status          ReferralStatementStatus
+  paidAt          DateTime?
+  paidById        String?
+  paymentRef      String?
+  createdAt       DateTime                @default(now())
+
+  partner ReferralPartner @relation(fields: [partnerId], references: [id], onDelete: Restrict)
+
+  @@unique([partnerId, month])
+}
+
+/// The default commission (Admin > Referral partners).
+model ReferralSettings {
+  id            String   @id @default("referrals")
+  commissionBps Int      @default(1000)
+  updatedById   String?
+  updatedAt     DateTime @updatedAt
+}
+
+enum ThebeAccountStatus {
+  /// Waiting for the Thebe organisation: automatic or a staff task.
+  PENDING
+  ACTIVE
+  /// Thebe's API refused; the setup task carries the reason.
+  FAILED
+}
+
+/// A customer's Thebe organisation, made when they subscribe to a Thebe plan (U10).
+model ThebeAccount {
+  id             String             @id @default(cuid())
+  organisationId String             @unique
+  /// "thebe-founders", "thebe-team" or "thebe-organisation".
+  plan           String
+  users          Int                @default(1)
+  orderId        String?
+  /// The setup task that is the manual fallback.
+  taskId         String?
+  status         ThebeAccountStatus @default(PENDING)
+  /// Thebe's id for the organisation, and where the customer signs in.
+  thebeId        String?
+  url            String?
+  attempts       Int                @default(0)
+  error          String?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Restrict)
 }

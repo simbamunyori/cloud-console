@@ -7,6 +7,7 @@ import {
   Network,
   NotebookTabs,
   TrendingUp,
+  UserPlus,
   DatabaseBackup,
   ShieldAlert,
   Landmark,
@@ -86,6 +87,7 @@ const ICONS = {
   units: Network,
   register: NotebookTabs,
   success: TrendingUp,
+  referrals: UserPlus,
 };
 
 export interface NavItem {

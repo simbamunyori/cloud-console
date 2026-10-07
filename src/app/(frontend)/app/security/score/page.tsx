@@ -2,6 +2,7 @@ import { CircleCheck, CircleHelp, Download, ShieldAlert, TriangleAlert } from "l
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
@@ -68,6 +69,9 @@ export default async function SecurityScorePage() {
     <>
       <PageHeader eyebrow="Security" title="Security score" description="Real checks of your email domain, sign-ins, backups and devices, each with what to do about it." />
       <div className="flex flex-col gap-6">
+        {profile?.startedFrom?.startsWith("email-check:") && !reports.length ? (
+          <Alert tone="info">Your score started from the free email security check you ran on our website for {emailDomain}. We check it again every night.</Alert>
+        ) : null}
         <div className="grid gap-6 xl:grid-cols-[1fr_var(--layout-aside-wide)] [&>*]:min-w-0">
           <Card>
             <CardBody className="flex flex-col gap-4">
