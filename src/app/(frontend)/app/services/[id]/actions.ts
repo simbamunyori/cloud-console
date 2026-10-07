@@ -24,14 +24,16 @@ export async function changeQuantityAction(_prev: QuantityState, form: FormData)
   if (field(form, "intent") === "confirm") {
     await requireRecentCheck(session, "CUSTOMER", `/app/services/${encodeURIComponent(serviceId)}`);
     let reference = "";
+    let automatic = false;
     const result = await run(async () => {
       const done = await changeQuantity(deps, serviceId, quantity);
       reference = done.order.reference;
+      automatic = done.automatic;
     }, values);
     if (!result.ok) return result;
     await runSoon("email-deliver").catch(() => undefined);
     revalidatePath(`/app/services/${serviceId}`);
-    return { ok: true, reference, message: "Done. We've recorded the change and will update the licences." };
+    return { ok: true, reference, message: automatic ? "Done. The licences are updated." : "Done. We've recorded the change and will update the licences." };
   }
 
   let preview: QuantityState["preview"];

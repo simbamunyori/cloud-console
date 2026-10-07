@@ -1074,6 +1074,13 @@ enum TenantVendor {
   GOOGLE
 }
 
+/// Admin access to a customer's tenant (STRATEGY_ROLLOUT U6).
+enum TenantConsent {
+  NONE
+  REQUESTED
+  GRANTED
+}
+
 /// A customer's Microsoft 365 or Google Workspace tenant, as we manage it.
 /// Until the vendor's API is connected, staff keep it in step with the
 /// partner portal and every change goes through a task.
@@ -1087,6 +1094,15 @@ model Tenant {
   vendorTenantId String?
   /// When users and licences were last read from the vendor or checked by staff.
   lastSyncedAt   DateTime?
+  /// Admin access the customer gave us (Microsoft delegated admin, Google reseller access), STRATEGY_ROLLOUT U6.
+  consent            TenantConsent @default(NONE)
+  /// The link the customer accepts it with.
+  consentLink        String?
+  consentRequestedAt DateTime?
+  consentGrantedAt   DateTime?
+  /// The tenant's security settings from the vendor, once access is given: [{ key, title, ok }].
+  securityChecks     Json?
+  securityCheckedAt  DateTime?
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 
@@ -1148,6 +1164,9 @@ model TenantLicence {
   name           String
   /// How many the customer pays for.
   purchased      Int
+  /// How many the vendor says the tenant has, from the daily sync (U6).
+  vendorQuantity  Int?
+  vendorCheckedAt DateTime?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
@@ -1230,6 +1249,9 @@ model LicenceChange {
   name           String?
   taskId         String?
   requestedById  String
+  /// Sent to the vendor's API (U6): attempts and the last refusal. Staff do it by hand when it fails.
+  vendorAttempts Int                 @default(0)
+  vendorError    String?
   createdAt      DateTime            @default(now())
   completedAt    DateTime?
 

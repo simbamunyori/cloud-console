@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { field, run, type ActionState } from "@/server/action-state";
 import { zonedTime } from "@/lib/dates";
+import { prisma } from "@/server/db";
+import { pushLicenceChange, requestConsent } from "@/server/licences/automation";
 import { requestLicenceChange, type ChangeInput } from "@/server/licences/licences";
 import { bookMigration, checkDns, requestTransfer, tickCustomerItem } from "@/server/licences/onboarding";
 import { tenantProvider } from "@/server/licences/provider";
@@ -22,8 +24,10 @@ async function submit(input: ChangeInput, values?: Record<string, string>): Prom
   const { db, organisation, actor, session } = await requireMember();
   await requireRecentCheck(session, "CUSTOMER", "/app/licences");
   const result = await run(async () => {
-    const { applied } = await requestLicenceChange(db, { organisationId: organisation.id, organisationName: organisation.name, actor, provider: tenantProvider() }, input);
-    return applied ? DONE[input.kind] : ASKED;
+    const { change, applied } = await requestLicenceChange(db, { organisationId: organisation.id, organisationName: organisation.name, actor, provider: tenantProvider() }, input);
+    if (applied) return DONE[input.kind];
+    // With the partner's automation on (U6) it is done now; otherwise, or if the partner refuses, our team does it.
+    return (await pushLicenceChange(prisma, change.id)) === "done" ? DONE[input.kind] : ASKED;
   }, values);
   if (result.ok) {
     revalidatePath("/app/licences");
@@ -95,4 +99,15 @@ export async function transferAction(_prev: ActionState, form: FormData): Promis
       return "Thanks. We'll send you an invitation to accept us as your partner.";
     }, values),
   );
+}
+
+// ─── Admin access (U6) ───────────────────────────────────────────────
+
+export async function requestConsentAction(_prev: ActionState, form: FormData): Promise<ActionState> {
+  const { db, organisation, actor } = await requireMember();
+  const result = await run(async () => {
+    const { link } = await requestConsent(db, { root: prisma, organisationId: organisation.id, organisationName: organisation.name, actor }, field(form, "tenantId"));
+    return link ? "Open the link below, sign in as a global admin and accept." : "We'll email you the invitation to accept. It shows here once access is given.";
+  });
+  return refreshed(result);
 }

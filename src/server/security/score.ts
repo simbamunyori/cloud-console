@@ -54,6 +54,8 @@ export interface ScoreFacts {
   devices: { protected: number; total: number } | null;
   /** From Microsoft 365 or Google Workspace (U6); null until connected. */
   workspace: { failing: string[]; total: number } | null;
+  /** A Microsoft 365 or Google Workspace tenant we don't have admin access to yet (U6). */
+  workspaceNeedsAccess?: boolean;
   now: Date;
 }
 
@@ -178,9 +180,12 @@ export function scoreChecks(f: ScoreFacts): ScoreCheck[] {
         key: "workspace",
         group: "workspace",
         title: "Settings not checked yet",
-        explanation: "Once your Microsoft 365 or Google Workspace is connected, we check its security settings here.",
+        explanation: f.workspaceNeedsAccess
+          ? "Give us admin access to your Microsoft 365 or Google Workspace and we check its security settings here."
+          : "Once your Microsoft 365 or Google Workspace is connected, we check its security settings here.",
         status: "unknown",
         points: 0,
+        ...(f.workspaceNeedsAccess ? { fix: { label: "Give us access", href: "/app/licences" } } : {}),
       };
   return [
     ...emailChecks(f),

@@ -7,7 +7,7 @@ import { Dialog } from "@/components/ui/dialog";
 import { TextField } from "@/components/ui/field";
 import { SelectField } from "@/components/ui/inputs";
 import type { ActionState } from "@/server/action-state";
-import { addPersonAction, changeLicenceAction } from "./actions";
+import { addPersonAction, changeLicenceAction, requestConsentAction } from "./actions";
 
 type LicenceOption = { id: string; name: string; free: number };
 
@@ -101,5 +101,20 @@ export function AddPerson({ tenantId, domain, licences }: { tenantId: string; do
         </form>
       </Dialog>
     </>
+  );
+}
+
+/** Asks for the link that gives us admin access to the tenant (U6). */
+export function ConsentButton({ tenantId, again }: { tenantId: string; again: boolean }) {
+  const [state, action, pending] = useActionState<ActionState, FormData>(requestConsentAction, {});
+  return (
+    <form action={action} className="flex flex-col items-start gap-3">
+      <input type="hidden" name="tenantId" value={tenantId} />
+      {state.error ? <Alert>{state.error}</Alert> : null}
+      {state.ok && state.message ? <Alert tone="positive">{state.message}</Alert> : null}
+      <Button type="submit" variant={again ? "secondary" : "primary"} disabled={pending}>
+        {pending ? "Getting the link…" : again ? "Get the link again" : "Give us access"}
+      </Button>
+    </form>
   );
 }

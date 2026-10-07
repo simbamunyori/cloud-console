@@ -91,6 +91,28 @@ export const FEATURES = {
       "Each customer's security score comes from real checks (their email domain, two-step login, backup of each service, and device and workspace checks once those are connected), each with a plain fix and the product that fixes it. Customers get a monthly report in the console and by email as a PDF; staff see every score, lowest first.",
     milestone: "U4",
   },
+  "microsoft-licensing": {
+    label: "Microsoft 365 automation",
+    description:
+      "Microsoft 365 licence counts and user changes go to Microsoft CSP straight away (our team still gets a task if the partner refuses), licences are checked against the partner every night, and customers can give us delegated admin access, which feeds the security score.",
+    milestone: "U6",
+    requires: async (db) => {
+      const p = await db.partnerSetting.findUnique({ where: { key: "microsoft-csp" } });
+      if (!p?.enabled) return "Set up Microsoft CSP in Partners and switch it on first.";
+      return null;
+    },
+  },
+  "google-licensing": {
+    label: "Google Workspace automation",
+    description:
+      "Google Workspace licence counts and user changes go to the reseller straight away (our team still gets a task if the partner refuses), licences are checked against the partner every night, and customers can give us reseller admin access, which feeds the security score.",
+    milestone: "U6",
+    requires: async (db) => {
+      const p = await db.partnerSetting.findUnique({ where: { key: "google-reseller" } });
+      if (!p?.enabled) return "Set up Google Workspace in Partners and switch it on first.";
+      return null;
+    },
+  },
 } satisfies Record<string, FeatureDefinition>;
 
 export type FeatureKey = keyof typeof FEATURES;

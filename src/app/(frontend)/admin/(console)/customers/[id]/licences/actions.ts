@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireStaff } from "@/server/admin/context";
 import { field, run, type ActionState } from "@/server/action-state";
 import { prisma } from "@/server/db";
+import { saveSecurityChecks, setConsent } from "@/server/licences/automation";
 import { linkTenant, recordLicence, recordTenantUser } from "@/server/licences/licences";
 import { finishOnboarding, saveOnboarding, tickStaffItem } from "@/server/licences/onboarding";
 
@@ -75,6 +76,30 @@ export async function finishOnboardingAction(_prev: ActionState, form: FormData)
     await finishOnboarding(await deps(), organisationId, field(form, "onboardingId"));
     return "Finished.";
   });
+  if (result.ok) done(organisationId);
+  return result;
+}
+
+// ─── Admin access and security settings (U6) ─────────────────────────
+
+export async function setConsentAction(_prev: ActionState, form: FormData): Promise<ActionState> {
+  const organisationId = field(form, "organisationId");
+  const granted = field(form, "granted") === "true";
+  const result = await run(async () => {
+    await setConsent(await deps(), organisationId, field(form, "tenantId"), granted);
+    return granted ? "Recorded. The customer sees access as given." : "Recorded as not given.";
+  });
+  if (result.ok) done(organisationId);
+  return result;
+}
+
+export async function saveChecksAction(_prev: ActionState, form: FormData): Promise<ActionState> {
+  const organisationId = field(form, "organisationId");
+  const values = { checks: field(form, "checks") };
+  const result = await run(async () => {
+    await saveSecurityChecks(await deps(), organisationId, field(form, "tenantId"), values.checks);
+    return "Saved. It counts in the customer's security score from tonight.";
+  }, values);
   if (result.ok) done(organisationId);
   return result;
 }

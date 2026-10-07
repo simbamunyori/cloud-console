@@ -5,6 +5,7 @@ import { EppRegistry } from "@/server/domains/epp";
 import { OPENPROVIDER_NAMESERVERS, OpenproviderRegistrar } from "@/server/domains/openprovider";
 import { RegistrarError, parseNameservers, type Registrar } from "@/server/domains/registrar";
 import { ApiBackupProvider, BackupProviderError, ManualBackupProvider, parseCustomFields, type BackupProvider } from "@/server/backup/provider";
+import { LicensingVendorError, licensingVendorFrom, type LicensingVendor } from "@/server/licences/vendor";
 import { openSecrets, sealSecrets } from "./vault";
 
 /**
@@ -14,7 +15,7 @@ import { openSecrets, sealSecrets } from "./vault";
  * and an Admin switches it on.
  */
 
-export type PartnerKey = "openprovider" | "bw-registry" | "backup-provider";
+export type PartnerKey = "openprovider" | "bw-registry" | "backup-provider" | "microsoft-csp" | "google-reseller";
 
 export interface PartnerField {
   name: string;
@@ -33,6 +34,28 @@ export interface PartnerDefinition {
   label: string;
   description: string;
   fields: PartnerField[];
+}
+
+
+/** The settings both licensing partners share (STRATEGY_ROLLOUT U6). */
+function licensingFields(consentHint: string): PartnerField[] {
+  return [
+    {
+      name: "mode",
+      label: "How we work with it",
+      kind: "select",
+      options: [
+        { value: "manual", label: "Manual: our team makes each change in the partner portal" },
+        { value: "api", label: "API: changes, the daily sync and access checks through the partner's API" },
+      ],
+      initial: "manual",
+    },
+    { name: "endpoint", label: "API endpoint", kind: "text", hint: "The base address, e.g. https://api.example.com. Only for API mode." },
+    { name: "apiKey", label: "API key", kind: "password", secret: true },
+    { name: "apiSecret", label: "API secret", kind: "password", secret: true, hint: "Only if the partner issues one." },
+    { name: "consentLink", label: "Admin access link", kind: "text", hint: consentHint },
+    { name: "custom", label: "Custom fields", kind: "textarea", hint: "Anything else the partner asks for, one name=value per line, such as a reseller ID. Sent as headers in API mode." },
+  ];
 }
 
 export const PARTNERS: Record<PartnerKey, PartnerDefinition> = {
@@ -93,12 +116,33 @@ export const PARTNERS: Record<PartnerKey, PartnerDefinition> = {
       { name: "custom", label: "Custom fields", kind: "textarea", hint: "Anything else the provider asks for, one name=value per line. Sent as headers in API mode." },
     ],
   },
+  "microsoft-csp": {
+    label: "Microsoft CSP (First Distribution)",
+    description:
+      "Microsoft 365 licences through our CSP distributor (STRATEGY_ROLLOUT U6): licence counts and user changes made straight away, a daily licence sync, and the customer's delegated admin access feeding the security score. In manual mode, or when the API refuses, our team does it from a setup task.",
+    fields: licensingFields("The delegated admin (GDAP) invitation link customers accept, from Partner Center. {domain} is replaced with the customer's domain. In API mode the partner's own link is used when it gives one."),
+  },
+  "google-reseller": {
+    label: "Google Workspace (Digicloud)",
+    description:
+      "Google Workspace licences through Digicloud (STRATEGY_ROLLOUT U6): licence counts and user changes made straight away, a daily licence sync, and the customer's reseller admin access feeding the security score. In manual mode, or when the API refuses, our team does it from a setup task.",
+    fields: licensingFields("The reseller access link customers accept, from the reseller console. {domain} is replaced with the customer's domain. In API mode the partner's own link is used when it gives one."),
+  },
 };
 
 export const isPartnerKey = (k: string): k is PartnerKey => k in PARTNERS;
 
+/** Microsoft CSP and Google Workspace, the licensing partners (U6). */
+export const isLicensingPartner = (key: PartnerKey): key is "microsoft-csp" | "google-reseller" => key === "microsoft-csp" || key === "google-reseller";
+
 /** The feature in Admin > Features each partner serves; it goes off whenever the partner does. */
-export const FEATURE_OF = { openprovider: "openprovider-domains", "bw-registry": "bw-registry-domains", "backup-provider": "customer-backup" } as const;
+export const FEATURE_OF = {
+  openprovider: "openprovider-domains",
+  "bw-registry": "bw-registry-domains",
+  "backup-provider": "customer-backup",
+  "microsoft-csp": "microsoft-licensing",
+  "google-reseller": "google-licensing",
+} as const;
 
 export interface PartnerConfig {
   key: PartnerKey;
@@ -165,7 +209,8 @@ export async function savePartner(deps: { db: PrismaClient; staff: StaffActor },
     }
     settings[f.name] = value;
   }
-  if (key === "backup-provider" && settings.mode === "api") {
+  if (isLicensingPartner(key) && settings.consentLink && !/^https:\/\/\S+$/.test(settings.consentLink)) fieldErrors.consentLink = "Enter an address starting with https://.";
+  if ((key === "backup-provider" || key === "microsoft-csp" || key === "google-reseller") && settings.mode === "api") {
     if (!settings.endpoint) fieldErrors.endpoint = "Enter the API endpoint.";
     if (!secrets.apiKey) fieldErrors.apiKey = "Enter the API key.";
   }
@@ -221,7 +266,14 @@ export function backupProviderFrom(config: PartnerConfig, fetcher?: typeof fetch
   return new ApiBackupProvider({ endpoint: s.endpoint, apiKey: config.secrets.apiKey, apiSecret: config.secrets.apiSecret, region: s.region, custom: parseCustomFields(s.custom) }, fetcher);
 }
 
-const testerFrom = (config: PartnerConfig): { test(): Promise<string> } => (config.key === "backup-provider" ? backupProviderFrom(config) : registrarFrom(config));
+/** The licensing partner's adapter from saved settings (U6): the API, or our team by hand. */
+export function licensingFrom(config: PartnerConfig, fetcher?: typeof fetch): LicensingVendor {
+  return licensingVendorFrom(PARTNERS[config.key].label, config.settings, config.secrets, fetcher);
+}
+
+
+const testerFrom = (config: PartnerConfig): { test(): Promise<string> } =>
+  config.key === "backup-provider" ? backupProviderFrom(config) : isLicensingPartner(config.key) ? licensingFrom(config) : registrarFrom(config);
 
 /** Test connection: signs in and reads something harmless. The result is kept and audited. */
 export async function testPartner(deps: { db: PrismaClient; staff: StaffActor; build?: (c: PartnerConfig) => { test(): Promise<string> }; now?: Date }, key: string) {
@@ -236,7 +288,7 @@ export async function testPartner(deps: { db: PrismaClient; staff: StaffActor; b
     message = await registrar.test();
   } catch (e) {
     ok = false;
-    message = e instanceof RegistrarError || e instanceof BackupProviderError ? e.message : `The test failed: ${(e as Error).message}`;
+    message = e instanceof RegistrarError || e instanceof BackupProviderError || e instanceof LicensingVendorError ? e.message : `The test failed: ${(e as Error).message}`;
   }
   await deps.db.$transaction(async (tx) => {
     await tx.partnerSetting.update({ where: { key }, data: { lastTestAt: deps.now ?? new Date(), lastTestOk: ok, lastTestMessage: message.slice(0, 500), ...(ok ? {} : { enabled: false }) } });

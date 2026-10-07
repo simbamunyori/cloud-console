@@ -5,6 +5,7 @@ import { BACKUP_PRODUCTS } from "@/server/backup/backup";
 import { tenantDb } from "@/server/db";
 import { featureOn } from "@/server/features/features";
 import { teamOverview } from "@/server/org/members";
+import { automationOn, workspaceFacts } from "@/server/licences/automation";
 import { checkEmailSecurity, cleanDomain, type EmailCheckLookup, type EmailReport } from "@/server/tools/email-check";
 import { fullScore, scoreChecks, type ScoreCheck, type ScoreFacts, type ServiceToBackUp } from "./score";
 
@@ -38,13 +39,17 @@ export async function emailDomainFor(db: PrismaClient, organisationId: string, c
 export async function scoreFacts(db: PrismaClient, organisationId: string, input: { services: Service[]; emailDomain: string | null; email: EmailReport | null; now: Date }): Promise<ScoreFacts> {
   const tenant = tenantDb(organisationId);
   const live = input.services.filter((s) => s.status !== "cancelled" && s.status !== "terminated");
-  const [team, products, protections, securityTenant, devices] = await Promise.all([
+  const [team, products, protections, securityTenant, devices, tenants, licensingOn] = await Promise.all([
     teamOverview(tenant, input.now),
     db.product.findMany({ where: { billingProductId: { in: [...new Set(live.map((s) => s.productId))] } }, select: { slug: true, billingProductId: true } }),
     tenant.backupProtection.findMany({ orderBy: { createdAt: "asc" }, select: { billingServiceId: true, label: true, health: true, lastSuccessAt: true } }),
     tenant.securityTenant.findFirst({ select: { status: true } }),
     tenant.securityDevice.findMany({ select: { health: true } }),
+    tenant.tenant.findMany({ select: { vendor: true, consent: true, securityChecks: true } }),
+    Promise.all([automationOn(db, "MICROSOFT"), automationOn(db, "GOOGLE")]),
   ]);
+  // Workspace settings (U6), from tenants whose automation is on.
+  const workspace = workspaceFacts(tenants.filter((t) => licensingOn[t.vendor === "MICROSOFT" ? 0 : 1]));
   const slugOf = new Map(products.map((p) => [p.billingProductId, p.slug]));
   const serviceSlug = new Map(live.map((s) => [s.serviceId, slugOf.get(s.productId) ?? ""]));
 
@@ -77,8 +82,8 @@ export async function scoreFacts(db: PrismaClient, organisationId: string, input
     hasThreatMonitoring: [...serviceSlug.values()].includes(MONITORING_SLUG),
     // Device coverage from the security provider (U5), once its tenant is active and devices report.
     devices: securityTenant?.status === "ACTIVE" && devices.length ? { protected: devices.filter((d) => d.health !== "UNPROTECTED").length, total: devices.length } : null,
-    // Filled by U6 (workspace settings) once connected.
-    workspace: null,
+    workspace: workspace.workspace,
+    workspaceNeedsAccess: workspace.workspaceNeedsAccess,
     now: input.now,
   };
 }

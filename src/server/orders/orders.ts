@@ -15,7 +15,8 @@ import { DOMAIN_PRODUCT_SLUG } from "@/server/catalogue/seed-data";
 import { audienceFor } from "@/server/catalogue/visibility";
 import { connectorFor } from "@/server/connectors/registry";
 import { AUTOMATIC_DOMAIN_HOURS } from "@/server/domains/registrar";
-import type { TenantDb } from "@/server/db";
+import { prisma, type TenantDb } from "@/server/db";
+import { pushQuantity } from "@/server/licences/automation";
 import { queueEmail } from "@/server/email/outbox";
 import { assertSeatFloor, licenceForService } from "@/server/licences/licences";
 import { assertCan, DomainError, type Actor } from "@/server/org/access";
@@ -262,7 +263,8 @@ export async function changeQuantity(deps: OrderDeps, serviceId: string, quantit
   const change = await quantityChange(deps, serviceId, quantity);
   const done = await deps.billing.upgradeService(serviceId, { quantity: change.to, recurringPrice: change.preview.newRecurring }, PAYMENT_METHODS.eft).catch(billingFailure);
   const now = deps.now ?? new Date();
-  return deps.db.$transaction(async (tx) => {
+  let taskId: string | null = null;
+  const changed = await deps.db.$transaction(async (tx) => {
     const order = await tx.order.create({
       data: {
         reference: newReference(),
@@ -298,6 +300,7 @@ export async function changeQuantity(deps: OrderDeps, serviceId: string, quantit
       },
       now,
     );
+    taskId = result.taskId ?? null;
     const updated = await tx.order.update({ where: { id: order.id }, data: { expectedBy: result.expectedBy } });
     // The tenant's licence count follows what the customer pays for; the nightly check flags any gap with the vendor.
     await tx.tenantLicence.updateMany({ where: { name: change.serviceName }, data: { purchased: change.to } });
@@ -313,6 +316,9 @@ export async function changeQuantity(deps: OrderDeps, serviceId: string, quantit
     );
     return { order: updated, invoiceId: done.invoiceId };
   });
+  // With Microsoft 365 or Google Workspace automation on (U6), the partner gets the new count now and the task closes.
+  const pushed = await pushQuantity(prisma, { organisationId: deps.organisation.id, serviceName: change.serviceName, quantity: change.to, taskId });
+  return { ...changed, automatic: pushed === "done" };
 }
 
 // ─── Domains ─────────────────────────────────────────────────────────

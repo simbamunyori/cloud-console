@@ -8,12 +8,14 @@ import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
 import { formatMoment } from "@/lib/dates";
 import { cn } from "@/lib/cn";
-import { tenantOverview, type LicenceView, type PendingView } from "@/server/licences/licences";
+import { prisma } from "@/server/db";
+import { automationOn } from "@/server/licences/automation";
+import { tenantOverview, type LicenceView, type PendingView, type TenantView } from "@/server/licences/licences";
 import { onboardings } from "@/server/licences/onboarding";
 import { MANUAL_CHANGE_HOURS, tenantProvider } from "@/server/licences/provider";
 import { can } from "@/server/org/access";
 import { requireMember } from "@/server/org/context";
-import { AddPerson, PersonActions } from "./forms";
+import { AddPerson, ConsentButton, PersonActions } from "./forms";
 import { TransferForm } from "./setup-forms";
 import { SetupPanel } from "./setup-panel";
 
@@ -44,9 +46,58 @@ function LicenceCard({ l }: { l: LicenceView }) {
   );
 }
 
+/** Admin access for the security score and quicker help (U6). */
+function AccessCard({ t, manage }: { t: TenantView; manage: boolean }) {
+  const failing = t.securityChecks?.filter((c) => !c.ok) ?? [];
+  return (
+    <Card aria-labelledby={`access-${t.id}`}>
+      <CardHeader
+        id={`access-${t.id}`}
+        title="Admin access for Fourth Generation Technologies"
+        description={
+          t.vendor === "MICROSOFT"
+            ? "Delegated admin access through Microsoft lets us check your security settings, fix problems and make changes for you. You can remove it at any time in your Microsoft 365 admin centre."
+            : "Reseller admin access through Google lets us check your security settings, fix problems and make changes for you. You can remove it at any time in your Google Admin console."
+        }
+        action={<Badge tone={t.consent === "GRANTED" ? "positive" : t.consent === "REQUESTED" ? "info" : "neutral"}>{t.consent === "GRANTED" ? "Given" : t.consent === "REQUESTED" ? "Waiting for you" : "Not given"}</Badge>}
+      />
+      <CardBody className="flex flex-col gap-4">
+        {t.consent === "GRANTED" ? (
+          t.securityChecks?.length ? (
+            <p className="text-ink">
+              {failing.length ? `${failing.length} of ${t.securityChecks.length} recommended settings need changing: ${failing.map((c) => c.title).join("; ")}.` : `All ${t.securityChecks.length} recommended security settings are on.`}{" "}
+              <Link href="/app/security/score" className="text-link underline underline-offset-2">
+                See your security score
+              </Link>
+            </p>
+          ) : (
+            <p className="text-ink-muted">Thank you. We check your security settings overnight; they then count in your security score.</p>
+          )
+        ) : (
+          <>
+            {t.consentLink ? (
+              <p className="text-ink">
+                Open{" "}
+                <a href={t.consentLink} target="_blank" rel="noreferrer" className="text-link underline underline-offset-2">
+                  this link
+                </a>
+                , sign in as a global admin of {t.primaryDomain}, and accept. It shows here as given the next morning.
+              </p>
+            ) : t.consent === "REQUESTED" ? (
+              <p className="text-ink-muted">We&apos;re sending you the invitation by email.</p>
+            ) : null}
+            {manage ? <ConsentButton tenantId={t.id} again={t.consent === "REQUESTED"} /> : <p className="text-callout text-ink-muted">An Owner or Admin of this account can give access.</p>}
+          </>
+        )}
+      </CardBody>
+    </Card>
+  );
+}
+
 export default async function LicencesPage() {
   const { db, actor, organisation } = await requireMember();
-  const [tenants, setups] = await Promise.all([tenantOverview(db), onboardings(db)]);
+  const [tenants, setups, microsoftOn, googleOn] = await Promise.all([tenantOverview(db), onboardings(db), automationOn(prisma, "MICROSOFT"), automationOn(prisma, "GOOGLE")]);
+  const automatic = (t: TenantView) => (t.vendor === "MICROSOFT" ? microsoftOn : googleOn);
   const manage = can(actor, "manageLicences");
   const provider = tenantProvider();
 
@@ -86,7 +137,7 @@ export default async function LicencesPage() {
     <>
       <PageHeader title="Users and licences" description="Everyone in your Microsoft 365 or Google Workspace, and which licences they hold." />
       <div className="flex flex-col gap-10">
-        {!provider.automatic && manage ? (
+        {!provider.automatic && manage && !tenants.every(automatic) ? (
           <Alert tone="info">Our team makes each change for you, usually within {MANUAL_CHANGE_HOURS} working hours. It shows here as waiting until it&apos;s done.</Alert>
         ) : null}
         {tenants.map((t) => {
@@ -110,6 +161,8 @@ export default async function LicencesPage() {
               </div>
 
               {setup ? <SetupPanel o={setup} manage={manage} timeZone={organisation.timeZone} /> : null}
+
+              {automatic(t) && !setup ? <AccessCard t={t} manage={manage} /> : null}
 
               {unused > 0 ? (
                 <div className="flex items-start gap-3 rounded-lg border border-warning bg-warning-soft px-4 py-3 text-callout">
