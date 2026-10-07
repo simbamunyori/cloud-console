@@ -153,6 +153,23 @@ const JOBS: Job[] = [
       return syncBackups({ db: prisma });
     },
   },
+  // The full security score every night, and the monthly report on the 1st (STRATEGY_ROLLOUT U4); nothing while the feature is off.
+  {
+    name: "security-scores",
+    cron: "15 4 * * *",
+    run: async () => {
+      const [{ refreshAllScores }, { emailCheckLookup }] = await Promise.all([import("@/server/security/score-facts"), import("@/server/tools/lookup")]);
+      return refreshAllScores({ db: prisma, adapter: billingAdapter(), lookup: emailCheckLookup() });
+    },
+  },
+  {
+    name: "security-reports",
+    cron: "0 7 1 * *",
+    run: async () => {
+      const { writeMonthlyReports } = await import("@/server/security/reports");
+      return writeMonthlyReports(prisma);
+    },
+  },
   // Each new invoice by email with its PDF, once Admin > Features > Invoice emails is on.
   {
     name: "invoice-emails",

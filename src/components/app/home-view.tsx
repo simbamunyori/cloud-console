@@ -24,6 +24,8 @@ export interface HomeViewProps {
   invoices: InvoiceSummary[];
   attention: AttentionItem[];
   checks: SecurityCheck[];
+  /** The full security score (STRATEGY_ROLLOUT U4), when it is on. */
+  fullScore?: number;
   /** The public site's picture of the console: links drawn as plain text. */
   demo?: boolean;
 }
@@ -34,7 +36,7 @@ export interface HomeViewProps {
  * console draws it with the organisation's own data; the public site
  * draws the same component with demo data.
  */
-export function HomeView({ organisationName, firstName, today, currency, locale, services, domains, invoices, attention, checks, demo = false }: HomeViewProps) {
+export function HomeView({ organisationName, firstName, today, currency, locale, services, domains, invoices, attention, checks, fullScore, demo = false }: HomeViewProps) {
   const live = services.filter((s) => s.status !== "cancelled" && s.status !== "terminated");
   const monthly = monthlyTotal(services, currency);
   const next = nextInvoice(services, domains, currency);
@@ -128,7 +130,7 @@ export function HomeView({ organisationName, firstName, today, currency, locale,
               </ul>
             )}
           </Card>
-          <SecurityScoreCard checks={checks} demo={demo} />
+          <SecurityScoreCard checks={checks} demo={demo} {...(fullScore !== undefined ? { score: fullScore, href: "/app/security/score" } : {})} />
         </div>
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[3fr_2fr] [&>*]:min-w-0">

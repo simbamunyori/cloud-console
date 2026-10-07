@@ -74,6 +74,12 @@ export const FEATURES = {
       return null;
     },
   },
+  "security-score": {
+    label: "Full security score and monthly report",
+    description:
+      "Each customer's security score comes from real checks (their email domain, two-step login, backup of each service, and device and workspace checks once those are connected), each with a plain fix and the product that fixes it. Customers get a monthly report in the console and by email as a PDF; staff see every score, lowest first.",
+    milestone: "U4",
+  },
 } satisfies Record<string, FeatureDefinition>;
 
 export type FeatureKey = keyof typeof FEATURES;
