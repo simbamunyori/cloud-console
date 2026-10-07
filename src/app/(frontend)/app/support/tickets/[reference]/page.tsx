@@ -2,18 +2,21 @@ import { ArrowLeft } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { RatingForm } from "@/components/app/rating-form";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardBody } from "@/components/ui/card";
+import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
 import { company } from "@/config/app";
 import { formatMoment } from "@/lib/dates";
 import { cn } from "@/lib/cn";
+import { prisma } from "@/server/db";
+import { featureOn } from "@/server/features/features";
 import { can } from "@/server/org/access";
 import { requireMember } from "@/server/org/context";
 import { ticketForCustomer } from "@/server/support/tickets";
-import { resolveAction } from "../../actions";
+import { rateAction, resolveAction } from "../../actions";
 import { ReplyForm } from "../../forms";
 import { TICKET_STATUS } from "../../labels";
 
@@ -28,6 +31,7 @@ export default async function TicketPage({ params, searchParams }: { params: Pro
   if (!ticket) notFound();
   const [label, tone] = TICKET_STATUS[ticket.status];
   const mayReply = can(actor, "support");
+  const rating = ticket.status === "RESOLVED" && mayReply && (await featureOn(prisma, "service-standards"));
 
   return (
     <>
@@ -56,6 +60,14 @@ export default async function TicketPage({ params, searchParams }: { params: Pro
             );
           })}
         </ol>
+        {rating ? (
+          <Card aria-labelledby="rate-title">
+            <CardHeader id="rate-title" title={ticket.rating ? "Thanks for your rating" : "How did we do?"} description={ticket.rating ? `You gave us ${ticket.rating} out of 5. You can change it for 30 days.` : "One question, so we know how our support is doing."} />
+            <CardBody>
+              <RatingForm action={rateAction} hidden={{ reference: ticket.reference }} score={ticket.rating ?? undefined} done={Boolean(ticket.rating)} />
+            </CardBody>
+          </Card>
+        ) : null}
         {mayReply ? (
           <Card>
             <CardBody className="flex flex-col gap-4">

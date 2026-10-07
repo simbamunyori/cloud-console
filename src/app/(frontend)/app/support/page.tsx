@@ -1,6 +1,7 @@
 import { MessageCircleQuestion, Plus, Sparkles } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { ResponseTimes } from "@/components/app/response-times";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
@@ -9,14 +10,16 @@ import { formatMoment } from "@/lib/dates";
 import { can } from "@/server/org/access";
 import { requireMember } from "@/server/org/context";
 import { assistantModel } from "@/server/support/assistant/model";
+import { prisma } from "@/server/db";
 import { ticketsForCustomer } from "@/server/support/tickets";
+import { publishedResponseTimes } from "@/server/units/units";
 import { TICKET_STATUS } from "./labels";
 
 export const metadata: Metadata = { title: "Support" };
 
 export default async function SupportPage() {
   const { db, actor, organisation } = await requireMember();
-  const tickets = await ticketsForCustomer(db);
+  const [tickets, times] = await Promise.all([ticketsForCustomer(db), publishedResponseTimes(prisma)]);
   const assistantOn = assistantModel() !== null;
   const mayAsk = can(actor, "support");
 
@@ -85,6 +88,8 @@ export default async function SupportPage() {
             </ul>
           )}
         </Card>
+
+        {times ? <ResponseTimes data={times} /> : null}
       </div>
     </>
   );

@@ -11,7 +11,8 @@ import { requireStaffCan } from "@/server/admin/context";
 import { prisma } from "@/server/db";
 import { staffCan } from "@/server/staff/access";
 import { ticketForStaff } from "@/server/support/tickets";
-import { StaffReplyForm } from "../../forms";
+import { duration, PRIORITIES, PRIORITY_LABEL, UNIT_KEYS, UNITS, unitTargets } from "@/server/units/units";
+import { RouteTicketForm, StaffReplyForm } from "../../forms";
 
 export const metadata: Metadata = { title: "Ticket" };
 
@@ -21,6 +22,10 @@ export default async function StaffTicketPage({ params }: { params: Promise<{ re
   const ticket = await ticketForStaff(prisma, decodeURIComponent(reference));
   if (!ticket) notFound();
   const tz = ticket.organisation.timeZone;
+  const target = (await unitTargets(prisma))[ticket.unit][ticket.priority];
+  const mins = (to: Date) => Math.max(0, Math.round((to.getTime() - ticket.createdAt.getTime()) / 60_000));
+  const timing = (at: Date | null, limit: number, what: string) =>
+    at ? `${what} after ${duration(mins(at))} (target ${duration(limit)})${mins(at) > limit ? ", over target" : ""}.` : `${what}: not yet (target ${duration(limit)}).`;
 
   return (
     <>
@@ -39,6 +44,24 @@ export default async function StaffTicketPage({ params }: { params: Promise<{ re
         title={ticket.subject}
       />
       <div className="flex flex-col gap-6">
+        <Card aria-labelledby="route-title">
+          <CardHeader
+            id="route-title"
+            title="Priority and unit"
+            description={`${timing(ticket.firstResponseAt, target.firstResponse, "First reply")} ${timing(ticket.resolvedAt, target.resolve, "Sorted")}${ticket.rating ? ` Rated ${ticket.rating} out of 5${ticket.ratingComment ? `: "${ticket.ratingComment}"` : "."}` : ""}`}
+          />
+          {staffCan(staff, "answerTickets") ? (
+            <CardBody>
+              <RouteTicketForm
+                reference={ticket.reference}
+                priority={ticket.priority}
+                unit={ticket.unit}
+                priorities={PRIORITIES.map((p) => ({ value: p, label: PRIORITY_LABEL[p] }))}
+                units={UNIT_KEYS.map((u) => ({ value: u, label: UNITS[u].label }))}
+              />
+            </CardBody>
+          ) : null}
+        </Card>
         <ol className="flex flex-col gap-4">
           {ticket.messages.map((m) => (
             <li key={m.id}>

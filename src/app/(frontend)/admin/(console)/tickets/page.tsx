@@ -11,6 +11,7 @@ import { cn } from "@/lib/cn";
 import { requireStaffCan } from "@/server/admin/context";
 import { prisma } from "@/server/db";
 import { ticketQueue } from "@/server/support/tickets";
+import { PRIORITY_LABEL, UNITS } from "@/server/units/units";
 
 export const metadata: Metadata = { title: "Tickets" };
 
@@ -48,11 +49,14 @@ export default async function TicketsPage({ searchParams }: { searchParams: Prom
                       <span className="truncate font-semibold text-ink">{t.subject}</span>
                       <span className="truncate text-callout text-ink-muted">
                         {t.organisation.name}, <span className="tabular-nums">{t.reference}</span>, {formatMoment(t.updatedAt, DEFAULT_TIME_ZONE)}
-                        {t.assignee ? `, ${t.assignee.name}` : ""}
+                        {t.assignee ? `, ${t.assignee.name}` : ""}, {UNITS[t.unit].label}
                       </span>
                     </span>
                     <span className="flex flex-col items-end gap-1">
-                      <Badge tone={tone}>{label}</Badge>
+                      <span className="flex gap-1">
+                        {t.priority !== "NORMAL" ? <Badge tone={t.priority === "URGENT" ? "negative" : t.priority === "HIGH" ? "warning" : "neutral"}>{PRIORITY_LABEL[t.priority]}</Badge> : null}
+                        <Badge tone={tone}>{label}</Badge>
+                      </span>
                       {t.conversationId ? <Badge tone="info">From assistant</Badge> : null}
                     </span>
                   </Link>

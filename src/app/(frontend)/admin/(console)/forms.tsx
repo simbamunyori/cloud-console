@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { TextField } from "@/components/ui/field";
 import { SelectField, TextareaField } from "@/components/ui/inputs";
 import type { ActionState } from "@/server/action-state";
-import { completeTaskAction, confirmEftAction, rejectEftAction, staffReplyAction, startTaskAction } from "./actions";
+import { completeTaskAction, confirmEftAction, rejectEftAction, routeTicketAction, staffReplyAction, startTaskAction } from "./actions";
 
 type ServerAction = (prev: ActionState, form: FormData) => Promise<ActionState>;
 
@@ -143,6 +143,25 @@ export function StaffReplyForm({ reference }: { reference: string }) {
       <Button type="submit" disabled={pending} className="self-start">
         {pending ? "Sending…" : "Send"}
       </Button>
+    </form>
+  );
+}
+
+/** A ticket's priority and the unit that works it (U7). */
+export function RouteTicketForm({ reference, priority, unit, priorities, units }: { reference: string; priority: string; unit: string; priorities: { value: string; label: string }[]; units: { value: string; label: string }[] }) {
+  const [state, action, pending] = useActionState<ActionState, FormData>(routeTicketAction, {});
+  return (
+    <form action={action} className="flex flex-col gap-3">
+      <input type="hidden" name="reference" value={reference} />
+      <div className="grid gap-3 sm:grid-cols-[1fr_2fr_auto] sm:items-end">
+        <SelectField id="priority" label="Priority" defaultValue={state.values?.priority ?? priority} options={priorities} error={state.fieldErrors?.priority} />
+        <SelectField id="unit" label="Unit" defaultValue={state.values?.unit ?? unit} options={units} error={state.fieldErrors?.unit} />
+        <Button type="submit" variant="secondary" disabled={pending} className="h-11">
+          {pending ? "Saving…" : "Save"}
+        </Button>
+      </div>
+      {state.ok && state.message ? <p className="text-callout text-positive">{state.message}</p> : null}
+      {state.error && !state.fieldErrors ? <p className="text-callout text-negative">{state.error}</p> : null}
     </form>
   );
 }

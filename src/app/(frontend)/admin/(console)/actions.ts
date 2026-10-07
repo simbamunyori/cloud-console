@@ -16,7 +16,7 @@ import { confirmEftPayment, rejectEftPayment } from "@/server/payments/eft";
 import { approveRun } from "@/server/pricing/periods";
 import { setMarginFloor } from "@/server/pricing/margins";
 import { acceptTable } from "@/server/pricing/official-rates";
-import { staffReply } from "@/server/support/tickets";
+import { routeTicket, staffReply } from "@/server/support/tickets";
 
 async function deps() {
   const { staff } = await requireStaff();
@@ -196,6 +196,21 @@ export async function staffReplyAction(_prev: ActionState, form: FormData): Prom
   if (result.ok) {
     await sendEmails();
     revalidatePath(`/admin/tickets/${reference}`);
+  }
+  return result;
+}
+
+export async function routeTicketAction(_prev: ActionState, form: FormData): Promise<ActionState> {
+  const reference = field(form, "reference");
+  const values = { priority: field(form, "priority"), unit: field(form, "unit") };
+  const result = await run(async () => {
+    const { staff } = await requireStaff();
+    await routeTicket({ db: prisma, staff }, reference, values);
+    return "Saved.";
+  }, values);
+  if (result.ok) {
+    revalidatePath(`/admin/tickets/${reference}`);
+    revalidatePath("/admin/tickets");
   }
   return result;
 }
