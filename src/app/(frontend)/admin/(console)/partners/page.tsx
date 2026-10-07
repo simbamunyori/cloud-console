@@ -12,7 +12,11 @@ export const metadata: Metadata = { title: "Partners" };
 
 export default async function PartnersPage() {
   await requireStaffCan("managePartners");
-  const partners = await Promise.all((Object.keys(PARTNERS) as PartnerKey[]).map((k) => partnerSummary(prisma, k)));
+  const [partners, security] = await Promise.all([
+    Promise.all((Object.keys(PARTNERS) as PartnerKey[]).map((k) => partnerSummary(prisma, k))),
+    prisma.securityProvider.findMany({ select: { name: true, active: true, lastTestOk: true } }),
+  ]);
+  const activeSecurity = security.find((s) => s.active);
   return (
     <>
       <PageHeader
@@ -36,6 +40,19 @@ export default async function PartnersPage() {
               </Link>
             </li>
           ))}
+          <li>
+            <Link href="/admin/partners/security" className="flex items-center gap-3 px-5 py-4 hover:bg-surface-2 sm:px-6">
+              <span className="flex min-w-0 flex-1 flex-col">
+                <span className="font-semibold text-ink">Security provider</span>
+                <span className="text-callout text-ink-muted">Managed detection and response and the 24/7 SOC, white-labelled. Several can be stored; one is active.</span>
+              </span>
+              <span className="flex flex-wrap justify-end gap-2">
+                {activeSecurity?.lastTestOk === false ? <Badge tone="negative">Test failed</Badge> : null}
+                {!security.length ? <Badge>Not set up</Badge> : activeSecurity ? <Badge tone="positive">On</Badge> : <Badge>Off</Badge>}
+              </span>
+              <ChevronRight aria-hidden className="size-4 shrink-0 text-ink-muted" />
+            </Link>
+          </li>
         </ul>
       </Card>
     </>

@@ -170,6 +170,23 @@ const JOBS: Job[] = [
       return writeMonthlyReports(prisma);
     },
   },
+  // Managed security (STRATEGY_ROLLOUT U5): the API provider's tenants, devices and alerts, and late incidents escalated.
+  {
+    name: "soc-sync",
+    cron: "*/5 * * * *",
+    run: async () => {
+      const { syncSoc } = await import("@/server/soc/soc");
+      return syncSoc({ db: prisma });
+    },
+  },
+  {
+    name: "soc-escalate",
+    cron: "*/5 * * * *",
+    run: async () => {
+      const { escalateLate } = await import("@/server/soc/soc");
+      return escalateLate(prisma);
+    },
+  },
   // Each new invoice by email with its PDF, once Admin > Features > Invoice emails is on.
   {
     name: "invoice-emails",

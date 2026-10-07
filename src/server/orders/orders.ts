@@ -8,6 +8,8 @@ import type { ScopedBilling } from "@/server/billing/scoped";
 import { approvedPrice, productItem, productPrice, tldOffers } from "@/server/catalogue/price-book";
 import { productBySlug, productOptions, validateOptions, type ProductWithCategory } from "@/server/catalogue/catalogue";
 import { startProtection } from "@/server/backup/backup";
+import { MANAGED_SECURITY_PRODUCTS, managedSecurityOn, startTenant } from "@/server/soc/soc";
+import { activeProvider } from "@/server/soc/providers";
 import { includedToSetUp } from "@/server/catalogue/inclusions";
 import { DOMAIN_PRODUCT_SLUG } from "@/server/catalogue/seed-data";
 import { audienceFor } from "@/server/catalogue/visibility";
@@ -128,6 +130,8 @@ export async function placeOrder(deps: OrderDeps, input: { slug: string; quantit
   const now = deps.now ?? new Date();
   const email = await placerEmail(deps.db, deps.actor.userId);
   const included = await includedToSetUp(catalogueDb(deps.db), product.id);
+  // STRATEGY_ROLLOUT U5: managed security starts a tenant with the active provider once it is published.
+  const securityProvider = MANAGED_SECURITY_PRODUCTS.includes(product.slug) && (await managedSecurityOn(catalogueDb(deps.db))) ? await activeProvider(catalogueDb(deps.db)) : null;
   return deps.db.$transaction(async (tx) => {
     const order = await tx.order.create({
       data: {
@@ -182,6 +186,7 @@ export async function placeOrder(deps: OrderDeps, input: { slug: string; quantit
       );
       await startProtection(tx, { organisationId: deps.organisation.id, productSlug: i.included.slug, productName: i.included.name, reference: `included:${order.reference}:${i.included.slug}` });
     }
+    await startTenant(tx, { organisationId: deps.organisation.id, productSlug: product.slug, providerId: securityProvider?.id ?? null });
     // An off-site backup shows on the customer's Backup page from the order on.
     await startProtection(tx, { organisationId: deps.organisation.id, productSlug: product.slug, productName: product.name, reference: placed.serviceIds[0] ?? `order:${order.reference}` });
     const updated = await tx.order.update({ where: { id: order.id }, data: { expectedBy: result.expectedBy } });

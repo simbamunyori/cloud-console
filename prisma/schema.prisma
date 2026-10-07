@@ -183,6 +183,10 @@ model Organisation {
   restoreRequests    BackupRestoreRequest[]
   securityProfile    SecurityProfile?
   securityReports    SecurityReport[]
+  securityTenant     SecurityTenant?
+  securityDevices    SecurityDevice[]
+  securityIncidents  SecurityIncident[]
+  socReports         SocReport[]
   licenceAssignments LicenceAssignment[]
   licenceChanges     LicenceChange[]
   tenantOnboardings  TenantOnboarding[]
@@ -237,6 +241,7 @@ model User {
   passwordResets       PasswordReset[]
   signInEvents         SignInEvent[]
   assignedTasks        ProvisioningTask[] @relation("taskAssignee")
+  assignedIncidents    SecurityIncident[] @relation("incidentAssignee")
   completedTasks       ProvisioningTask[] @relation("taskCompletedBy")
   confirmedEft         EftPayment[]       @relation("eftConfirmedBy")
   assignedTickets      Ticket[]           @relation("ticketAssignee")
@@ -2501,4 +2506,196 @@ model SecurityReport {
   organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Restrict)
 
   @@unique([organisationId, month])
+}
+
+// ─── Managed security and the SOC (docs/STRATEGY_ROLLOUT.md, U5) ────
+
+enum SecurityProviderType {
+  MANUAL
+  WEBHOOK
+}
+
+/// A security provider set up in Admin > Partners > Security provider.
+/// Several can be stored; one is active. White-label: customers never see it.
+model SecurityProvider {
+  id              String               @id @default(cuid())
+  type            SecurityProviderType @default(MANUAL)
+  name            String
+  endpoint        String?
+  /// Tenant settings and custom fields, name to value.
+  settings        Json                 @default("{}")
+  /// API key, API secret and webhook secret, sealed (src/server/partners/vault.ts).
+  secrets         String               @default("")
+  active          Boolean              @default(false)
+  lastTestAt      DateTime?
+  lastTestOk      Boolean?
+  lastTestMessage String?
+  updatedById     String?
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+
+  tenants   SecurityTenant[]
+  incidents SecurityIncident[]
+  webhooks  SecurityWebhookEvent[]
+}
+
+enum SecurityTenantStatus {
+  PENDING
+  ACTIVE
+  SUSPENDED
+  REMOVED
+}
+
+/// A customer's tenant at the security provider.
+model SecurityTenant {
+  id             String               @id @default(cuid())
+  organisationId String               @unique
+  providerId     String
+  /// The provider's own reference; staff only.
+  tenantRef      String?
+  status         SecurityTenantStatus @default(PENDING)
+  /// Where the customer downloads the agent or enrols devices.
+  enrolmentLink  String?
+  enrolmentNote  String?
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+
+  organisation Organisation     @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  provider     SecurityProvider @relation(fields: [providerId], references: [id], onDelete: Restrict)
+  devices      SecurityDevice[]
+}
+
+enum DeviceHealth {
+  HEALTHY
+  AT_RISK
+  OFFLINE
+  UNPROTECTED
+}
+
+model SecurityDevice {
+  id             String       @id @default(cuid())
+  organisationId String
+  tenantId       String
+  /// The provider's device id, or one staff made up when entered by hand.
+  providerRef    String
+  name           String
+  os             String?
+  health         DeviceHealth @default(HEALTHY)
+  lastSeenAt     DateTime?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  organisation Organisation   @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  tenant       SecurityTenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  @@unique([tenantId, providerRef])
+  @@index([organisationId])
+}
+
+enum IncidentSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum IncidentStatus {
+  NEW
+  INVESTIGATING
+  CONTAINED
+  RESOLVED
+}
+
+/// An alert or incident from the provider, or entered by staff.
+model SecurityIncident {
+  id              String           @id @default(cuid())
+  reference       String           @unique
+  organisationId  String
+  providerId      String?
+  /// The provider's own id, so the same alert is never taken twice.
+  providerRef     String?
+  title           String
+  /// What happened, in plain words the customer reads.
+  summary         String
+  severity        IncidentSeverity
+  status          IncidentStatus   @default(NEW)
+  /// What we are doing about it, as the customer reads it.
+  ourAction       String?
+  deviceName      String?
+  assigneeId      String?
+  /// When our first response is due, from the severity's target.
+  respondBy       DateTime
+  firstResponseAt DateTime?
+  escalationLevel Int              @default(0)
+  escalatedAt     DateTime?
+  resolvedAt      DateTime?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  organisation Organisation            @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  provider     SecurityProvider?       @relation(fields: [providerId], references: [id], onDelete: Restrict)
+  assignee     User?                   @relation("incidentAssignee", fields: [assigneeId], references: [id], onDelete: Restrict)
+  events       SecurityIncidentEvent[]
+
+  @@unique([providerId, providerRef])
+  @@index([status, respondBy])
+  @@index([organisationId])
+}
+
+/// The incident's timeline. Only events marked visible are shown to the customer.
+model SecurityIncidentEvent {
+  id                String   @id @default(cuid())
+  incidentId        String
+  organisationId    String
+  /// "opened", "status", "action", "note", "assigned", "escalated", "notified".
+  kind              String
+  body              String
+  visibleToCustomer Boolean  @default(false)
+  actorLabel        String
+  createdAt         DateTime @default(now())
+
+  incident SecurityIncident @relation(fields: [incidentId], references: [id], onDelete: Restrict)
+
+  @@index([incidentId, createdAt])
+}
+
+/// The provider's monthly report for a customer, fetched or entered by staff.
+model SocReport {
+  id             String   @id @default(cuid())
+  organisationId String
+  /// "2026-10".
+  month          String
+  title          String
+  summary        String?
+  /// A link to the full report, if the provider gives one.
+  url            String?
+  createdAt      DateTime @default(now())
+
+  organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+
+  @@unique([organisationId, month])
+}
+
+/// Webhook deliveries already taken, so a replay is refused.
+model SecurityWebhookEvent {
+  id         String   @id
+  providerId String
+  receivedAt DateTime @default(now())
+
+  provider SecurityProvider @relation(fields: [providerId], references: [id], onDelete: Restrict)
+
+  @@index([receivedAt])
+}
+
+/// SOC response targets and escalation, set by Admins at /admin/soc.
+model SocSettings {
+  id              String   @id @default("global")
+  criticalMinutes Int      @default(15)
+  highMinutes     Int      @default(60)
+  mediumMinutes   Int      @default(240)
+  lowMinutes      Int      @default(1440)
+  /// Who is emailed when an incident misses its target.
+  escalationEmail String?
+  updatedById     String?
+  updatedAt       DateTime @updatedAt
 }
