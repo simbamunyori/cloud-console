@@ -7,15 +7,17 @@
  * only gives those variables Tailwind names. Components use the names
  * (bg-surface-1, text-ink-muted, border-border-strong ...), never hex.
  *
- * Dark mode follows the device, or data-theme="dark" on <html>.
+ * Dark mode is the default (data-theme="dark" on <html>), or follows the
+ * device for "Match device". Inside data-surface="light" (pictures of real
+ * screens) it is always light.
  */
 
 @custom-variant dark {
-  &:where([data-theme="dark"], [data-theme="dark"] *) {
+  &:where([data-theme="dark"], [data-theme="dark"] *):not(:where([data-surface="light"], [data-surface="light"] *)) {
     @slot;
   }
   @media (prefers-color-scheme: dark) {
-    &:where(:root:not([data-theme="light"]), :root:not([data-theme="light"]) *) {
+    &:where(:root:not([data-theme="light"]), :root:not([data-theme="light"]) *):not(:where([data-surface="light"], [data-surface="light"] *)) {
       @slot;
     }
   }
