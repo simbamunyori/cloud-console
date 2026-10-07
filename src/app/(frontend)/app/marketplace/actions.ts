@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { field, run, type ActionState } from "@/server/action-state";
 import { requireBilling } from "@/server/billing/context";
+import { transferDomainIn } from "@/server/domains/manage";
 import { runSoon } from "@/server/jobs/boss";
 import { placeOrder, registerDomain } from "@/server/orders/orders";
 
@@ -31,6 +32,18 @@ export async function registerDomainAction(_prev: ActionState, form: FormData): 
     const order = await registerDomain(await deps(), field(form, "domain"), field(form, "years"), form.get("startNow") === "on");
     reference = order.reference;
   });
+  if (!result.ok) return result;
+  await runSoon("email-deliver").catch(() => undefined);
+  redirect(`/app/orders/${reference}?new=1`);
+}
+
+export async function transferDomainAction(_prev: ActionState, form: FormData): Promise<ActionState> {
+  const values = { domain: field(form, "domain"), authCode: "" };
+  let reference = "";
+  const result = await run(async () => {
+    const order = await transferDomainIn(await deps(), values.domain, field(form, "authCode"), form.get("startNow") === "on");
+    reference = order.reference;
+  }, values);
   if (!result.ok) return result;
   await runSoon("email-deliver").catch(() => undefined);
   redirect(`/app/orders/${reference}?new=1`);

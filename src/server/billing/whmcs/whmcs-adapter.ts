@@ -29,6 +29,8 @@ import type {
   TldPrice,
   Transaction,
   UpgradePreview,
+  AcceptOptions,
+  DomainPatch,
 } from "../adapter";
 import { BillingError, checkImported, checkInvoiceLines, CYCLE_MONTHS, PAYMENT_METHODS } from "../adapter";
 import { DOMAIN_PATTERN, withPoNote } from "../stub/stub-adapter";
@@ -251,10 +253,11 @@ export class WhmcsBillingAdapter implements BillingAdapter {
     return { status: map.orderStatus(o), invoiceId: map.orderInvoiceId(o), ...map.orderItems(o) };
   }
 
-  async acceptOrder(orderId: string) {
+  async acceptOrder(orderId: string, options: AcceptOptions = {}) {
     const order = await this.findOrder(orderId);
     if (order.status !== "pending") throw new BillingError("conflict", `Order ${orderId} is ${order.status}, not pending.`);
-    await this.write("AcceptOrder", map.toAcceptOrder(orderId, this.sendToRegistrar));
+    const send = this.sendToRegistrar && options.sendToRegistrar !== false;
+    await this.write("AcceptOrder", map.toAcceptOrder(orderId, send, send ? options.registrar : undefined));
     // A product without a provisioning module stays pending after set-up;
     // accepting it is what makes it active in the console.
     for (const serviceId of order.serviceIds) {
@@ -589,6 +592,11 @@ export class WhmcsBillingAdapter implements BillingAdapter {
     await this.write("AcceptOrder", map.toAcceptImported(placed.orderId));
     await this.write("UpdateClientDomain", map.toImportedDomain(domainId, input));
     return { domainId };
+  }
+
+  async updateDomain(domainId: string, patch: DomainPatch) {
+    if (!/^\d+$/.test(domainId)) throw new BillingError("not-found", `No domain ${domainId}.`);
+    await this.write("UpdateClientDomain", map.toDomainPatch(domainId, patch));
   }
 
   async getTldPricing(currency: string): Promise<TldPrice[]> {

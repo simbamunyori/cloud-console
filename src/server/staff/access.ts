@@ -40,7 +40,13 @@ export type StaffPermission =
   /** Bring clients over from Odoo: upload, approve the import and choose the cutover date. */
   | "migrateClients"
   /** Record where a service hosted elsewhere lives, and move it to our servers. */
-  | "manageHosting";
+  | "manageHosting"
+  /** Turn new features on and off (Admin > Features). */
+  | "manageFeatures"
+  /** Set up partners: registrars and providers, with their credentials (Admin > Partners). */
+  | "managePartners"
+  /** Company details, logos and bank accounts (Admin > Company). */
+  | "manageCompany";
 
 const ALLOWED: Record<StaffPermission, StaffRole[]> = {
   viewCustomers: ["SUPPORT", "PROVISIONING", "FINANCE", "ADMIN"],
@@ -57,6 +63,9 @@ const ALLOWED: Record<StaffPermission, StaffRole[]> = {
   manageStatus: ["SUPPORT", "PROVISIONING", "ADMIN"],
   migrateClients: ["ADMIN"],
   manageHosting: ["PROVISIONING", "ADMIN"],
+  manageFeatures: ["ADMIN"],
+  managePartners: ["ADMIN"],
+  manageCompany: ["ADMIN"],
 };
 
 export function staffCan(actor: Pick<StaffActor, "staffRole">, permission: StaffPermission): boolean {

@@ -1,0 +1,5 @@
+name: "Fourth Generation"
+description: "Twenty-One with the Fourth Generation Technologies invoice. The client area stays in maintenance mode and sends customers to the Cloud Console."
+author: "Fourth Generation Technologies"
+config:
+  parent: twenty-one

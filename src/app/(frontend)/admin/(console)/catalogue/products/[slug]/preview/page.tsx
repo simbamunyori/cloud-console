@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ProductCard, ProductDetails } from "@/components/app/product-view";
+import { featureOn } from "@/server/features/features";
 import { Alert } from "@/components/ui/alert";
 import { Amount } from "@/components/ui/amount";
 import { Card, CardBody } from "@/components/ui/card";
@@ -34,6 +35,7 @@ export default async function ProductPreviewPage({ params, searchParams }: { par
   const price = (await approvedPrice(prisma, market, productItem(product.slug), month)) ?? (await approvedPrice(prisma, market, productItem(product.slug), nextPriceChange(month)));
   const shown = effectiveStatus(product, product.category.family);
 
+  const botswanaData = await featureOn(prisma, "botswana-data-claim");
   return (
     <>
       <Link href={`/admin/catalogue/products/${product.slug}`} className="mb-4 inline-flex items-center gap-1 text-callout text-link hover:underline">
@@ -74,7 +76,7 @@ export default async function ProductPreviewPage({ params, searchParams }: { par
         </h2>
         <PageHeader eyebrow={product.category.name} title={product.name} description={product.summary} />
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_var(--layout-aside-wide)] [&>*]:min-w-0">
-          <ProductDetails product={product} />
+          <ProductDetails product={product} botswanaData={botswanaData} />
           <Card aria-label="Order">
             <CardBody className="flex flex-col gap-3">
               {product.fulfilment === "QUOTE" ? (

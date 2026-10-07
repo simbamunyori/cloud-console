@@ -1,4 +1,4 @@
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, FileDown } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -15,6 +15,7 @@ import { scopedBilling } from "@/server/billing/scoped";
 import { amountOwed, isOverdue, monthlyTotal, PRICE_PER } from "@/server/billing/views";
 import { HOST_LABEL } from "@/server/migration/services";
 import { prisma } from "@/server/db";
+import { featureOn } from "@/server/features/features";
 import { tenantOverview } from "@/server/licences/licences";
 import { ROLE_LABEL } from "@/server/org/access";
 import { countryName } from "@/lib/countries";
@@ -38,6 +39,7 @@ export default async function CustomerPage({ params }: { params: Promise<{ id: s
   const billing = account ? await scopedBilling(prisma, billingAdapter(), org.id) : null;
   const [services, invoices] = billing ? await Promise.all([billing.listServices(), billing.listInvoices()]) : [[], []];
   const markets = staffCan(staff, "manageMarkets") ? await listMarkets(prisma) : null;
+  const pdfs = await featureOn(prisma, "branded-pdfs");
   const market = await prisma.market.findUniqueOrThrow({ where: { code: org.billingMarket } });
   const tenants = await tenantOverview(prisma, org.id);
   const profiles = await prisma.serviceProfile.findMany({ where: { organisationId: org.id } });
@@ -264,6 +266,16 @@ export default async function CustomerPage({ params }: { params: Promise<{ id: s
                   </span>
                   <span className="text-callout text-ink tabular-nums">{formatMoney(i.total, org.locale)}</span>
                   <InvoiceStatusBadge status={i.status} overdue={isOverdue(i, today)} />
+                  {pdfs && (
+                    <a
+                      href={`/admin/customers/${org.id}/invoices/${encodeURIComponent(i.invoiceId)}/pdf`}
+                      download
+                      className="inline-flex size-8 items-center justify-center rounded-md text-ink-muted hover:bg-surface-2 hover:text-ink"
+                      aria-label={`Download invoice ${i.number} as PDF`}
+                    >
+                      <FileDown aria-hidden className="size-4" />
+                    </a>
+                  )}
                 </li>
               ))}
             </ul>

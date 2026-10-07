@@ -22,6 +22,7 @@ import type {
   ServiceStatus,
   TldPrice,
   Transaction,
+  DomainPatch,
 } from "../adapter";
 
 /**
@@ -678,8 +679,8 @@ export function toUpdateClient(clientId: string, patch: BillingClientPatch, curr
 }
 
 /** AcceptOrder: set up at once and send no email. Domains go to the registrar only when asked. */
-export function toAcceptOrder(orderId: string, sendToRegistrar: boolean): Params {
-  return { orderid: orderId, autosetup: "true", sendemail: "0", sendregistrar: sendToRegistrar ? "true" : "0" };
+export function toAcceptOrder(orderId: string, sendToRegistrar: boolean, registrar?: string): Params {
+  return { orderid: orderId, autosetup: "true", sendemail: "0", sendregistrar: sendToRegistrar ? "true" : "0", ...(sendToRegistrar && registrar ? { registrar } : {}) };
 }
 
 /** AcceptOrder for a migrated service or domain: nothing is set up or sent to the registrar, and nobody is emailed. */
@@ -733,6 +734,16 @@ export function toImportedDomain(domainId: string, d: ImportedDomain): Params {
     recurringamount: toAmount(d.renewal),
     donotrenew: d.autoRenew ? "0" : "1",
     ...(d.registrar ? { notes: `Registered with ${d.registrar} before the move from Odoo.` } : {}),
+  };
+}
+
+/** UpdateClientDomain: what the registry says after the console registered or renewed a domain itself. */
+export function toDomainPatch(domainId: string, p: DomainPatch): Params {
+  return {
+    domainid: domainId,
+    ...(p.status ? { status: "Active" } : {}),
+    ...(p.expiresOn ? { expirydate: dateOnly(p.expiresOn) } : {}),
+    ...(p.nextDueOn ? { nextduedate: dateOnly(p.nextDueOn) } : {}),
   };
 }
 

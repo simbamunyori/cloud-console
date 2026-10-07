@@ -6,14 +6,15 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
 import { requireBilling } from "@/server/billing/context";
-import { eftDetails } from "@/server/markets/markets";
+import { bankFor } from "@/server/company/company";
+import { prisma } from "@/server/db";
 
 export const metadata: Metadata = { title: "Payment methods" };
 
 export default async function PaymentMethodsPage() {
   const { billing, market } = await requireBilling();
   const methods = await billing.listPayMethods();
-  const bank = eftDetails(market);
+  const bank = await bankFor(prisma, market);
 
   return (
     <>

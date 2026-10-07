@@ -1,4 +1,5 @@
 import { currentSession } from "@/server/auth/next";
+import { cachedCompany } from "@/server/company/company";
 import { prisma } from "@/server/db";
 import { env } from "@/server/env";
 import { showingDrafts, siteFrameContent } from "@/server/site/cms";
@@ -21,7 +22,7 @@ import { Thapelo } from "./thapelo";
 export async function SitePage({ code, path, children }: { code: string; path: string; children: React.ReactNode }) {
   const [market, markets, session, theme, drafts, status] = await Promise.all([siteMarket(code), enabledMarkets(), currentSession(), currentTheme(), showingDrafts(), serviceStatus(prisma)]);
   const e = env();
-  const [content, partners, partner, announcement, sales, links, terms, refunds] = await Promise.all([
+  const [content, partners, partner, announcement, sales, links, terms, refunds, company] = await Promise.all([
     siteFrameContent(market),
     approvedPartners(market.code),
     emailPartner(market.code),
@@ -30,6 +31,7 @@ export async function SitePage({ code, path, children }: { code: string; path: s
     partnerLinks(market.code),
     hasLegalPage(market, "terms"),
     hasLegalPage(market, "refunds"),
+    cachedCompany(prisma),
   ]);
   const announcementHref = announcement ? linkHref(announcement.link, { ...market, thebeUrl: links.thebeUrl }) : null;
   return (
@@ -42,6 +44,7 @@ export async function SitePage({ code, path, children }: { code: string; path: s
       status={{ state: status.state, label: status.label, href: e.STATUS_PAGE_URL ?? `/${market.code}/status` }}
       content={content}
       legal={{ terms, refunds }}
+      company={{ legalName: company.legalName, registrationNumber: company.registrationNumber }}
       features={{
         code: market.code,
         money: { locale: market.locale, currency: market.currency },

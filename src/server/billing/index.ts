@@ -8,6 +8,7 @@ import { StubBillingAdapter } from "./stub/stub-adapter";
 import { WhmcsClient } from "./whmcs/client";
 import { WhmcsBillingAdapter } from "./whmcs/whmcs-adapter";
 import { runSync, syncUrlFor } from "./whmcs/price-sync";
+import { companyPushUrlFor, pushCompany } from "./whmcs/company-push";
 import { linkStubProduct } from "./stub/catalogue";
 import type { StaffActor } from "@/server/staff/access";
 
@@ -65,6 +66,20 @@ export function priceSyncer(): ((actor: { staff: StaffActor } | { system: string
     const whmcs = new WhmcsClient({ url: e.WHMCS_API_URL, identifier: requireSecret("WHMCS_API_IDENTIFIER"), secret: requireSecret("WHMCS_API_SECRET"), accessKey: secret("WHMCS_ACCESS_KEY") });
     const report = await runSync({ db: prisma, whmcs, syncUrl: e.WHMCS_SYNC_URL ?? syncUrlFor(e.WHMCS_API_URL), syncSecret: requireSecret("WHMCS_SYNC_SECRET") }, { apply: true, ...actor });
     if (report.plan.problems.length) throw new Error(`The price sync can't run: ${report.plan.problems.join(" ")}`);
+  };
+}
+
+/**
+ * Sends Admin > Company to WHMCS (src/server/billing/whmcs/company-push.ts).
+ * Undefined with the stub, which has no WHMCS to tidy.
+ */
+export function companyPusher(): ((staff: StaffActor, apply: boolean) => ReturnType<typeof pushCompany>) | undefined {
+  if (billingAdapter() instanceof StubBillingAdapter) return undefined;
+  return (staff, apply) => {
+    const e = env();
+    if (!e.WHMCS_API_URL) throw new Error("WHMCS_API_URL is not set.");
+    const url = e.WHMCS_SYNC_URL ? e.WHMCS_SYNC_URL.replace(/sync\.php$/, "company.php") : companyPushUrlFor(e.WHMCS_API_URL);
+    return pushCompany({ db: prisma, url, secret: requireSecret("WHMCS_SYNC_SECRET"), appUrl: e.APP_URL, mailFrom: e.MAIL_FROM }, staff, { apply });
   };
 }
 

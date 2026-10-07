@@ -11,6 +11,14 @@ export interface EmailMessage {
   headers?: Record<string, string>;
   /** A calendar invite (text/calendar), e.g. for a booked call. */
   calendar?: { method: "REQUEST" | "CANCEL"; content: string };
+  /** Files sent with the email, e.g. an invoice PDF. */
+  attachments?: EmailAttachment[];
+}
+
+export interface EmailAttachment {
+  filename: string;
+  content: Buffer;
+  contentType: string;
 }
 
 /** Anything that can deliver an email: SMTP now, an email API later. */
@@ -25,8 +33,13 @@ export class SmtpEmailAdapter implements EmailAdapter {
     this.transporter = nodemailer.createTransport(url);
   }
   async send(message: EmailMessage) {
-    const { calendar, ...rest } = message;
-    await this.transporter.sendMail({ from: this.from, ...rest, ...(calendar ? { icalEvent: { method: calendar.method, filename: "invite.ics", content: calendar.content } } : {}) });
+    const { calendar, attachments, ...rest } = message;
+    await this.transporter.sendMail({
+      from: this.from,
+      ...rest,
+      ...(calendar ? { icalEvent: { method: calendar.method, filename: "invite.ics", content: calendar.content } } : {}),
+      ...(attachments?.length ? { attachments: attachments.map((a) => ({ filename: a.filename, content: a.content, contentType: a.contentType })) } : {}),
+    });
   }
 }
 
